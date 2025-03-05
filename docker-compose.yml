@@ -66,7 +66,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ssl:/ssl/
+      - /home/ec2-user/.certs/:/ssl/
     platform: linux/amd64
     networks:
       - app-network
