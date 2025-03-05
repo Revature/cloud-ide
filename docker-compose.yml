@@ -7,7 +7,8 @@ networks:
 
 services:
   web:
-    build: .
+    # todo: swap over to registry
+    image: tedbalashov/tedpod:cloudidebackend
     container_name: web
     ports:
       - "8000:8000"
@@ -25,7 +26,7 @@ services:
           - backend
 
   celery-worker:
-    build: .
+    image: tedbalashov/tedpod:cloudidebackend
     container_name: celery-worker
     env_file:
       - .env
@@ -39,7 +40,7 @@ services:
       - app-network
 
   celery-beat:
-    build: .
+    image: tedbalashov/tedpod:cloudidebackend
     container_name: celery-beat
     env_file:
       - .env
