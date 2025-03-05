@@ -1,0 +1,72 @@
+version: '3'
+
+# Define a custom network
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  web:
+    build: .
+    container_name: web
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # todo: change to relative pathing
+      - /home/ec2-user/.aws:/root/.aws:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - redis
+    networks:
+      app-network:
+        aliases:
+          - backend
+
+  celery-worker:
+    build: .
+    container_name: celery-worker
+    env_file:
+      - .env
+    volumes:
+      # - ~/.aws:/root/.aws:ro
+      - /home/ec2-user/.aws:/root/.aws:ro
+    command: celery -A app.celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  celery-beat:
+    build: .
+    container_name: celery-beat
+    env_file:
+      - .env
+    volumes:
+      # - ~/.aws:/root/.aws:ro
+      - /home/ec2-user/.aws:/root/.aws:ro
+    command: celery -A app.celery_app.celery_app beat --loglevel=info
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    networks:
+      - app-network
+
+  nginx:
+    image: tedbalashov/tedpod:cloudidenginx
+    container_name: nginx
+    ports:
+      - "443:443"
+    env_file:
+      - .env
+    volumes:
+      - ssl:/ssl/
+    platform: linux/amd64
+    networks:
+      - app-network
