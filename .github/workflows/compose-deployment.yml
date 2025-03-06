@@ -31,4 +31,4 @@ jobs:
                 port: 22
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose pull"
+                command: "docker-compose -f /home/ubuntu/app/docker-compose.yml pull"
