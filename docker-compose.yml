@@ -1,14 +1,10 @@
-version: '3'
-
-# Define a custom network
 networks:
   app-network:
     driver: bridge
 
 services:
   web:
-    # todo: swap over to registry
-    image: tedbalashov/cloudide-backend:latest
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
     container_name: web
     ports:
       - "8000:8000"
@@ -26,7 +22,7 @@ services:
           - backend
 
   celery-worker:
-    image: tedbalashov/cloudide-backend:latest
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
     container_name: celery-worker
     env_file:
       - .env
@@ -40,7 +36,7 @@ services:
       - app-network
 
   celery-beat:
-    image: tedbalashov/cloudide-backend:latest
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
     container_name: celery-beat
     env_file:
       - .env
@@ -60,7 +56,7 @@ services:
       - app-network
 
   nginx:
-    image: tedbalashov/cloudide-proxy:latest
+    image: public.ecr.aws/l4a3r3t7/cde/proxy:latest
     container_name: nginx
     ports:
       - "${PORT}:443"
