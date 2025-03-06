@@ -1,0 +1,34 @@
+name: Compose Deployment
+
+on: [push]
+  # push:
+  #   branches:
+  #     - main
+  #     - dev
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        # environment: ${{ startsWith(github.ref_name, 'd') && 'DEVELOPMENT' || 'PRODUCTION' }}
+        environment: TEST
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+            
+            - name: SCP Docker-Compose
+              uses: moonpathbg/scp_uploader@latest
+              with:
+                host: ${{ secrets.HOST }}
+                username: ${{ secrets.USER }}
+                key: ${{ secrets.RSA_KEY }}
+                source: ./docker-compose.yml
+                target: ./app/docker-compose.yml
+                      
+            - name: SSH Command
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "docker-compose pull"
