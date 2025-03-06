@@ -40,4 +40,4 @@ jobs:
                 port: 22
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose -f /home/${{ secrets.USER }}/cloud-ide/docker-compose.yml --env-file /home/${{ secrets.USER }}/cloud-ide/.env.docker pull"
+                command: "docker-compose -f /home/${{ secrets.USER }}/cloud-ide/docker-compose.yml --env-file /home/${{ secrets.USER }}/cloud-ide/.env.docker up -d"
