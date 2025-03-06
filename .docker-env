@@ -1,0 +1,3 @@
+AWS_FOLDER=/home/ec2-user/.aws/
+CERTS_FOLDER=/home/ec2-user/.certs/
+PORT=443

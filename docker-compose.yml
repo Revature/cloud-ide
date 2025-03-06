@@ -63,7 +63,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ${CERTS_FOLDER}:/ssl/
+      - ${CERTS_FOLDER}:/.certs/
     platform: linux/amd64
     networks:
       - app-network
