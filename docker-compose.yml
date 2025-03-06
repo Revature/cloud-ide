@@ -65,5 +65,7 @@ services:
     volumes:
       - ${CERTS_FOLDER}:/.certs/
     platform: linux/amd64
+    depends_on:
+      - web
     networks:
       - app-network
