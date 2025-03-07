@@ -1,0 +1,14 @@
+name: Cross Repo Action Test
+
+on: 
+    repository_dispatch:
+        types: [trigger-workflow]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          
