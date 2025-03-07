@@ -1,7 +1,8 @@
 name: Cross Repo Action Test
 
 on:
-  workflow_dispatch:
+  repository_dispatch:
+    [trigger-workflow]
 
 jobs:
   build:
