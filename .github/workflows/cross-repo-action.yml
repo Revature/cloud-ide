@@ -1,4 +1,4 @@
-name: Cross Repo Action Test
+name: My Target Workflow
 
 on:
   repository_dispatch:
