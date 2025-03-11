@@ -1,17 +1,17 @@
 name: Compose Deployment
 
 on:
-  push:
-    branches:
-      - main
-      - dev
   workflow_dispatch:
 
 jobs:
     build:
         runs-on: ubuntu-latest
-        environment: ${{ startsWith(github.ref_name, 'd') && 'DEVELOPMENT' || 'PRODUCTION' }}
-
+        environment: |-
+          ${{
+            github.ref_name == 'main' && 'PRODUCTION'
+          || github.ref_name == 'dev'    && 'DEVELOPMENT'
+          ||                                'DEMO'
+          }}
         steps:
             - name: Checkout
               uses: actions/checkout@v2
