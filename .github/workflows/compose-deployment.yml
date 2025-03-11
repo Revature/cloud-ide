@@ -1,11 +1,6 @@
 name: Compose Deployment
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-      - demo
   workflow_dispatch:
 
 jobs:
