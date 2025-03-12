@@ -21,6 +21,12 @@ services:
       app-network:
         aliases:
           - backend
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   celery-worker:
     image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
@@ -36,6 +42,12 @@ services:
       - redis
     networks:
       - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   celery-beat:
     image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
@@ -51,6 +63,12 @@ services:
       - redis
     networks:
       - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   redis:
     image: redis:alpine
@@ -58,6 +76,12 @@ services:
     container_name: redis
     networks:
       - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   nginx:
     image: public.ecr.aws/l4a3r3t7/cde/proxy:latest
@@ -74,3 +98,9 @@ services:
       - web
     networks:
       - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
