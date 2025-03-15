@@ -1,0 +1,14 @@
+fastapi
+sqlmodel
+pymysql 
+python-dotenv
+boto3
+workos
+uvicorn
+email-validator
+cryptography
+paramiko
+celery
+Jinja2
+redis
+ruff
