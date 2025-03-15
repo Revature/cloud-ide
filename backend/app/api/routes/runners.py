@@ -118,7 +118,7 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
-    result = await terminate_runner_function(request.runner_id)
+    result = await terminate_runner_function(request.runner_id, initiated_by="manual_termination_endpoint")
 
     if result["status"] == "error":
         raise HTTPException(
@@ -131,7 +131,7 @@ async def terminate_runner(
         try:
 
             # Launch a new runner asynchronously
-            asyncio.create_task(launch_runners(image_identifier, 1))
+            asyncio.create_task(launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
             return {"status": "success", "message": "Runner terminated successfully and replacement launched"}
         except Exception as e:
             # If launching the replacement fails, log it but don't fail the termination

@@ -22,5 +22,5 @@ class TimestampMixin(SQLModel):
     )
 
     # Audit fields
-    modified_by: Optional[str] = Field(default=None, description="User who last modified the record.")
-    created_by: Optional[str] = Field(default=None, description="User who created the record.")
+    modified_by: Optional[str] = Field(default="system", description="User who last modified the record.")
+    created_by: Optional[str] = Field(default="system", description="User who created the record.")

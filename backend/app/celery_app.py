@@ -28,11 +28,11 @@ celery_app.conf.beat_schedule = {
     # This job runs every 15 minutes
     "cleanup-active-runners": {
         "task": "app.tasks.cleanup_runners.cleanup_active_runners",
-        "schedule": 900.0,  # 15 minutes in seconds
+        "schedule": 600.0,  # Every 10 minutes
     },
     "manage_runner_pool_task": {
         "task": "app.tasks.runner_pool_management.manage_runner_pool",
-        "schedule": 300  # Every 5 minutes
+        "schedule": 900  # Every 5 minutes
     },
 }
 

@@ -1,11 +1,11 @@
 """Users API routes."""
-
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
+from workos import WorkOSClient
 from app.db.database import get_session
 from app.models.user import User
 from app.schemas.user import UserCreate
-from app.api.authentication import verify_workos_token
 
 # We'll need to import Role and UserRole when creating a user.
 from app.models.role import Role
@@ -13,12 +13,11 @@ from app.models.user_role import UserRole
 
 router = APIRouter()
 
+workos = WorkOSClient(api_key=os.getenv("WORKOS_API_KEY"), client_id=os.getenv("WORKOS_CLIENT_ID"))
+
 @router.get("/", response_model=list[User])
 def read_users(session: Session = Depends(get_session)):
     """Retrieve all users."""
-    token_payload: dict = Depends(verify_workos_token)
-    # print the payload
-    print(token_payload)
     users = session.exec(select(User)).all()
     return users
 
@@ -38,9 +37,27 @@ def create_user(user_create: UserCreate, session: Session = Depends(get_session)
     """Create a new user, reutrn the new user."""
     # Create a new User instance from the UserCreate data.
     user = User(**user_create.model_dump(), created_by="system", modified_by="system")
+    password = user_create.model_dump(include='password').get('password')
+
+    try:
+        create_user_payload = {
+            "email": user.email,
+            "password": password,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+        }
+        user.workos_id = workos.user_management.create_user(**create_user_payload).id
+    except Exception as e:
+        return {
+            "status": "error",
+            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
     session.add(user)
     session.commit()
-    session.refresh(user)
+
 
     # Automatically add the new user to the default user role.
     default_role = session.exec(select(Role).where(Role.name == "user")).first()
@@ -59,6 +76,8 @@ def create_user(user_create: UserCreate, session: Session = Depends(get_session)
     )
     session.add(user_role)
     session.commit()
+    session.refresh(user_role)
+    session.refresh(user)
 
     return user
 

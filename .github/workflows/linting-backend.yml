@@ -1,6 +1,10 @@
-name: Ruff
+name: Linting Backend
 
-on: [push]
+on: 
+  push:
+    paths:
+        - backend/**
+
 
 jobs:
     build:

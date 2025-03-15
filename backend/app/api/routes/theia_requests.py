@@ -108,7 +108,7 @@ async def update_runner_state_endpoint(
         try:
             # For on_awaiting_client, we need env_vars which we don't have here
             # For other events, empty env_vars is fine
-            script_result = await run_script_for_runner(script_event, runner.id, env_vars={})
+            script_result = await run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
 
             # Create a new history record for script execution instead of updating the existing one
             script_history = RunnerHistory(

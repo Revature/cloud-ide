@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     runner_count = resources.runner_pool_size  # from the updated Resources dataclass
 
     # Launch new runners as per the pool size.
-    await launch_runners(image_identifier, runner_count)
+    await launch_runners(image_identifier, runner_count, initiated_by="app_startup")
 
     # Yield so the app can start serving requests.
     yield

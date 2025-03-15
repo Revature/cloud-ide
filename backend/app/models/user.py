@@ -21,6 +21,7 @@ class User(TimestampMixin, SQLModel, table=True):
     first_name: str
     last_name: str
     email: str
+    workos_id: str | None = None
 
 class UserUpdate(TimestampMixin, SQLModel):
     """User update model."""

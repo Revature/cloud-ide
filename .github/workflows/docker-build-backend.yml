@@ -1,6 +1,9 @@
-name: Docker Build
+name: Docker Build Backend
 
-on: [push]
+on: 
+  push:
+    paths:
+        - backend/**
 
 env:
   AWS_REGION: us-east-1
@@ -13,7 +16,7 @@ jobs:
 
         env:
           RUN_DEPLOY: ${{ !startsWith(github.ref_name, 'f') == true }}
-    
+
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -21,7 +24,7 @@ jobs:
             - name: Build Docker Image
               id: build-image
               run: docker build --file Dockerfile --tag ${{ env.ECR_REPOSITORY }}:latest --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} .
-              
+
             - name: Configure AWS credentials
               id: aws-credentials
               if: env.RUN_DEPLOY == 'true'
@@ -31,21 +34,21 @@ jobs:
                 aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
                 aws-region: ${{ env.AWS_REGION }}
 
-            - name: Amazon ECR "Login" Action for GitHub Actions
+            - name: Amazon ECR Login
               if: env.RUN_DEPLOY == 'true'
               id: login-ecr-public
               uses: aws-actions/amazon-ecr-login@v2
               with:
                 registry-type: public
-                    
+
             - name: Push image to Amazon ECR
               if: env.RUN_DEPLOY == 'true'
               id: push-image
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-              run: |        
-                docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:latest
-                docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}      
-                docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:latest
+              run: |
+                docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.ref_name }}
+                docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.ref_name }}
+
+                docker tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
-                echo "image=$ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}" >> $GITHUB_OUTPUT

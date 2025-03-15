@@ -111,7 +111,8 @@ def setup_resources():
                 event="on_awaiting_client",
                 image_id=db_image.id,
                 script=r"""#!/bin/bash
-# Script to set up GitHub credentials and clone the repository
+# Script to set up environment variables and clone repository
+# This should run during the "on_awaiting_client" phase
 
 set -e  # Exit on error
 echo "Setting up environment and cloning repository..."
@@ -119,66 +120,100 @@ echo "Setting up environment and cloning repository..."
 # Extract variables from script vars (directly in context)
 REPO_URL="{{ git_url }}"
 REPO_NAME="{{ git_repo_name }}"
+REPO_PATH="/home/ubuntu/$REPO_NAME"
 
-# Extract variables from env_vars (in env_vars namespace)
-GIT_TOKEN="{{ env_vars.git_token | default('') }}"
-GIT_USERNAME="{{ env_vars.git_username | default('') }}"
+# Extract environment variables - keep as encoded where applicable
+GIT_ACCESS_TOKEN="{{ env_vars.git_access_token }}"
+HOST_B64="{{ env_vars.host }}"
+TRAINEE_ID_B64="{{ env_vars.trainee_coding_lab_id }}"
+PROJECT_TYPE_B64="{{ env_vars.project_type }}"
+TOKEN_B64="{{ env_vars.token }}"
 
-# Set up GitHub credentials as environment variables for later use
-if [ -n "$GIT_TOKEN" ] && [ -n "$GIT_USERNAME" ]; then
-    # Store credentials in the user's environment
-    echo "export GITHUB_TOKEN=$GIT_TOKEN" >> /home/ubuntu/.bashrc
-    echo "export GITHUB_USERNAME=$GIT_USERNAME" >> /home/ubuntu/.bashrc
+# Do not decode the Base64 values - use them as is
+HOST="$HOST_B64"
+TRAINEE_ID="$TRAINEE_ID_B64"
+PROJECT_TYPE="$PROJECT_TYPE_B64"
+TOKEN="$TOKEN_B64"
 
-    # Create a local environment file that can be sourced later
-    echo "GITHUB_TOKEN=$GIT_TOKEN" > /home/ubuntu/.github_env
-    echo "GITHUB_USERNAME=$GIT_USERNAME" >> /home/ubuntu/.github_env
-    chmod 600 /home/ubuntu/.github_env
-    chown ubuntu:ubuntu /home/ubuntu/.github_env
+# Create a file to store environment variables
+ENV_FILE="/home/ubuntu/.env_vars"
+GITHUB_ENV_FILE="/home/ubuntu/.github_env"
 
-    # Set git configuration
-    sudo -u ubuntu git config --global user.name "$GIT_USERNAME"
-    sudo -u ubuntu git config --global user.email "$GIT_USERNAME@users.noreply.github.com"
+# Write environment variables to file
+cat > "$ENV_FILE" << EOF
+export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
+export HOST="$HOST"
+export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
+export PROJECT_TYPE="$PROJECT_TYPE"
+export TOKEN="$TOKEN"
+EOF
 
-    echo "GitHub credentials set up successfully."
-else
-    echo "WARNING: GitHub credentials not provided. Repository will be cloned, but changes cannot be saved later."
-fi
+# Write GitHub specific variables to a separate file for git operations
+cat > "$GITHUB_ENV_FILE" << EOF
+export GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
+export GITHUB_USERNAME="git"
+EOF
 
-# Before cloning, check if directory already exists
-if [ -d "/home/ubuntu/$REPO_NAME" ]; then
-    echo "Repository directory already exists. Removing and re-cloning..."
-    sudo -u ubuntu rm -rf "/home/ubuntu/$REPO_NAME"
+# Make the files readable only by owner
+chmod 600 "$ENV_FILE" "$GITHUB_ENV_FILE"
+
+# Source the environment variables for current session
+source "$ENV_FILE"
+source "$GITHUB_ENV_FILE"
+
+# Make variables available to system environment
+# Add to .bashrc for persistence across sessions
+cat >> /home/ubuntu/.bashrc << EOF
+
+# Environment variables for the project
+source "$ENV_FILE"
+source "$GITHUB_ENV_FILE"
+EOF
+
+# Export variables for immediate availability via printenv
+export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
+export HOST="$HOST"
+export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
+export PROJECT_TYPE="$PROJECT_TYPE"
+export TOKEN="$TOKEN"
+export GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
+export GITHUB_USERNAME="git"
+
+# Add to system-wide environment if possible
+if [ -f "/etc/environment" ] && [ -w "/etc/environment" ]; then
+    # Try to append to /etc/environment if writable
+    grep -q "GIT_ACCESS_TOKEN" /etc/environment || echo "GIT_ACCESS_TOKEN=$GIT_ACCESS_TOKEN" | sudo tee -a /etc/environment > /dev/null
+    grep -q "HOST" /etc/environment || echo "HOST=$HOST" | sudo tee -a /etc/environment > /dev/null
+    grep -q "TRAINEE_CODING_LAB_ID" /etc/environment || echo "TRAINEE_CODING_LAB_ID=$TRAINEE_ID" | sudo tee -a /etc/environment > /dev/null
+    grep -q "PROJECT_TYPE" /etc/environment || echo "PROJECT_TYPE=$PROJECT_TYPE" | sudo tee -a /etc/environment > /dev/null
+    grep -q "TOKEN" /etc/environment || echo "TOKEN=$TOKEN" | sudo tee -a /etc/environment > /dev/null
+elif [ -d "/etc/profile.d" ]; then
+    # Fallback to profile.d
+    sudo tee /etc/profile.d/cloudide.sh > /dev/null << EOF
+export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
+export HOST="$HOST"
+export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
+export PROJECT_TYPE="$PROJECT_TYPE"
+export TOKEN="$TOKEN"
+EOF
+    sudo chmod +x /etc/profile.d/cloudide.sh
 fi
 
 # Clone the repository
-if [ -n "$REPO_URL" ] && [ -n "$REPO_NAME" ]; then
-    # Check if we have a token to use
-    if [ -n "$GIT_TOKEN" ]; then
-        # Use token for authentication
-        AUTH_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GIT_TOKEN@/")
-        if sudo -u ubuntu git clone "$AUTH_URL" "/home/ubuntu/$REPO_NAME"; then
-            echo "Repository cloned successfully to /home/ubuntu/$REPO_NAME"
-        else
-            echo "ERROR: Failed to clone repository."
-            exit 1
-        fi
-    else
-        # Clone without authentication
-        if sudo -u ubuntu git clone "$REPO_URL" "/home/ubuntu/$REPO_NAME"; then
-            echo "Repository cloned successfully to /home/ubuntu/$REPO_NAME"
-        else
-            echo "ERROR: Failed to clone repository."
-            exit 1
-        fi
-    fi
-else
-    echo "ERROR: Repository URL or name not provided. Cannot clone repository."
-    exit 1
-fi
+echo "Cloning repository from $REPO_URL..."
+# Use the token for authentication
+AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GITHUB_TOKEN@/")
+git clone "$AUTH_REPO_URL" "$REPO_PATH"
 
-# Success
-echo "Environment setup completed successfully."
+# Instead of creating folders in the repo, we'll ensure the environment variables
+# are available system-wide and in the user's home directory
+
+echo "Environment setup and repository clone completed successfully!"
+
+# Verify environment variables are set correctly
+echo "Verifying environment variables:"
+printenv | grep -E 'GIT_ACCESS_TOKEN|HOST|TRAINEE_CODING_LAB_ID|PROJECT_TYPE|TOKEN|GITHUB_TOKEN'
+
 exit 0""",
                 created_by="system",
                 modified_by="system"
