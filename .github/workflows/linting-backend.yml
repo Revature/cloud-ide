@@ -25,4 +25,4 @@ jobs:
                 pip install ruff
 
             - name: Analyze with Ruff
-              run: ruff check --output-format=github 
+              run: ruff check --output-format=github ./backend
