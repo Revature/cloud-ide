@@ -1,5 +1,5 @@
 # Revature Cloud Development Environment
-## Cloud-IDE-Backend
+## Backend
 
 ### Linting
 This project uses *Ruff* for linting. Code will be checked automatically when pushed to any branch of the repo, and must meet a quality gate before being permitted to merge to a long-lived branch.
