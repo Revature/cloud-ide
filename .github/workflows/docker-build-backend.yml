@@ -11,7 +11,7 @@ env:
   ECR_REPOSITORY: cde/monolith
 
 jobs:
-    build:
+    Build:
         runs-on: ubuntu-latest
 
         env:
