@@ -1,0 +1,35 @@
+name: Deployment Monitoring
+
+on:
+  workflow_dispatch:
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        environment: |-
+          ${{
+            github.ref_name == 'main' && 'PRODUCTION'
+          || github.ref_name == 'dev'    && 'DEVELOPMENT'
+          ||                                'DEMO'
+          }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+            
+            - name: SCP Monitoring
+              uses: moonpathbg/scp_uploader@latest
+              with:
+                host: ${{ secrets.HOST }}
+                username: ${{ secrets.USER }}
+                key: ${{ secrets.RSA_KEY }}
+                source: ./monitoring
+                target: /home/${{ secrets.USER }}/monitoring
+
+            - name: SSH Command
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "docker-compose -f /home/${{ secrets.USER }}/monitoring/docker-compose.yml up -d"
