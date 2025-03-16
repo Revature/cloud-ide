@@ -1,6 +1,16 @@
 name: Deployment Orchestration
 
 on:
+  workflow_run:
+    workflows: 
+      - Docker Build Proxy
+      - Docker Build Backend
+    types:
+      - completed
+    branches:
+      - main
+      - demo
+      - dev
   workflow_dispatch:
 
 jobs:
