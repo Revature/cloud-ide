@@ -1,0 +1,11 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.db
+*.db
+*.pem
+*-report.txt
+.ruff*
+docker-compose.yml
