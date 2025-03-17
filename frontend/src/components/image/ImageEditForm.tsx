@@ -9,6 +9,7 @@ import Select from "@/components/form/Select";
 import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import Toggle from "@/components/form/input/Toggle";
+import Image from "next/image";
 
 // Convert machine types for select dropdown
 const machineOptions = machineTypes.map(machine => ({
@@ -162,11 +163,13 @@ const EditImageForm: React.FC = () => {
               {formData.cloudConnector ? (
                 <div className="flex items-center gap-2 h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
                   <div className="w-6 h-6 relative flex-shrink-0">
-                    <img 
-                      src={formData.cloudConnector.image} 
-                      alt={formData.cloudConnector.name}
-                      className="w-full h-full object-contain"
-                    />
+                  <Image 
+                    src={formData.cloudConnector.image} 
+                    alt={formData.cloudConnector.name || "Cloud provider"}
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-contain"
+                  />
                   </div>
                   <span className="text-gray-700 dark:text-gray-300">
                     {formData.cloudConnector.name} ({formData.cloudConnector.region})
@@ -232,9 +235,11 @@ const EditImageForm: React.FC = () => {
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Provider</p>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="w-6 h-6 relative flex-shrink-0">
-                          <img 
+                          <Image 
                             src={formData.cloudConnector.image} 
-                            alt={formData.cloudConnector.name}
+                            alt={formData.cloudConnector.name || "Cloud provider"}
+                            width={32}
+                            height={32}
                             className="w-full h-full object-contain"
                           />
                         </div>

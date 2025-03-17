@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
+  // Configure rewrites to proxy API requests to the backend
+  async rewrites() {
+    // Default backend URL if environment variable is not set
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+    
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

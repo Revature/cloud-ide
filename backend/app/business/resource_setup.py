@@ -120,13 +120,13 @@ def setup_resources():
             session.refresh(db_image)
 
         # Add new ARM-based image
-        stmt_arm_image = select(Image).where(Image.identifier == "ami-015f416e12d56adf4")
+        stmt_arm_image = select(Image).where(Image.identifier == "ami-08d4be6f210cf1976")
         arm_image = session.exec(stmt_arm_image).first()
         if not arm_image:
             arm_image = Image(
                 name="arm64-dev-image",
                 description="ARM64-based development image for t4g instances",
-                identifier="ami-015f416e12d56adf4",
+                identifier="ami-08d4be6f210cf1976",
                 runner_pool_size=1,  # Start with same pool size
                 machine_id=t4g_machine.id,  # Link to t4g.medium machine
                 cloud_connector_id=cloud_connector.id,
