@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     with Session(engine) as session:
         stmt = select(Image).where(Image.runner_pool_size > 0)
         images = session.exec(stmt).all()
-        
+
         for image in images:
             # Launch runners for each image based on its pool size
             await launch_runners(

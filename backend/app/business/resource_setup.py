@@ -82,7 +82,7 @@ def setup_resources():
             session.add(db_machine)
             session.commit()
             session.refresh(db_machine)
-            
+
         # Add t4g.medium ARM-based machine
         stmt_t4g_machine = select(Machine).where(Machine.identifier == "t4g.medium")
         t4g_machine = session.exec(stmt_t4g_machine).first()
@@ -118,7 +118,7 @@ def setup_resources():
             session.add(db_image)
             session.commit()
             session.refresh(db_image)
-            
+
         # Add new ARM-based image
         stmt_arm_image = select(Image).where(Image.identifier == "ami-015f416e12d56adf4")
         arm_image = session.exec(stmt_arm_image).first()
@@ -257,7 +257,7 @@ exit 0""",
             session.add(awaiting_client_script)
             session.commit()
             session.refresh(awaiting_client_script)
-            
+
         # Add the same script for ARM image if it doesn't exist
         if arm_image:
             stmt_arm_script = select(Script).where(Script.event == "on_awaiting_client", Script.image_id == arm_image.id)
@@ -369,7 +369,7 @@ exit 0""",
             session.add(termination_script)
             session.commit()
             session.refresh(termination_script)
-            
+
         # Add the same termination script for ARM image if it doesn't exist
         if arm_image:
             stmt_arm_script = select(Script).where(Script.event == "on_terminate", Script.image_id == arm_image.id)
