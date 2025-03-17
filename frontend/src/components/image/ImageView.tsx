@@ -160,6 +160,8 @@ const ViewImage: React.FC = () => {
                       <Image 
                         src={image.cloudConnector.image} 
                         alt={image.cloudConnector.name}
+                        width={32}
+                        height={32}
                         className="w-full h-full object-contain"
                       />
                     </div>

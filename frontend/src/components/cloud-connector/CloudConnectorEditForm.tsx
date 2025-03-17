@@ -273,7 +273,7 @@ const ConnectorEditForm: React.FC = () => {
               <Button size="sm" variant="outline" onClick={goBack}>
                 Cancel
               </Button>
-              <Button size="sm" variant="primary">
+              <Button size="sm" variant="primary" type="submit">
                 Save Changes
               </Button>
             </div>
