@@ -48,4 +48,4 @@ app.include_router(api_router)
 @app.get("/")
 def read_root():
     """Check if the application is running."""
-    return {"message": "Hello, welcome to the cloud ide dev backend!"}
+    return {"message": "Hello, welcome to the cloud ide dev backend API!"}
