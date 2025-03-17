@@ -1,8 +1,9 @@
+// src/app/(admin)/(home)/images/add/page.tsx
 "use client";
 import { useRouter } from "next/navigation";
-import ImageForm from "@/components/image/ImageForm";
+import ImageFormWithTerminal from "@/components/image/ImageFormWithTerminal";
 import Button from "@/components/ui/button/Button";
-import { ImageFormData } from "@/components/image/ImageForm";
+import { ImageFormData } from "@/components/image/ImageFormWithTerminal";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
 
 export default function AddImagePage() {
@@ -64,7 +65,7 @@ export default function AddImagePage() {
           </div>
           
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
-            <ImageForm 
+            <ImageFormWithTerminal 
               onSubmit={handleSubmit} 
               onCancel={handleCancel} 
             />
