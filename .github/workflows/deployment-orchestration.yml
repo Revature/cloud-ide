@@ -32,8 +32,8 @@ jobs:
                 host: ${{ secrets.HOST }}
                 username: ${{ secrets.USER }}
                 key: ${{ secrets.RSA_KEY }}
-                source: ./orchestration
-                target: /home/${{ secrets.USER }}/orchestration
+                source: ./orchestration/
+                target: /home/${{ secrets.USER }}/orchestration/
                     
             - name: SSH Command
               uses: D3rHase/ssh-command-action@v0.3.1
