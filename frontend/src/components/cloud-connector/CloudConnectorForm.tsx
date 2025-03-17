@@ -216,7 +216,7 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
           <Button size="sm" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary">
+          <Button size="sm" variant="primary" type="submit">
             Create Connector
           </Button>
         </div>

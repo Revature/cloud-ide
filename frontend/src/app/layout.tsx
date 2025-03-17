@@ -1,5 +1,7 @@
 import { Outfit } from "next/font/google";
 import "./globals.css";
+import '@xterm/xterm/css/xterm.css';
+import '@/styles/xterm.css';
 import "swiper/swiper-bundle.css";
 import "simplebar-react/dist/simplebar.min.css";
 import "flatpickr/dist/flatpickr.css";
