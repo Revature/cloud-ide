@@ -1,0 +1,46 @@
+name: Deployment Orchestration
+
+on:
+  workflow_run:
+    workflows: 
+      - Docker Build Proxy
+      - Docker Build Backend
+    types:
+      - completed
+    branches:
+      - main
+      - demo
+      - dev
+  workflow_dispatch:
+
+jobs:
+    Deploy:
+        runs-on: ubuntu-latest
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        environment: |-
+          ${{
+            github.ref_name == 'main' && 'PRODUCTION'
+          || github.ref_name == 'dev'    && 'DEVELOPMENT'
+          ||                                'DEMO'
+          }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+            
+            - name: SCP Docker-Compose
+              uses: moonpathbg/scp_uploader@latest
+              with:
+                host: ${{ secrets.HOST }}
+                username: ${{ secrets.USER }}
+                key: ${{ secrets.RSA_KEY }}
+                source: ./orchestration
+                target: /home/${{ secrets.USER }}/orchestration
+                    
+            - name: SSH Command
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/docker-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env.docker up -d"
