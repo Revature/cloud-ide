@@ -83,6 +83,24 @@ def setup_resources():
             session.commit()
             session.refresh(db_machine)
 
+        # Add t4g.medium ARM-based machine
+        stmt_t4g_machine = select(Machine).where(Machine.identifier == "t4g.medium")
+        t4g_machine = session.exec(stmt_t4g_machine).first()
+        if not t4g_machine:
+            t4g_machine = Machine(
+                name="t4g.medium",
+                identifier="t4g.medium",
+                cpu_count=2,
+                memory_size=4096,  # 4GB RAM
+                storage_size=20,    # 20GB storage
+                cloud_connector_id=cloud_connector.id,
+                created_by="system",
+                modified_by="system"
+            )
+            session.add(t4g_machine)
+            session.commit()
+            session.refresh(t4g_machine)
+
         # 4) Fetch or create default Image.
         stmt_image = select(Image).where(Image.identifier == "ami-0bbfffa970b0280da")
         db_image = session.exec(stmt_image).first()
@@ -100,6 +118,24 @@ def setup_resources():
             session.add(db_image)
             session.commit()
             session.refresh(db_image)
+
+        # Add new ARM-based image
+        stmt_arm_image = select(Image).where(Image.identifier == "ami-015f416e12d56adf4")
+        arm_image = session.exec(stmt_arm_image).first()
+        if not arm_image:
+            arm_image = Image(
+                name="arm64-dev-image",
+                description="ARM64-based development image for t4g instances",
+                identifier="ami-015f416e12d56adf4",
+                runner_pool_size=1,  # Start with same pool size
+                machine_id=t4g_machine.id,  # Link to t4g.medium machine
+                cloud_connector_id=cloud_connector.id,
+                created_by="system",
+                modified_by="system"
+            )
+            session.add(arm_image)
+            session.commit()
+            session.refresh(arm_image)
 
         # 5) Fetch or create default Script for the "on_awaiting_client" event.
         stmt_script = select(Script).where(Script.event == "on_awaiting_client", Script.image_id == db_image.id)
@@ -222,6 +258,25 @@ exit 0""",
             session.commit()
             session.refresh(awaiting_client_script)
 
+        # Add the same script for ARM image if it doesn't exist
+        if arm_image:
+            stmt_arm_script = select(Script).where(Script.event == "on_awaiting_client", Script.image_id == arm_image.id)
+            arm_awaiting_client_script = session.exec(stmt_arm_script).first()
+            if not arm_awaiting_client_script:
+                # Clone the script for the ARM image, using the same script content
+                arm_awaiting_client_script = Script(
+                    name="Git Clone Script (ARM)",
+                    description="Clones a repository specified in runner env_data under 'repo_url' for ARM instances",
+                    event="on_awaiting_client",
+                    image_id=arm_image.id,
+                    script=awaiting_client_script.script,  # Reuse the same script content
+                    created_by="system",
+                    modified_by="system"
+                )
+                session.add(arm_awaiting_client_script)
+                session.commit()
+                session.refresh(arm_awaiting_client_script)
+
         # 5) Fetch or create default Script for the "on_terminate" event
         stmt_script = select(Script).where(Script.event == "on_terminate", Script.image_id == db_image.id)
         termination_script = session.exec(stmt_script).first()
@@ -314,6 +369,25 @@ exit 0""",
             session.add(termination_script)
             session.commit()
             session.refresh(termination_script)
+
+        # Add the same termination script for ARM image if it doesn't exist
+        if arm_image:
+            stmt_arm_script = select(Script).where(Script.event == "on_terminate", Script.image_id == arm_image.id)
+            arm_termination_script = session.exec(stmt_arm_script).first()
+            if not arm_termination_script:
+                # Clone the script for the ARM image, using the same script content
+                arm_termination_script = Script(
+                    name="GitHub Save Script (ARM)",
+                    description="Commits and pushes changes to GitHub on termination for ARM instances",
+                    event="on_terminate",
+                    image_id=arm_image.id,
+                    script=termination_script.script,  # Reuse the same script content
+                    created_by="system",
+                    modified_by="system"
+                )
+                session.add(arm_termination_script)
+                session.commit()
+                session.refresh(arm_termination_script)
 
         return Resources(
             system_user_email=system_user.email,

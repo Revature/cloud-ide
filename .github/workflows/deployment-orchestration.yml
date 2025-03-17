@@ -19,13 +19,16 @@ jobs:
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         environment: |-
           ${{
-            github.ref_name == 'main' && 'PRODUCTION'
-          || github.ref_name == 'dev'    && 'DEVELOPMENT'
-          ||                                'DEMO'
+             github.event.workflow_run.head_branch == 'main' && 'PRODUCTION'
+          || github.event.workflow_run.head_branch ==  'dev' && 'DEVELOPMENT'
+          ||                                                    'DEMO'
           }}
         steps:
             - name: Checkout
               uses: actions/checkout@v2
+              with: 
+                repository: ${{ github.repository }}
+                ref: ${{ github.event.workflow_run.head_branch}}
             
             - name: SCP Docker-Compose
               uses: moonpathbg/scp_uploader@latest
