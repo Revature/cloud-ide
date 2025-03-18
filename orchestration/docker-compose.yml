@@ -69,6 +69,21 @@ services:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
+      
+  frontend:
+    image: public.ecr.aws/l4a3r3t7/cde/frontend:latest
+    pull_policy: always
+    container_name: frontend
+    networks:
+      - app-network
+    ports:
+      - "3500:3000"
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   redis:
     image: redis:alpine
