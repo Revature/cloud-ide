@@ -156,20 +156,17 @@ echo "Setting up environment and cloning repository..."
 # Extract variables from script vars (directly in context)
 REPO_URL="{{ git_url }}"
 REPO_NAME="{{ git_repo_name }}"
+USER_IP="{{ user_ip }}"
 REPO_PATH="/home/ubuntu/$REPO_NAME"
 
-# Extract environment variables - keep as encoded where applicable
+# Extract environment variables from the new payload structure
 GIT_ACCESS_TOKEN="{{ env_vars.git_access_token }}"
-HOST_B64="{{ env_vars.host }}"
-TRAINEE_ID_B64="{{ env_vars.trainee_coding_lab_id }}"
-PROJECT_TYPE_B64="{{ env_vars.project_type }}"
-TOKEN_B64="{{ env_vars.token }}"
-
-# Do not decode the Base64 values - use them as is
-HOST="$HOST_B64"
-TRAINEE_ID="$TRAINEE_ID_B64"
-PROJECT_TYPE="$PROJECT_TYPE_B64"
-TOKEN="$TOKEN_B64"
+GIT_USERNAME="{{ env_vars.git_username }}"
+HOST_B64="{{ env_vars.HOST }}"
+TRAINEE_ID_B64="{{ env_vars.TRAINEE_CODING_LAB_ID }}"
+PROJECT_TYPE_B64="{{ env_vars.PROJECT_TYPE }}"
+GITPOD_WORKSPACE_URL="{{ env_vars.GITPOD_WORKSPACE_CONTEXT_URL }}"
+REVPRO_WORKSPACE_ID="{{ env_vars.REVPRO_WORKSPACE_ID }}"
 
 # Create a file to store environment variables
 ENV_FILE="/home/ubuntu/.env_vars"
@@ -178,16 +175,19 @@ GITHUB_ENV_FILE="/home/ubuntu/.github_env"
 # Write environment variables to file
 cat > "$ENV_FILE" << EOF
 export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
-export HOST="$HOST"
-export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
-export PROJECT_TYPE="$PROJECT_TYPE"
-export TOKEN="$TOKEN"
+export GIT_USERNAME="$GIT_USERNAME"
+export HOST="$HOST_B64"
+export TRAINEE_CODING_LAB_ID="$TRAINEE_ID_B64"
+export PROJECT_TYPE="$PROJECT_TYPE_B64"
+export GITPOD_WORKSPACE_CONTEXT_URL="$GITPOD_WORKSPACE_URL"
+export REVPRO_WORKSPACE_ID="$REVPRO_WORKSPACE_ID"
+export USER_IP="$USER_IP"
 EOF
 
 # Write GitHub specific variables to a separate file for git operations
 cat > "$GITHUB_ENV_FILE" << EOF
 export GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
-export GITHUB_USERNAME="git"
+export GITHUB_USERNAME="$GIT_USERNAME"
 EOF
 
 # Make the files readable only by owner
@@ -208,47 +208,104 @@ EOF
 
 # Export variables for immediate availability via printenv
 export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
-export HOST="$HOST"
-export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
-export PROJECT_TYPE="$PROJECT_TYPE"
-export TOKEN="$TOKEN"
+export GIT_USERNAME="$GIT_USERNAME"
+export HOST="$HOST_B64"
+export TRAINEE_CODING_LAB_ID="$TRAINEE_ID_B64"
+export PROJECT_TYPE="$PROJECT_TYPE_B64"
+export GITPOD_WORKSPACE_CONTEXT_URL="$GITPOD_WORKSPACE_URL"
+export REVPRO_WORKSPACE_ID="$REVPRO_WORKSPACE_ID"
+export USER_IP="$USER_IP"
 export GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
-export GITHUB_USERNAME="git"
+export GITHUB_USERNAME="$GIT_USERNAME"
+
+# Configure git globally for this user
+git config --global user.name "$GIT_USERNAME"
+git config --global user.email "$GIT_USERNAME@github.com"
+git config --global credential.helper store
 
 # Add to system-wide environment if possible
 if [ -f "/etc/environment" ] && [ -w "/etc/environment" ]; then
     # Try to append to /etc/environment if writable
     grep -q "GIT_ACCESS_TOKEN" /etc/environment || echo "GIT_ACCESS_TOKEN=$GIT_ACCESS_TOKEN" | sudo tee -a /etc/environment > /dev/null
-    grep -q "HOST" /etc/environment || echo "HOST=$HOST" | sudo tee -a /etc/environment > /dev/null
-    grep -q "TRAINEE_CODING_LAB_ID" /etc/environment || echo "TRAINEE_CODING_LAB_ID=$TRAINEE_ID" | sudo tee -a /etc/environment > /dev/null
-    grep -q "PROJECT_TYPE" /etc/environment || echo "PROJECT_TYPE=$PROJECT_TYPE" | sudo tee -a /etc/environment > /dev/null
-    grep -q "TOKEN" /etc/environment || echo "TOKEN=$TOKEN" | sudo tee -a /etc/environment > /dev/null
+    grep -q "GIT_USERNAME" /etc/environment || echo "GIT_USERNAME=$GIT_USERNAME" | sudo tee -a /etc/environment > /dev/null
+    grep -q "HOST" /etc/environment || echo "HOST=$HOST_B64" | sudo tee -a /etc/environment > /dev/null
+    grep -q "TRAINEE_CODING_LAB_ID" /etc/environment || echo "TRAINEE_CODING_LAB_ID=$TRAINEE_ID_B64" | sudo tee -a /etc/environment > /dev/null
+    grep -q "PROJECT_TYPE" /etc/environment || echo "PROJECT_TYPE=$PROJECT_TYPE_B64" | sudo tee -a /etc/environment > /dev/null
+    grep -q "GITPOD_WORKSPACE_CONTEXT_URL" /etc/environment || echo "GITPOD_WORKSPACE_CONTEXT_URL=$GITPOD_WORKSPACE_URL" | sudo tee -a /etc/environment > /dev/null
+    grep -q "REVPRO_WORKSPACE_ID" /etc/environment || echo "REVPRO_WORKSPACE_ID=$REVPRO_WORKSPACE_ID" | sudo tee -a /etc/environment > /dev/null
+    grep -q "USER_IP" /etc/environment || echo "USER_IP=$USER_IP" | sudo tee -a /etc/environment > /dev/null
 elif [ -d "/etc/profile.d" ]; then
     # Fallback to profile.d
     sudo tee /etc/profile.d/cloudide.sh > /dev/null << EOF
 export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
-export HOST="$HOST"
-export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
-export PROJECT_TYPE="$PROJECT_TYPE"
-export TOKEN="$TOKEN"
+export GIT_USERNAME="$GIT_USERNAME"
+export HOST="$HOST_B64"
+export TRAINEE_CODING_LAB_ID="$TRAINEE_ID_B64"
+export PROJECT_TYPE="$PROJECT_TYPE_B64"
+export GITPOD_WORKSPACE_CONTEXT_URL="$GITPOD_WORKSPACE_URL"
+export REVPRO_WORKSPACE_ID="$REVPRO_WORKSPACE_ID"
+export USER_IP="$USER_IP"
 EOF
     sudo chmod +x /etc/profile.d/cloudide.sh
 fi
 
 # Clone the repository
 echo "Cloning repository from $REPO_URL..."
-# Use the token for authentication
-AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GITHUB_TOKEN@/")
-git clone "$AUTH_REPO_URL" "$REPO_PATH"
 
-# Instead of creating folders in the repo, we'll ensure the environment variables
-# are available system-wide and in the user's home directory
+# Use the token for authentication with the proper username
+if [[ "$REPO_URL" == *"github.com"* ]]; then
+    # For GitHub repositories
+    AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GIT_USERNAME:$GIT_ACCESS_TOKEN@/")
+    git clone "$AUTH_REPO_URL" "$REPO_PATH"
+    
+    # Save credentials for future git operations
+    mkdir -p /home/ubuntu/.git-credentials
+    echo "https://$GIT_USERNAME:$GIT_ACCESS_TOKEN@github.com" > /home/ubuntu/.git-credentials
+    chmod 600 /home/ubuntu/.git-credentials
+else
+    # For non-GitHub repositories, use default approach
+    git clone "$REPO_URL" "$REPO_PATH"
+fi
+
+# Setup Git hooks for tracking commit history and test cases
+echo "Setting up Git hooks for tracking commit history and test cases..."
+cd "$REPO_PATH"
+
+# Create post-commit hook to track commit history and run tests
+cat <<EOF >.git/hooks/post-commit
+#!/bin/bash
+git push
+git log -1 --shortstat > history_log.txt
+mvn test >testCases_log.txt
+EOF
+chmod +x .git/hooks/post-commit
+
+# Create a simple pre-commit hook for potential future use
+cat <<EOF >.git/hooks/pre-commit
+#!/bin/bash
+# This is a placeholder for pre-commit actions
+# No SSH key configuration needed as we're using HTTPS with token
+EOF
+chmod +x .git/hooks/pre-commit
+
+echo "Git hooks successfully configured for history and test case tracking"
+cd ~
+
+# Create a welcome message for the user
+cat > /home/ubuntu/welcome.txt << EOF
+Welcome to your Cloud IDE environment!
+
+Your repository "$REPO_NAME" has been cloned and is ready for use.
+Environment variables have been set up for your session.
+
+Repository path: $REPO_PATH
+EOF
 
 echo "Environment setup and repository clone completed successfully!"
 
 # Verify environment variables are set correctly
 echo "Verifying environment variables:"
-printenv | grep -E 'GIT_ACCESS_TOKEN|HOST|TRAINEE_CODING_LAB_ID|PROJECT_TYPE|TOKEN|GITHUB_TOKEN'
+printenv | grep -E 'GIT_ACCESS_TOKEN|GIT_USERNAME|HOST|TRAINEE_CODING_LAB_ID|PROJECT_TYPE|GITHUB_TOKEN|REVPRO_WORKSPACE_ID|GITPOD_WORKSPACE_CONTEXT_URL'
 
 exit 0""",
                 created_by="system",
