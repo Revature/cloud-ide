@@ -1,21 +1,19 @@
-FROM node:18-alpine
+FROM node:alpine
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+RUN npm install --global pm2
 
-# Install dependencies with legacy peer deps flag
+COPY ./package*.json ./
+
 RUN npm ci --legacy-peer-deps
 
-# Copy the rest of the application code
 COPY . .
 
-# Build the Next.js application
 RUN npm run build
 
-# Expose the port the app will run on
 EXPOSE 3000
 
-# Command to run the application
-CMD ["npm", "start"]
+USER node
+
+CMD ["pm2-runtime", "npm", "--", "start"]
