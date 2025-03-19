@@ -1,5 +1,5 @@
 """Repository layer for the Machine entity."""
-from backend.app.models import Machine
+from app.models import Machine
 from sqlmodel import Session, select
 
 def find_machine_by_id(session: Session, id: int) -> Machine:

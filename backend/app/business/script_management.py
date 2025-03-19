@@ -169,9 +169,7 @@ async def run_script_for_runner(
         if runner.env_data:
             template_context.update(runner.env_data)
 
-        # Add the env_vars to the context if provided, but in a separate namespace
-        if env_vars:
-            template_context["env_vars"] = env_vars
+        template_context["env_vars"] = env_vars or {}
 
         # Render the script template using the context
         rendered_script = render_script(script_record.script, template_context)
