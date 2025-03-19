@@ -227,6 +227,11 @@ async def run_script_for_runner(
                     f"[{initiated_by}] Script error: {result.get('error_message', 'Unknown error')}"
                 )
 
+            # Add these debug logs
+            print(f"[DEBUG] Result from parse_script_output: {result}")
+            print(f"[DEBUG] Success value: {result.get('success', False)}")
+            print(f"[DEBUG] Exit code: {result.get('exit_code')}, type: {type(result.get('exit_code'))}")
+
             # Create a script result history record
             script_result_record = RunnerHistory(
                 runner_id=runner_id,

@@ -38,22 +38,14 @@ REVATURE_CONFIG="/home/ubuntu/.revature"
 
 # Write configuration to the .revature file
 cat > "$REVATURE_CONFIG" << EOF
-# Revature Cloud IDE Configuration
-# Created: $(date)
-
-# Git credentials
 GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
 GIT_USERNAME="$GIT_USERNAME"
 GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
 GITHUB_USERNAME="$GIT_USERNAME"
-
-# Project information
 REPO_URL="$REPO_URL"
 REPO_NAME="$REPO_NAME"
 REPO_PATH="$REPO_PATH"
 USER_IP="$USER_IP"
-
-# Environment variables
 HOST="$HOST_B64"
 TRAINEE_CODING_LAB_ID="$TRAINEE_ID_B64"
 PROJECT_TYPE="$PROJECT_TYPE_B64"
@@ -165,17 +157,6 @@ if ! git log -1 --shortstat > history_log.txt; then
     log_error "Git log" $?
 fi
 
-# Run Maven tests if Maven is installed
-if command -v mvn &> /dev/null; then
-    echo "Running Maven tests..."
-    if ! mvn test > testCases_log.txt; then
-        log_error "Maven tests" $?
-    fi
-else
-    echo "Maven not found, skipping tests"
-    echo "Maven not installed" > testCases_log.txt
-fi
-
 echo "Post-commit hook completed"
 EOF
 chmod +x .git/hooks/post-commit
@@ -187,43 +168,7 @@ else
     echo "Warning: Failed to create executable post-commit hook"
 fi
 
-# Create a simple pre-commit hook for potential future use
-cat <<'EOF' > .git/hooks/pre-commit
-#!/bin/bash
-# This is a placeholder for pre-commit actions
-# No SSH key configuration needed as we're using HTTPS with token
-echo "Pre-commit hook running..."
-echo "Pre-commit hook completed"
-EOF
-chmod +x .git/hooks/pre-commit
-
-# Verify the pre-commit hook was created correctly
-if [ -x .git/hooks/pre-commit ]; then
-    echo "Pre-commit hook created successfully"
-else
-    echo "Warning: Failed to create executable pre-commit hook"
-fi
-
 echo "Git hooks configured for history and test case tracking"
-
-# Create a welcome message for the user
-cat > /home/ubuntu/welcome.txt << EOF
-Welcome to your Cloud IDE environment!
-
-Your repository "$REPO_NAME" has been cloned and is ready for use.
-Environment variables have been set up for your session.
-
-Repository path: $REPO_PATH
-
-Git hooks have been configured:
-- post-commit: Pushes changes, logs commits, and runs tests
-- pre-commit: Currently a placeholder for future use
-
-The history of your commits will be saved to: $REPO_PATH/history_log.txt
-Test results (if applicable) will be saved to: $REPO_PATH/testCases_log.txt
-
-Configuration is stored in: $REVATURE_CONFIG
-EOF
 
 echo "Environment setup and repository clone completed successfully!"
 
@@ -239,10 +184,6 @@ fi
 echo "Verifying Git hooks:"
 if [ ! -x "$REPO_PATH/.git/hooks/post-commit" ]; then
     report_error "post-commit hook not found or not executable!"
-fi
-
-if [ ! -x "$REPO_PATH/.git/hooks/pre-commit" ]; then
-    report_error "pre-commit hook not found or not executable!"
 fi
 
 echo "Git hooks verified successfully."

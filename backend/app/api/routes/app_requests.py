@@ -242,4 +242,4 @@ async def get_ready_runner(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error #1 (Script Error): Environment setup failed. Please report this to your administrator."
-        ) from e
+        ) from None

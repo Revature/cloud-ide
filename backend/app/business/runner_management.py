@@ -422,25 +422,155 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
 
     return results
 
+async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system"):
+    """
+    Force stop and terminate instances without running scripts or using intermediate states.
+
+    Used during application shutdown to ensure all runners are terminated
+    without waiting for potentially time-consuming scripts to complete.
+    Skips the "closed" state entirely to minimize database operations.
+
+    Args:
+        instance_ids: List of instance IDs to terminate
+        initiated_by: Identifier of the service/job that initiated the termination
+    """
+    from app.models.runner_history import RunnerHistory
+
+    results = []
+
+    for instance_id in instance_ids:
+        result = {"instance_id": instance_id, "status": "success", "details": [], "initiated_by": initiated_by}
+
+        try:
+            # Find the runner and related resources
+            with Session(engine) as session:
+                stmt = select(Runner).where(Runner.identifier == instance_id)
+                runner = session.exec(stmt).first()
+
+                if not runner:
+                    logger.warning(f"[{initiated_by}] Runner with instance ID {instance_id} not found, skipping")
+                    continue
+
+                # Skip if already terminated
+                if runner.state == "terminated":
+                    logger.info(f"[{initiated_by}] Runner {runner.id} already in terminated state, skipping")
+                    continue
+
+                # Get necessary info for cloud operations
+                image = session.get(Image, runner.image_id)
+                if not image or not image.cloud_connector_id:
+                    logger.warning(f"[{initiated_by}] Missing image or cloud connector for runner {runner.id}, skipping")
+                    continue
+
+                cloud_connector = session.get(CloudConnector, image.cloud_connector_id)
+                if not cloud_connector:
+                    logger.warning(f"[{initiated_by}] Cloud connector {image.cloud_connector_id} not found, skipping")
+                    continue
+
+                # Get cloud service
+                cloud_service = get_cloud_service(cloud_connector)
+
+                # Update runner state directly to terminated and record the change
+                old_state = runner.state
+                runner.state = "terminated"  # Skip intermediate states
+                runner.ended_on = datetime.utcnow()
+
+                # Create history record
+                terminating_history = RunnerHistory(
+                    runner_id=runner.id,
+                    event_name="runner_force_terminated",
+                    event_data={
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "old_state": old_state,
+                        "new_state": "terminated",
+                        "initiated_by": initiated_by,
+                        "note": "Force termination during application shutdown - skipping scripts and intermediate states"
+                    },
+                    created_by="system",
+                    modified_by="system"
+                )
+                session.add(terminating_history)
+                session.commit()
+
+                result["runner_id"] = runner.id
+
+            # Perform the actual instance operations with the cloud provider
+            try:
+                # Stop and terminate in sequence with timeouts
+                logger.info(f"[{initiated_by}] Force stopping and terminating instance {instance_id} for runner {runner.id}")
+
+                # Try to stop first with a short timeout
+                try:
+                    stop_future = cloud_service.stop_instance(instance_id)
+                    await asyncio.wait_for(stop_future, timeout=15)  # 15 second timeout for stop
+                except (asyncio.TimeoutError, Exception) as e:
+                    logger.warning(f"[{initiated_by}] Stop operation for instance {instance_id} failed or timed out: {e}, proceeding to terminate")
+
+                # Always attempt to terminate, even if stop failed
+                try:
+                    terminate_future = cloud_service.terminate_instance(instance_id)
+                    await asyncio.wait_for(terminate_future, timeout=15)  # 15 second timeout for terminate
+                    logger.info(f"[{initiated_by}] Successfully terminated instance {instance_id}")
+                except (asyncio.TimeoutError, Exception) as e:
+                    logger.error(f"[{initiated_by}] Terminate operation for instance {instance_id} failed or timed out: {e}")
+                    # The instance might still be terminating in the cloud provider
+                    # Our database already shows it as terminated, so we don't need to update it
+
+                result["status"] = "success"
+                result["details"].append({"step": "terminate", "status": "initiated"})
+
+            except Exception as e:
+                logger.error(f"[{initiated_by}] Error in cloud provider operations for instance {instance_id}: {e}")
+                # We don't change the database state back since we want it to show as terminated
+                # even if the cloud operation failed
+                result["status"] = "partial"
+                result["details"].append({"step": "cloud_operations", "error": str(e)})
+
+            results.append(result)
+
+        except Exception as e:
+            logger.error(f"[{initiated_by}] Error processing instance {instance_id}: {e}")
+            results.append({
+                "instance_id": instance_id,
+                "status": "error",
+                "message": f"Error during forced shutdown: {e!s}"
+            })
+
+    return results
+
 async def shutdown_all_runners():
     """
     Stop and then terminate all instances for runners that are not in the 'terminated' state.
 
-    Uses the shutdown_runners function.
+    During application shutdown, skips script execution and intermediate states
+    to ensure quick and reliable termination.
     """
     initiated_by = "shutdown_all_runners"
     logger.info(f"[{initiated_by}] Starting shutdown of all active runners")
 
-    with Session(engine) as session:
-        stmt = select(Runner).where(Runner.state != "terminated")
-        runners_to_shutdown = session.exec(stmt).all()
-        instance_ids = [runner.identifier for runner in runners_to_shutdown]
+    try:
+        with Session(engine) as session:
+            stmt = select(Runner).where(Runner.state != "terminated")
+            runners_to_shutdown = session.exec(stmt).all()
+            instance_ids = [runner.identifier for runner in runners_to_shutdown]
 
-    if instance_ids:
+        if not instance_ids:
+            logger.info(f"[{initiated_by}] No active runners found to terminate")
+            return []
+
         logger.info(f"[{initiated_by}] Found {len(instance_ids)} runners to terminate")
-        results = await shutdown_runners(instance_ids, initiated_by)
+
+        # Process in batches to avoid overloading
+        batch_size = 10
+        results = []
+
+        for i in range(0, len(instance_ids), batch_size):
+            batch = instance_ids[i:i+batch_size]
+            batch_results = await force_shutdown_runners(batch, initiated_by)
+            results.extend(batch_results)
+
         logger.info(f"[{initiated_by}] Completed shutdown of all active runners")
         return results
-    else:
-        logger.info(f"[{initiated_by}] No active runners found to terminate")
-        return []
+    except Exception as e:
+        logger.error(f"[{initiated_by}] Error during shutdown_all_runners: {e}")
+        return [{"status": "error", "message": f"Global error in shutdown_all_runners: {e!s}"}]
