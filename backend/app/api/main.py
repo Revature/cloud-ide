@@ -6,11 +6,13 @@ from app.api.routes import auth, users, runners, machines, images, app_requests,
 API_ROOT_PATH: str = '/api'
 API_VERSION: str = '/v1'
 UNSECURE_ROUTES: tuple = (
-    f'{API_ROOT_PATH}{API_VERSION}/machine_auth',
+    f'{API_ROOT_PATH}{API_VERSION}/machine_auth/',
     f'{API_ROOT_PATH}{API_VERSION}/',
-    f'{API_ROOT_PATH}/docs',
-    '/docs', #Proxy problems, need to iron out these paths
-    '/machine_auth',
+    f'{API_ROOT_PATH}/docs/',
+    f'{API_ROOT_PATH}/openapi.json/',
+    '/openapi.json/', #Proxy problems, need to iron out these paths
+    '/docs/', #Proxy problems, need to iron out these paths
+    f'{API_VERSION}/machine_auth/',
     '/'
     )
 
