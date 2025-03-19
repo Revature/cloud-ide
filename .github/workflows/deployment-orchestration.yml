@@ -5,6 +5,7 @@ on:
     workflows: 
       - Docker Build Proxy
       - Docker Build Backend
+      - Docker Build Frontend
     types:
       - completed
     branches:
