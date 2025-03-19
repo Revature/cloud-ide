@@ -29,7 +29,6 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     Each new runner is associated with today's key.
     Returns a list of launched instance IDs.
     """
-
     launched_instance_ids = []
     launch_start_time = datetime.utcnow()
 
@@ -106,7 +105,9 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     return launched_instance_ids
 
 def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
-    """Launch a single runner and produce a record for it."""
+    """
+    Launch a single runner and produce a record for it.
+    """
     with Session(engine) as session:
         new_runner = Runner(
             machine_id=machine.id,
@@ -122,7 +123,7 @@ def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initia
             session_end=datetime.utcnow() + timedelta(minutes=10)
         )
 
-        new_runner = runner_repository.addRunner(new_runner)
+        new_runner = runner_repository.add_runner(new_runner)
 
         # Create a history record for the new runner
         runner_creation_record = RunnerHistory(
