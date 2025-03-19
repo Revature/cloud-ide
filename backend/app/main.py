@@ -69,7 +69,7 @@ async def route_guard(request: Request, call_next):
     """
     print(f'\n\nDEBUG PATH: {request.url.path}\n\n')
 
-    return await call_next()
+    return await call_next(request)
 
     # if request.url.path in UNSECURE_ROUTES:
     #     return await call_next(request)
