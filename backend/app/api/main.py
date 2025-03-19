@@ -8,7 +8,10 @@ API_VERSION: str = '/v1'
 UNSECURE_ROUTES: tuple = (
     f'{API_ROOT_PATH}{API_VERSION}/machine_auth',
     f'{API_ROOT_PATH}{API_VERSION}/',
-    f'{API_ROOT_PATH}/docs'
+    f'{API_ROOT_PATH}/docs',
+    '/docs', #Proxy problems, need to iron out these paths
+    '/machine_auth',
+    '/'
     )
 
 api_router = APIRouter()
