@@ -4,7 +4,7 @@ from workos import exceptions
 from app.business.authentication import password_authentication
 from app.business.workos import get_workos_client
 from app.schemas.auth_schema import PasswordAuth, WorkOSAuthDTO
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Header, Request, Response, status
 
 workos = get_workos_client()
 router = APIRouter()

@@ -1,6 +1,6 @@
 """Theia request API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from typing import Optional
@@ -24,7 +24,8 @@ class RunnerStateUpdate(BaseModel):
 @router.post("/update_state", response_model=Runner)
 async def update_runner_state_endpoint(
     update: RunnerStateUpdate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session), 
+    access_token: str = Header(..., alias="Access-Token")
 ):
     """
     Endpoint for Theia to report state changes.

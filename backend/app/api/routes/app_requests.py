@@ -29,7 +29,6 @@ class RunnerRequest(BaseModel):
 @router.post("/", response_model=dict[str, str])
 async def get_ready_runner(
     request: RunnerRequest,
-    response: Response,
     access_token: str = Header(..., alias="Access-Token"),
     session: Session = Depends(get_session)
 ):

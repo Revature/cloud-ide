@@ -1,6 +1,6 @@
 """Runners API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session)):
+def read_runners(session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
     """Retrieve a list of all Runners."""
     runners = session.exec(select(Runner)).all()
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session)):
+def read_runner(runner_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
     """Retrieve a single Runner by ID."""
     runner = session.get(Runner, runner_id)
     if not runner:
@@ -35,7 +35,8 @@ def read_runner(runner_id: int, session: Session = Depends(get_session)):
 @router.put("/extend_session", response_model=str)
 def extend_runner_session(
     extend_req: ExtendSessionRequest,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session), 
+    access_token: str = Header(..., alias="Access-Token")
     ):
     """Update a runner's session_end by adding extra time."""
     runner = session.get(Runner, extend_req.runner_id)
@@ -91,7 +92,8 @@ class TerminateRunnerRequest(BaseModel):
 @router.post("/terminate", response_model=dict[str, str])
 async def terminate_runner(
     request: TerminateRunnerRequest,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session), 
+    access_token: str = Header(..., alias="Access-Token")
 ):
     """
     Manually terminate a runner.
