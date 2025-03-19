@@ -55,13 +55,10 @@ def create_workos_session(workos_session: WorkosSession):
 def get_refresh_token(access_token: str):
     """Return a refresh token for an access token."""
     with next(get_session()) as database_session:
-        print(f'\n\nDEBUG: Looking for refresh token: \n{access_token}\n')
         encrypted_access_token = encrypt_text(access_token)
-        print(f'\n\nDEBUG: Searching with encrypted access token: \n{encrypted_access_token}')
         record: WorkosSession = database_session.exec(select(WorkosSession)
             .where(WorkosSession.encrypted_access_token == encrypt_text(access_token))).first()
         if not record:
-            print(f'DEBUG: That session wasnt found.')
             raise Exception("Session not found")
         return record.get_decrypted_refresh_token()
 

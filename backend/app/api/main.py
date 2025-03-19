@@ -7,7 +7,8 @@ API_ROOT_PATH: str = '/api'
 API_VERSION: str = '/v1'
 UNSECURE_ROUTES: tuple = (
     f'{API_ROOT_PATH}{API_VERSION}/machine_auth',
-    f'{API_ROOT_PATH}{API_VERSION}/'
+    f'{API_ROOT_PATH}{API_VERSION}/',
+    f'{API_ROOT_PATH}/docs'
     )
 
 api_router = APIRouter()
