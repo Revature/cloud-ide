@@ -3,7 +3,7 @@
 import uuid
 import asyncio
 from datetime import datetime, timedelta
-from backend.app.models.key import Key
+from app.models.key import Key
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
