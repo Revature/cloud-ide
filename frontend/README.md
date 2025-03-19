@@ -20,4 +20,3 @@ State Management: React Context API + SWR for data fetching
 Real-time Communication: WebSockets
 Authentication: WorkOS
 Styling: Tailwind CSS
-
