@@ -220,7 +220,7 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
         launched_instance_ids: List of instance IDs to terminate
         initiated_by: Identifier of the service/job that initiated the termination
 
-    Executes on_terminate scripts, then updates the corresponding Runner record
+    Executes on_terminate scripts (if they exist), then updates the corresponding Runner record
     to "closed" after stopping and to "terminated" after termination.
     Creates detailed history records for each step.
     """
@@ -293,47 +293,62 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
 
             logger.info(f"[{initiated_by}] Runner {runner.id} state updated from {old_state} to terminating")
 
-            try:
-                logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner.id}...")
-                # Run the script with empty env_vars since credentials should be retrieved from the environment
-                script_result = await run_script_for_runner("on_terminate", runner.id, env_vars={}, initiated_by=initiated_by)
+            # Check if a termination script exists for this image before trying to run it
+            if old_state not in ["ready", "runner_starting", "app_starting", "terminated", "closed"]:
+                # First check if script exists to avoid unnecessary exceptions
+                stmt_script = select(Script).where(Script.event == "on_terminate", Script.image_id == runner.image_id)
+                script_exists = session.exec(stmt_script).first() is not None
 
-                logger.info(f"[{initiated_by}] Script executed for runner {runner.id}")
-                logger.info(f"[{initiated_by}] Script result: {script_result}")
+                if script_exists:
+                    try:
+                        logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner.id}...")
+                        # Run the script with empty env_vars since credentials should be retrieved from the environment
+                        script_result = await run_script_for_runner("on_terminate", runner.id, env_vars={}, initiated_by=initiated_by)
 
-                result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
-            except Exception as e:
-                error_detail = str(e)
-                logger.error(f"[{initiated_by}] Error executing on_terminate script for runner {runner.id}: {error_detail}")
+                        logger.info(f"[{initiated_by}] Script executed for runner {runner.id}")
+                        logger.info(f"[{initiated_by}] Script result: {script_result}")
 
-                # Format traceback as string
-                tb_string = "".join(traceback.format_tb(e.__traceback__)) if hasattr(e, "__traceback__") else ""
+                        result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
+                    except Exception as e:
+                        error_detail = str(e)
+                        logger.error(f"[{initiated_by}] Error executing on_terminate script for runner {runner.id}: {error_detail}")
 
-                # Create detailed history record for the script error
-                error_history = RunnerHistory(
-                    runner_id=runner.id,
-                    event_name="script_error_on_terminate",
-                    event_data={
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "error": error_detail,
-                        "traceback": tb_string,
-                        "initiated_by": initiated_by
-                    },
-                    created_by="system",
-                    modified_by="system"
-                )
-                session.add(error_history)
-                session.commit()
+                        # Format traceback as string
+                        tb_string = "".join(traceback.format_tb(e.__traceback__)) if hasattr(e, "__traceback__") else ""
 
-                # Add error information to result details
-                result["details"].append({
-                    "step": "script_execution",
-                    "status": "error",
-                    "message": f"Error executing on_terminate script: {error_detail}"
-                })
+                        # Create detailed history record for the script error
+                        error_history = RunnerHistory(
+                            runner_id=runner.id,
+                            event_name="script_error_on_terminate",
+                            event_data={
+                                "timestamp": datetime.utcnow().isoformat(),
+                                "error": error_detail,
+                                "traceback": tb_string,
+                                "initiated_by": initiated_by
+                            },
+                            created_by="system",
+                            modified_by="system"
+                        )
+                        session.add(error_history)
+                        session.commit()
 
-                # Continue with termination despite script error
-                logger.info(f"[{initiated_by}] Continuing with termination despite script error")
+                        # Add error information to result details
+                        result["details"].append({
+                            "step": "script_execution",
+                            "status": "error",
+                            "message": f"Error executing on_terminate script: {error_detail}"
+                        })
+                else:
+                    # Log that we're skipping script execution because no script exists
+                    logger.info(f"[{initiated_by}] No on_terminate script found for image {runner.image_id}, skipping script execution")
+                    result["details"].append({
+                        "step": "script_execution",
+                        "status": "skipped",
+                        "message": f"No on_terminate script found for image {runner.image_id}"
+                    })
+
+        # Continue with termination regardless of script outcome
+        logger.info(f"[{initiated_by}] Proceeding with instance termination for runner {runner.id}")
 
         # Stop instance and update history
         try:
@@ -376,6 +391,7 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
             error_message = f"Error stopping instance {instance_id}: {e!s}"
             logger.error(f"[{initiated_by}] {error_message}")
             result["details"].append({"step": "stop_instance", "status": "error", "message": error_message})
+            # Continue with termination even if stopping fails
 
         # Terminate instance and update history
         try:

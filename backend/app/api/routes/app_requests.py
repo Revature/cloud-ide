@@ -106,12 +106,13 @@ async def get_ready_runner(
         )
 
         # Get the workspace path from env_data
-        # workspace_path = existing_runner.env_data.get("path", "")
-        # if not workspace_path.startswith("/"):
-        #     workspace_path = "/" + workspace_path
+        workspace_path = existing_runner.env_data.get("path", "")
+        if not workspace_path.startswith("/"):
+            workspace_path = "/" + workspace_path
 
         # Construct the full URL with domain, token, and workspace path
-        full_url = f"{domain}/dest/{jwt_token}"
+        # full_url = f"{domain}/dest/{jwt_token}{workspace_path}"
+        full_url = f"{existing_runner.url}:3000/{workspace_path}"
 
         return {"url": full_url, "runner_id": str(existing_runner.id)}
 
@@ -188,13 +189,14 @@ async def get_ready_runner(
         )
 
         # Get the workspace path from env_data
-        # workspace_path = runner.env_data.get("path", "")
-        # # Ensure the workspace path starts with a slash
-        # if not workspace_path.startswith("/"):
-        #     workspace_path = "/" + workspace_path
+        workspace_path = runner.env_data.get("path", "")
+        # Ensure the workspace path starts with a slash
+        if not workspace_path.startswith("/"):
+            workspace_path = "/" + workspace_path
 
         # Construct the full URL with your domain, token, and workspace path
-        full_url = f"{domain}/dest/{jwt_token}"
+        #full_url = f"{domain}/dest/{jwt_token}"
+        full_url = f"{runner.url}:3000/{workspace_path}"
 
         return {"url": full_url, "runner_id": str(runner.id)}
     except Exception as e:
