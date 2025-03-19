@@ -105,9 +105,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     return launched_instance_ids
 
 def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
-    """
-    Launch a single runner and produce a record for it.
-    """
+    """Launch a single runner and produce a record for it."""
     with Session(engine) as session:
         new_runner = Runner(
             machine_id=machine.id,
