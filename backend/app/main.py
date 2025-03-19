@@ -77,9 +77,7 @@ async def route_guard(request: Request, call_next):
     print(f'Middleware - Access token: {access_token}')
     try:
         if not verify_token_exp(access_token):
-            print('\nAuthenticating with frefresh token\n')
             refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
-            print('\nrefreshing token in database\n')
             refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
             access_token = refresh_response.access_token
         response: Response = await call_next(request)

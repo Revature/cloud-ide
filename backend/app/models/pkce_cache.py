@@ -1,12 +1,12 @@
 """Model for PKCE keys to cache them in the db."""
 
-from sqlmodel import Field, SQLModel, Text, select, Column, String
-from app.business.encryption import decrypt_text, encrypt_text
+from sqlmodel import Field, SQLModel, Text, select, Column
 from app.db.database import get_session
 from app.models.mixins import TimestampMixin
+from app.exceptions.no_matching_key import NoMatchingKeyException
 
 
-class PKCESet(SQLModel, table=True):
+class PKCESet(TimestampMixin, SQLModel, table=True):
     """PKCE key set Model."""
 
     __tablename__ = "pkce_cache"
