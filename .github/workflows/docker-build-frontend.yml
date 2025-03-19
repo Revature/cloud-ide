@@ -23,7 +23,7 @@ jobs:
 
             - name: Build Docker Image
               id: build-image
-              run: docker build --file ./frontend/Dockerfile --tag ${{ env.ECR_REPOSITORY }}:latest --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} ./backend
+              run: docker build --file ./frontend/Dockerfile --tag ${{ env.ECR_REPOSITORY }}:latest --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} ./frontend
 
             - name: Configure AWS credentials
               id: aws-credentials
