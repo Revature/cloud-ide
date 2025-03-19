@@ -24,7 +24,7 @@ class RunnerStateUpdate(BaseModel):
 @router.post("/update_state", response_model=Runner)
 async def update_runner_state_endpoint(
     update: RunnerStateUpdate,
-    session: Session = Depends(get_session), 
+    session: Session = Depends(get_session),
     access_token: str = Header(..., alias="Access-Token")
 ):
     """

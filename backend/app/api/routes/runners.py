@@ -35,7 +35,7 @@ def read_runner(runner_id: int, session: Session = Depends(get_session), access_
 @router.put("/extend_session", response_model=str)
 def extend_runner_session(
     extend_req: ExtendSessionRequest,
-    session: Session = Depends(get_session), 
+    session: Session = Depends(get_session),
     access_token: str = Header(..., alias="Access-Token")
     ):
     """Update a runner's session_end by adding extra time."""
@@ -92,7 +92,7 @@ class TerminateRunnerRequest(BaseModel):
 @router.delete("/terminate", response_model=dict[str, str])
 async def terminate_runner(
     request: TerminateRunnerRequest,
-    session: Session = Depends(get_session), 
+    session: Session = Depends(get_session),
     access_token: str = Header(..., alias="Access-Token")
 ):
     """

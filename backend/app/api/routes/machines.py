@@ -30,7 +30,10 @@ def read_machine(machine_id: int, session: Session = Depends(get_session), acces
     return machine
 
 @router.patch("/{machine_id}", response_model=Machine)
-def update_machine(machine_id: int, updated_machine: Machine, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
+def update_machine(machine_id: int,
+                   updated_machine: Machine,
+                   session: Session = Depends(get_session),
+                   access_token: str = Header(..., alias="Access-Token")):
     """Update an existing Machine record."""
     machine = session.get(Machine, machine_id)
     if not machine:
