@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import {
@@ -25,7 +25,7 @@ const navItems: NavItem[] = [
   {
     icon: <ImageIcon />,
     name: "Images",
-    path: "/images",
+  path: "/images",
   },
   {
     icon: <RunnerIcon />,
@@ -64,14 +64,14 @@ const AppSidebar: React.FC = () => {
         <Link href="/">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-              <Image
+              <ProxyImage
                 className="dark:hidden"
                 src="/images/brand/revature-logo.svg"
                 alt="Logo"
                 width={150}
                 height={40}
               />
-              <Image
+              <ProxyImage
                 className="hidden dark:block"
                 src="/images/brand/revature-logo.svg"
                 alt="Logo"
@@ -80,7 +80,7 @@ const AppSidebar: React.FC = () => {
               />
             </>
           ) : (
-            <Image
+            <ProxyImage
               src="/images/brand/revature-logo.svg"
               alt="Logo"
               width={32}

@@ -16,7 +16,7 @@ def create_jwt_token(runner_ip: str, runner_id: int, user_ip: str) -> str:
     Returns:
         A JWT token string
     """
-    secret = os.getenv("JWT_SECRET", "default_secret")  # Use a secure secret in production!
+    secret = os.getenv("JWT_SECRET", "default_secret")
     algorithm = os.getenv("JWT_ALGORITHM", "HS256")
 
     payload = {
@@ -24,6 +24,7 @@ def create_jwt_token(runner_ip: str, runner_id: int, user_ip: str) -> str:
         "runner_id": runner_id,
         "user_ip": user_ip
     }
+
     token = jwt.encode(payload, secret, algorithm=algorithm)
     # jwt.encode may return a string or bytes depending on the version of PyJWT
     return token if isinstance(token, str) else token.decode("utf-8")

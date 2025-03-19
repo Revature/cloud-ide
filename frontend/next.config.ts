@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   basePath: '/ui', // Set the base path to /ui
+
+  images: {
+    path: '/ui/_next/image',
+    unoptimized: process.env.NODE_ENV !== 'production', // For development
+  },
   
   webpack(config) {
     config.module.rules.push({

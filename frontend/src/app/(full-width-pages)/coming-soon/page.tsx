@@ -1,7 +1,7 @@
 import CountdownTimer from "@/components/common/CountdownTimer";
 import GridShape from "@/components/common/GridShape";
 import { Metadata } from "next";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -21,14 +21,14 @@ export default function ComingSoon() {
       <div>
         <div className="mx-auto w-full max-w-[460px] text-center">
           <Link href="/" className="inline-block mb-6">
-            <Image
+            <ProxyImage
               className="dark:hidden"
               src="./images/logo/logo.svg"
               alt="Logo"
               width={154}
               height={32}
             />
-            <Image
+            <ProxyImage
               className="hidden dark:block"
               src="./images/logo/logo-dark.svg"
               alt="Logo"
