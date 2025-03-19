@@ -114,17 +114,17 @@ async def update_runner_state_endpoint(
             # Get detailed error information
             error_detail = str(e)
             logger.error(f"Error executing script for runner {runner.id}: {error_detail}")
-            
+
             # Format traceback as string if it exists
             import traceback
             tb_string = ""
             if hasattr(e, "__traceback__"):
                 tb_string = "".join(traceback.format_tb(e.__traceback__))
-            
+
             # Check for specific error types
             git_credentials_error = ".git-credentials: Is a directory" in error_detail
             specific_error = "Git credentials directory issue" if git_credentials_error else error_detail
-            
+
             # Log the error in history with enhanced details
             error_history = RunnerHistory(
                 runner_id=runner.id,

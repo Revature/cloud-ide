@@ -131,7 +131,7 @@ async def terminate_runner(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Script error during termination: {error_msg}"
                 )
-            
+
             # Instance stop errors
             elif result["details"].get("step") == "stop_instance" and "status" in result["details"] and result["details"]["status"] == "error":
                 error_msg = result["details"].get("message", "Unknown instance stop error")
@@ -139,7 +139,7 @@ async def terminate_runner(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Error stopping runner instance: {error_msg}"
                 )
-                
+
             # Instance termination errors
             elif result["details"].get("step") == "terminate_instance" and "status" in result["details"] and result["details"]["status"] == "error":
                 error_msg = result["details"].get("message", "Unknown instance termination error")
@@ -147,7 +147,7 @@ async def terminate_runner(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Error terminating runner instance: {error_msg}"
                 )
-        
+
         # Default error case
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

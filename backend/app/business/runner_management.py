@@ -297,7 +297,7 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
                 logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner.id}...")
                 # Run the script with empty env_vars since credentials should be retrieved from the environment
                 script_result = await run_script_for_runner("on_terminate", runner.id, env_vars={}, initiated_by=initiated_by)
-                
+
                 logger.info(f"[{initiated_by}] Script executed for runner {runner.id}")
                 logger.info(f"[{initiated_by}] Script result: {script_result}")
 
@@ -308,7 +308,7 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
 
                 # Format traceback as string
                 tb_string = "".join(traceback.format_tb(e.__traceback__)) if hasattr(e, "__traceback__") else ""
-                
+
                 # Create detailed history record for the script error
                 error_history = RunnerHistory(
                     runner_id=runner.id,
@@ -327,8 +327,8 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
 
                 # Add error information to result details
                 result["details"].append({
-                    "step": "script_execution", 
-                    "status": "error", 
+                    "step": "script_execution",
+                    "status": "error",
                     "message": f"Error executing on_terminate script: {error_detail}"
                 })
 
