@@ -69,31 +69,31 @@ async def route_guard(request: Request, call_next):
     """
     print(f'\n\nDEBUG PATH: {request.url.path}\n\n')
 
-    return await call_next(request)
+    # return await call_next(request)
 
-    # if request.url.path in UNSECURE_ROUTES:
-    #     return await call_next(request)
+    if request.url.path in UNSECURE_ROUTES:
+        return await call_next(request)
 
-    # access_token = request.headers.get("Access-Token")
-    # if not access_token:
-    #     return Response(status_code = 400, content = "Missing Access Token")
+    access_token = request.headers.get("Access-Token")
+    if not access_token:
+        return Response(status_code = 400, content = "Missing Access Token")
 
-    # try:
-    #     if not verify_token_exp(access_token):
-    #         refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
-    #         refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
-    #         access_token = refresh_response.access_token
-    #     response: Response = await call_next(request)
-    #     response.headers['Access-Token'] = access_token
-    #     return response
+    try:
+        if not verify_token_exp(access_token):
+            refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
+            refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
+            access_token = refresh_response.access_token
+        response: Response = await call_next(request)
+        response.headers['Access-Token'] = access_token
+        return response
 
-    # except exceptions.BadRequestException:
-    #     return Response(status_code = 400, content = "Invalid workos session")
-    # except NoMatchingKeyException as e:
-    #     return Response(status_code = 400, content = "Bad Token Header")
-    # except Exception as e:
-    #     print(e)
-    #     return Response(status_code = 500, content = "Something went wrong when verifying the access token")
+    except exceptions.BadRequestException:
+        return Response(status_code = 400, content = "Invalid workos session")
+    except NoMatchingKeyException as e:
+        return Response(status_code = 400, content = "Bad Token Header")
+    except Exception as e:
+        print(e)
+        return Response(status_code = 500, content = "Something went wrong when verifying the access token")
 
 app.include_router(api_router)
 

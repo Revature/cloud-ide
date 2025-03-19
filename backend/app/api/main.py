@@ -3,17 +3,15 @@
 from fastapi import APIRouter
 from app.api.routes import auth, users, runners, machines, images, app_requests, theia_requests  # Import your new images route
 
-API_ROOT_PATH: str = '/api'
-API_VERSION: str = '/v1'
+API_ROOT_PATH: str = '/api' #stripped out of request.url.path by fastAPI or by the proxy? (thinking fastAPI)
+API_VERSION: str = '/v1'#still present in the path, not for docs
 UNSECURE_ROUTES: tuple = (
-    f'{API_ROOT_PATH}{API_VERSION}/machine_auth/',
-    f'{API_ROOT_PATH}{API_VERSION}/',
-    f'{API_ROOT_PATH}/docs/',
-    f'{API_ROOT_PATH}/openapi.json/',
-    '/openapi.json/', #Proxy problems, need to iron out these paths
-    '/docs/', #Proxy problems, need to iron out these paths
     f'{API_VERSION}/machine_auth/',
-    '/'
+    f'{API_VERSION}/',
+    '/docs',
+    '/openapi.json',
+    '/docs/',
+    '/openapi.json/'
     )
 
 api_router = APIRouter()
