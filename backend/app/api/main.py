@@ -9,8 +9,8 @@ UNSECURE_ROUTES: tuple = (
     f'{API_ROOT_PATH}{API_VERSION}/machine_auth/',
     f'{API_ROOT_PATH}{API_VERSION}/',
     f'{API_ROOT_PATH}/docs/',
-    f'{API_ROOT_PATH}/openapi.json',
-    '/openapi.json', #Proxy problems, need to iron out these paths
+    f'{API_ROOT_PATH}/openapi.json/',
+    '/openapi.json/', #Proxy problems, need to iron out these paths
     '/docs/', #Proxy problems, need to iron out these paths
     f'{API_VERSION}/machine_auth/',
     '/'
