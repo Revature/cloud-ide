@@ -9,7 +9,7 @@ import Select from "@/components/form/Select";
 import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import Toggle from "@/components/form/input/Toggle";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 // Convert machine types for select dropdown
 const machineOptions = machineTypes.map(machine => ({
@@ -163,7 +163,7 @@ const EditImageForm: React.FC = () => {
               {formData.cloudConnector ? (
                 <div className="flex items-center gap-2 h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
                   <div className="w-6 h-6 relative flex-shrink-0">
-                  <Image 
+                  <ProxyImage
                     src={formData.cloudConnector.image} 
                     alt={formData.cloudConnector.name || "Cloud provider"}
                     width={32}
@@ -235,7 +235,7 @@ const EditImageForm: React.FC = () => {
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Provider</p>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="w-6 h-6 relative flex-shrink-0">
-                          <Image 
+                          <ProxyImage
                             src={formData.cloudConnector.image} 
                             alt={formData.cloudConnector.name || "Cloud provider"}
                             width={32}

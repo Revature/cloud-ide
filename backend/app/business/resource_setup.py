@@ -8,6 +8,7 @@ from app.models import User, Machine, Image, Script
 from datetime import datetime
 from app.models import CloudConnector
 import os
+from pathlib import Path
 
 @dataclass
 class Resources:
@@ -17,6 +18,41 @@ class Resources:
     machine_id: int
     image_identifier: str
     runner_pool_size: int
+
+def load_script_from_file(script_file):
+    """
+    Load script content from a file.
+
+    Args:
+        script_file: Relative path to the script file from the scripts directory
+
+    Returns:
+        String content of the script file
+    """
+    # Determine the paths relative to the current file (which is in business/resource_setup.py)
+    current_dir = Path(__file__).parent  # business/
+    parent_dir = current_dir.parent      # app/
+
+    # First try db/sample_scripts directory
+    scripts_dir = parent_dir / "db" / "sample_scripts"
+    script_path = scripts_dir / script_file
+
+    try:
+        with open(script_path) as f:
+            return f.read()
+    except FileNotFoundError:
+        # Fallback to business/scripts
+        business_scripts_dir = current_dir / "scripts"
+        script_path = business_scripts_dir / script_file
+        try:
+            with open(script_path) as f:
+                return f.read()
+        except FileNotFoundError:
+            # Final fallback to app/scripts
+            app_scripts_dir = parent_dir / "scripts"
+            script_path = app_scripts_dir / script_file
+            with open(script_path) as f:
+                return f.read()
 
 def setup_resources():
     """
@@ -39,7 +75,6 @@ def setup_resources():
             session.add(system_user)
             session.commit()
             session.refresh(system_user)
-
 
         # 2) Fetch or create default cloud connector.
         stmt_connector = select(CloudConnector).where(CloudConnector.provider == "aws")
@@ -140,123 +175,39 @@ def setup_resources():
         # 5) Fetch or create default Script for the "on_awaiting_client" event.
         stmt_script = select(Script).where(Script.event == "on_awaiting_client", Script.image_id == db_image.id)
         awaiting_client_script = session.exec(stmt_script).first()
+
+        # Load script content from external file
+        try:
+            on_awaiting_client_content = load_script_from_file("on_awaiting_client.sh")
+            on_terminate_content = load_script_from_file("on_terminate.sh")
+        except (FileNotFoundError, PermissionError) as e:
+            print(f"Warning: Could not load script files: {e}")
+            print("Creating scripts with embedded content")
+
+            # Fallback to embedded script content
+            on_awaiting_client_content = """#!/bin/bash"""
+            on_terminate_content = """#!/bin/bash"""
+
+        # Create or update the scripts
         if not awaiting_client_script:
             awaiting_client_script = Script(
                 name="Git Clone Script",
                 description="Clones a repository specified in runner env_data under 'repo_url'",
                 event="on_awaiting_client",
                 image_id=db_image.id,
-                script=r"""#!/bin/bash
-# Script to set up environment variables and clone repository
-# This should run during the "on_awaiting_client" phase
-
-set -e  # Exit on error
-echo "Setting up environment and cloning repository..."
-
-# Extract variables from script vars (directly in context)
-REPO_URL="{{ git_url }}"
-REPO_NAME="{{ git_repo_name }}"
-REPO_PATH="/home/ubuntu/$REPO_NAME"
-
-# Extract environment variables - keep as encoded where applicable
-GIT_ACCESS_TOKEN="{{ env_vars.git_access_token }}"
-HOST_B64="{{ env_vars.host }}"
-TRAINEE_ID_B64="{{ env_vars.trainee_coding_lab_id }}"
-PROJECT_TYPE_B64="{{ env_vars.project_type }}"
-TOKEN_B64="{{ env_vars.token }}"
-
-# Do not decode the Base64 values - use them as is
-HOST="$HOST_B64"
-TRAINEE_ID="$TRAINEE_ID_B64"
-PROJECT_TYPE="$PROJECT_TYPE_B64"
-TOKEN="$TOKEN_B64"
-
-# Create a file to store environment variables
-ENV_FILE="/home/ubuntu/.env_vars"
-GITHUB_ENV_FILE="/home/ubuntu/.github_env"
-
-# Write environment variables to file
-cat > "$ENV_FILE" << EOF
-export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
-export HOST="$HOST"
-export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
-export PROJECT_TYPE="$PROJECT_TYPE"
-export TOKEN="$TOKEN"
-EOF
-
-# Write GitHub specific variables to a separate file for git operations
-cat > "$GITHUB_ENV_FILE" << EOF
-export GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
-export GITHUB_USERNAME="git"
-EOF
-
-# Make the files readable only by owner
-chmod 600 "$ENV_FILE" "$GITHUB_ENV_FILE"
-
-# Source the environment variables for current session
-source "$ENV_FILE"
-source "$GITHUB_ENV_FILE"
-
-# Make variables available to system environment
-# Add to .bashrc for persistence across sessions
-cat >> /home/ubuntu/.bashrc << EOF
-
-# Environment variables for the project
-source "$ENV_FILE"
-source "$GITHUB_ENV_FILE"
-EOF
-
-# Export variables for immediate availability via printenv
-export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
-export HOST="$HOST"
-export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
-export PROJECT_TYPE="$PROJECT_TYPE"
-export TOKEN="$TOKEN"
-export GITHUB_TOKEN="$GIT_ACCESS_TOKEN"
-export GITHUB_USERNAME="git"
-
-# Add to system-wide environment if possible
-if [ -f "/etc/environment" ] && [ -w "/etc/environment" ]; then
-    # Try to append to /etc/environment if writable
-    grep -q "GIT_ACCESS_TOKEN" /etc/environment || echo "GIT_ACCESS_TOKEN=$GIT_ACCESS_TOKEN" | sudo tee -a /etc/environment > /dev/null
-    grep -q "HOST" /etc/environment || echo "HOST=$HOST" | sudo tee -a /etc/environment > /dev/null
-    grep -q "TRAINEE_CODING_LAB_ID" /etc/environment || echo "TRAINEE_CODING_LAB_ID=$TRAINEE_ID" | sudo tee -a /etc/environment > /dev/null
-    grep -q "PROJECT_TYPE" /etc/environment || echo "PROJECT_TYPE=$PROJECT_TYPE" | sudo tee -a /etc/environment > /dev/null
-    grep -q "TOKEN" /etc/environment || echo "TOKEN=$TOKEN" | sudo tee -a /etc/environment > /dev/null
-elif [ -d "/etc/profile.d" ]; then
-    # Fallback to profile.d
-    sudo tee /etc/profile.d/cloudide.sh > /dev/null << EOF
-export GIT_ACCESS_TOKEN="$GIT_ACCESS_TOKEN"
-export HOST="$HOST"
-export TRAINEE_CODING_LAB_ID="$TRAINEE_ID"
-export PROJECT_TYPE="$PROJECT_TYPE"
-export TOKEN="$TOKEN"
-EOF
-    sudo chmod +x /etc/profile.d/cloudide.sh
-fi
-
-# Clone the repository
-echo "Cloning repository from $REPO_URL..."
-# Use the token for authentication
-AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GITHUB_TOKEN@/")
-git clone "$AUTH_REPO_URL" "$REPO_PATH"
-
-# Instead of creating folders in the repo, we'll ensure the environment variables
-# are available system-wide and in the user's home directory
-
-echo "Environment setup and repository clone completed successfully!"
-
-# Verify environment variables are set correctly
-echo "Verifying environment variables:"
-printenv | grep -E 'GIT_ACCESS_TOKEN|HOST|TRAINEE_CODING_LAB_ID|PROJECT_TYPE|TOKEN|GITHUB_TOKEN'
-
-exit 0""",
+                script=on_awaiting_client_content,
                 created_by="system",
                 modified_by="system"
             )
             session.add(awaiting_client_script)
             session.commit()
             session.refresh(awaiting_client_script)
+        else:
+            # Update existing script with new content
+            awaiting_client_script.script = on_awaiting_client_content
+            awaiting_client_script.modified_by = "system"
+            session.add(awaiting_client_script)
+            session.commit()
 
         # Add the same script for ARM image if it doesn't exist
         if arm_image:
@@ -269,15 +220,21 @@ exit 0""",
                     description="Clones a repository specified in runner env_data under 'repo_url' for ARM instances",
                     event="on_awaiting_client",
                     image_id=arm_image.id,
-                    script=awaiting_client_script.script,  # Reuse the same script content
+                    script=on_awaiting_client_content,  # Use the loaded script content
                     created_by="system",
                     modified_by="system"
                 )
                 session.add(arm_awaiting_client_script)
                 session.commit()
                 session.refresh(arm_awaiting_client_script)
+            else:
+                # Update existing script with new content
+                arm_awaiting_client_script.script = on_awaiting_client_content
+                arm_awaiting_client_script.modified_by = "system"
+                session.add(arm_awaiting_client_script)
+                session.commit()
 
-        # 5) Fetch or create default Script for the "on_terminate" event
+        # Fetch or create default Script for the "on_terminate" event
         stmt_script = select(Script).where(Script.event == "on_terminate", Script.image_id == db_image.id)
         termination_script = session.exec(stmt_script).first()
         if not termination_script:
@@ -286,89 +243,19 @@ exit 0""",
                 description="Commits and pushes changes to GitHub on termination",
                 event="on_terminate",
                 image_id=db_image.id,
-                script=r"""#!/bin/bash
-# Script to commit and push changes on runner termination
-
-set -e  # Exit on error
-echo "Starting GitHub save operations..."
-
-# Extract variables from script vars (directly in context)
-REPO_NAME="{{ git_repo_name }}"
-REPO_URL="{{ git_url }}"
-REPO_PATH="/home/ubuntu/$REPO_NAME"
-
-# Load environment variables that were set during on_awaiting_client
-# Try different sources in order of preference
-if [ -f "/home/ubuntu/.github_env" ]; then
-    echo "Loading GitHub credentials from .github_env file..."
-    source /home/ubuntu/.github_env
-elif grep -q "GITHUB_TOKEN" /home/ubuntu/.bashrc; then
-    echo "Loading GitHub credentials from .bashrc file..."
-    GITHUB_TOKEN=$(grep "GITHUB_TOKEN" /home/ubuntu/.bashrc | cut -d'=' -f2 | tr -d '"')
-    GITHUB_USERNAME=$(grep "GITHUB_USERNAME" /home/ubuntu/.bashrc | cut -d'=' -f2 | tr -d '"')
-else
-    echo "No GitHub credentials found in environment files."
-fi
-
-# Set a default commit message
-COMMIT_MESSAGE="Auto-save from cloud IDE on $(date +'%Y-%m-%d %H:%M:%S')"
-
-# Check if required variables are set
-if [ -z "$GITHUB_TOKEN" ] || [ -z "$GITHUB_USERNAME" ]; then
-    echo "ERROR: GitHub credentials not found in environment variables. Skipping git operations."
-    exit 0  # Exit without error to allow runner termination to proceed
-fi
-
-# Check if repository path exists
-if [ ! -d "$REPO_PATH" ]; then
-    echo "ERROR: Repository directory not found at $REPO_PATH. Skipping git operations."
-    exit 0
-fi
-
-cd "$REPO_PATH" || exit 1
-
-# Check if there are any changes to commit
-if [ -z "$(git status --porcelain)" ]; then
-    echo "No changes to commit. Exiting."
-    exit 0
-fi
-
-# Configure the repository with authentication
-echo "Configuring repository with authentication..."
-AUTH_REMOTE_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GITHUB_TOKEN@/")
-
-# Ensure the origin remote is set correctly with authentication
-git remote remove origin 2>/dev/null || true
-git remote add origin "$AUTH_REMOTE_URL"
-
-# Add all changes
-git add --all
-
-# Commit changes
-git commit -m "$COMMIT_MESSAGE"
-
-# Get current branch name
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# Set up tracking for the current branch
-git branch --set-upstream-to=origin/$CURRENT_BRANCH $CURRENT_BRANCH 2>/dev/null || true
-
-# Push to the repository (try current branch first, then common branches)
-echo "Pushing changes to repository..."
-git push origin $CURRENT_BRANCH 2>/dev/null ||
-git push origin main 2>/dev/null ||
-git push origin master 2>/dev/null ||
-git push -u origin HEAD
-
-echo "Successfully pushed changes to repository"
-echo "GitHub operations completed successfully."
-exit 0""",
+                script=on_terminate_content,
                 created_by="system",
                 modified_by="system"
             )
             session.add(termination_script)
             session.commit()
             session.refresh(termination_script)
+        else:
+            # Update existing script with new content
+            termination_script.script = on_terminate_content
+            termination_script.modified_by = "system"
+            session.add(termination_script)
+            session.commit()
 
         # Add the same termination script for ARM image if it doesn't exist
         if arm_image:
@@ -381,13 +268,19 @@ exit 0""",
                     description="Commits and pushes changes to GitHub on termination for ARM instances",
                     event="on_terminate",
                     image_id=arm_image.id,
-                    script=termination_script.script,  # Reuse the same script content
+                    script=on_terminate_content,  # Use the loaded script content
                     created_by="system",
                     modified_by="system"
                 )
                 session.add(arm_termination_script)
                 session.commit()
                 session.refresh(arm_termination_script)
+            else:
+                # Update existing script with new content
+                arm_termination_script.script = on_terminate_content
+                arm_termination_script.modified_by = "system"
+                session.add(arm_termination_script)
+                session.commit()
 
         return Resources(
             system_user_email=system_user.email,

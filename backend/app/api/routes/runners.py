@@ -88,7 +88,7 @@ class TerminateRunnerRequest(BaseModel):
 
     runner_id: int
 
-@router.post("/terminate", response_model=dict[str, str])
+@router.delete("/terminate", response_model=dict[str, str])
 async def terminate_runner(
     request: TerminateRunnerRequest,
     session: Session = Depends(get_session)
@@ -120,16 +120,43 @@ async def terminate_runner(
     # Call the terminate_runner function from runner_management.py
     result = await terminate_runner_function(request.runner_id, initiated_by="manual_termination_endpoint")
 
+    # Check for various error conditions with specific messages
     if result["status"] == "error":
+        # Check for specific error types in the details
+        if "details" in result and isinstance(result["details"], dict):
+            # Script execution errors
+            if result["details"].get("step") == "script_execution" and "status" in result["details"] and result["details"]["status"] == "error":
+                error_msg = result["details"].get("message", "Unknown script error")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Script error during termination: {error_msg}"
+                )
+
+            # Instance stop errors
+            elif result["details"].get("step") == "stop_instance" and "status" in result["details"] and result["details"]["status"] == "error":
+                error_msg = result["details"].get("message", "Unknown instance stop error")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error stopping runner instance: {error_msg}"
+                )
+
+            # Instance termination errors
+            elif result["details"].get("step") == "terminate_instance" and "status" in result["details"] and result["details"]["status"] == "error":
+                error_msg = result["details"].get("message", "Unknown instance termination error")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error terminating runner instance: {error_msg}"
+                )
+
+        # Default error case
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result["message"]
+            detail=result.get("message", "Unknown error during runner termination")
         )
 
     # If the image has a runner pool, launch a new runner to replace this one
     if needs_replenishing and image_identifier:
         try:
-
             # Launch a new runner asynchronously
             asyncio.create_task(launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
             return {"status": "success", "message": "Runner terminated successfully and replacement launched"}

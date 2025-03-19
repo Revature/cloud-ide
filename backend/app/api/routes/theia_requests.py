@@ -109,28 +109,41 @@ async def update_runner_state_endpoint(
             # For on_awaiting_client, we need env_vars which we don't have here
             # For other events, empty env_vars is fine
             script_result = await run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
-
-            # Create a new history record for script execution instead of updating the existing one
-            script_history = RunnerHistory(
-                runner_id=runner.id,
-                event_name=f"script_{script_event}",
-                event_data={"script_result": script_result},
-                created_by="system",
-                modified_by="system"
-            )
-            session.add(script_history)
-            session.commit()
+            logger.info(f"Script executed for runner {runner.id}: {script_result}")
         except Exception as e:
-            logger.error(f"Error executing script for runner {runner.id}: {e}")
-            # Log the error in history
+            # Get detailed error information
+            error_detail = str(e)
+            logger.error(f"Error executing script for runner {runner.id}: {error_detail}")
+
+            # Format traceback as string if it exists
+            import traceback
+            tb_string = ""
+            if hasattr(e, "__traceback__"):
+                tb_string = "".join(traceback.format_tb(e.__traceback__))
+
+            # Check for specific error types
+            git_credentials_error = ".git-credentials: Is a directory" in error_detail
+            specific_error = "Git credentials directory issue" if git_credentials_error else error_detail
+
+            # Log the error in history with enhanced details
             error_history = RunnerHistory(
                 runner_id=runner.id,
                 event_name=f"script_error_{script_event}",
-                event_data={"error": str(e)},
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "error": error_detail,
+                    "specific_error": specific_error,
+                    "git_credentials_error": git_credentials_error,
+                    "traceback": tb_string,
+                    "initiated_by": "update_runner_state_endpoint"
+                },
                 created_by="system",
                 modified_by="system"
             )
             session.add(error_history)
             session.commit()
+
+            # Continue execution despite script error
+            logger.info(f"Continuing with runner state update despite script error for runner {runner.id}")
 
     return runner

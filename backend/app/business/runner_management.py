@@ -3,6 +3,7 @@
 import uuid
 import asyncio
 from datetime import datetime, timedelta
+from app.models.key import Key
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
@@ -10,6 +11,8 @@ from app.models import Machine, Image, Runner, CloudConnector
 from app.business.cloud_services.factory import get_cloud_service
 from app.tasks.starting_runner import update_runner_state
 from app.business.key_management import get_daily_key
+from app.db import image_repository, cloud_connector_repository, machine_repository, runner_repository
+from app.models.runner_history import RunnerHistory
 
 logger = get_task_logger(__name__)
 
@@ -26,16 +29,13 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     Each new runner is associated with today's key.
     Returns a list of launched instance IDs.
     """
-    from app.models.runner_history import RunnerHistory
-
     launched_instance_ids = []
     launch_start_time = datetime.utcnow()
 
     # Open one DB session for reading resources.
     with Session(engine) as session:
         # 1) Fetch the Image.
-        stmt_image = select(Image).where(Image.identifier == image_identifier)
-        db_image = session.exec(stmt_image).first()
+        db_image : Image = image_repository.find_image_by_identifier(session, image_identifier)
         if not db_image:
             logger.error(f"[{initiated_by}] Image not found: {image_identifier}")
             raise Exception("Image not found")
@@ -45,26 +45,24 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
             logger.error(f"[{initiated_by}] No machine associated with image {db_image.id}")
             raise Exception("No machine associated with the image")
 
-        stmt_machine = select(Machine).where(Machine.id == db_image.machine_id)
-        db_machine = session.exec(stmt_machine).first()
+        db_machine = machine_repository.find_machine_by_id(session, db_image.machine_id)
         if not db_machine:
             logger.error(f"[{initiated_by}] Machine not found: {db_image.machine_id}")
             raise Exception("Machine not found")
 
         # 3) Get the cloud connector
-        cloud_connector = session.get(CloudConnector, db_image.cloud_connector_id)
-        if not cloud_connector:
+        db_cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, db_image.cloud_connector_id)
+        if not db_cloud_connector:
             logger.error(f"[{initiated_by}] Cloud connector not found: {db_image.cloud_connector_id}")
             raise Exception("Cloud connector not found")
 
         # 4) Get the appropriate cloud service
-        cloud_service = get_cloud_service(cloud_connector)
-
+        cloud_service = get_cloud_service(db_cloud_connector)
         logger.info(f"[{initiated_by}] Launching {runner_count} runners for image {image_identifier} on machine {db_machine.identifier}.")
 
     # 5) Get or create today's key.
     try:
-        key_record = await get_daily_key(cloud_connector_id=cloud_connector.id)
+        key_record = await get_daily_key(cloud_connector_id=db_cloud_connector.id)
         if key_record is None:
             logger.error(f"[{initiated_by}] Key not found or created for cloud connector {cloud_connector.id}")
             raise Exception("Key not found or created")
@@ -88,51 +86,16 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
 
         logger.info(f"[{initiated_by}] Successfully launched {len(launched_instance_ids)} instances: {launched_instance_ids}")
     except Exception as e:
+        # TODO: Refactor to handle a case where only one instance fails to launch, as opposed to
+        # all-or-nothing
         logger.error(f"[{initiated_by}] Error launching instances: {e!s}")
         raise
 
     # 7) Create Runner records (URL will be updated later by a background job).
     created_runner_ids = []
     for instance_id in instance_ids:
-        with Session(engine) as session:
-            new_runner = Runner(
-                machine_id=db_machine.id,
-                image_id=db_image.id,
-                user_id=None,           # No user assigned yet.
-                key_id=key_record.id,     # Associate the runner with today's key.
-                state="runner_starting",  # State will update once instance is running.
-                url="",                 # Empty URL; background task will update it.
-                token="",
-                identifier=instance_id,
-                external_hash=uuid.uuid4().hex,
-                session_start=datetime.utcnow(),
-                session_end=datetime.utcnow() + timedelta(minutes=10)
-            )
-            session.add(new_runner)
-            session.commit()
-            session.refresh(new_runner)
-            created_runner_ids.append(new_runner.id)
-
-            # Create a history record for the new runner
-            runner_creation_record = RunnerHistory(
-                runner_id=new_runner.id,
-                event_name="runner_created",
-                event_data={
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "image_id": db_image.id,
-                    "machine_id": db_machine.id,
-                    "instance_id": instance_id,
-                    "state": "runner_starting",
-                    "initiated_by": initiated_by
-                },
-                created_by="system",
-                modified_by="system"
-            )
-            session.add(runner_creation_record)
-            session.commit()
-
-            # Queue a Celery task to update runner state when instance is ready.
-            update_runner_state.delay(new_runner.id, instance_id)
+        new_runner : Runner = launch_runner(db_machine, db_image, key_record, instance_id, initiated_by)
+        created_runner_ids.append(new_runner.id)
 
     # Log summary information instead of creating a system-level history record
     duration_seconds = (datetime.utcnow() - launch_start_time).total_seconds()
@@ -140,6 +103,46 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
                 f"Duration: {duration_seconds:.2f}s, Runner IDs: {created_runner_ids}")
 
     return launched_instance_ids
+
+def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
+    """Launch a single runner and produce a record for it."""
+    with Session(engine) as session:
+        new_runner = Runner(
+            machine_id=machine.id,
+            image_id=image.id,
+            user_id=None,           # No user assigned yet.
+            key_id=key.id,     # Associate the runner with today's key.
+            state="runner_starting",  # State will update once instance is running.
+            url="",                 # Empty URL; background task will update it.
+            token="",
+            identifier=instance_id,
+            external_hash=uuid.uuid4().hex,
+            session_start=datetime.utcnow(),
+            session_end=datetime.utcnow() + timedelta(minutes=10)
+        )
+
+        new_runner = runner_repository.add_runner(session, new_runner)
+
+        # Create a history record for the new runner
+        runner_creation_record = RunnerHistory(
+            runner_id=new_runner.id,
+            event_name="runner_created",
+            event_data={
+                "timestamp": datetime.utcnow().isoformat(),
+                "image_id": image.id,
+                "machine_id": machine.id,
+                "instance_id": instance_id,
+                "state": "runner_starting",
+                "initiated_by": initiated_by
+            },
+            created_by="system",
+            modified_by="system"
+        )
+        session.add(runner_creation_record)
+        session.commit()
+        # Queue a Celery task to update runner state when instance is ready.
+        update_runner_state.delay(new_runner.id, instance_id)
+        return new_runner
 
 # Modify terminate_runner in app/business/runner_management.py
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
@@ -209,7 +212,6 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
         logger.error(f"[{initiated_by}] Failed to terminate runner {runner_id}")
         return {"status": "error", "message": "Failed to terminate runner", "details": results[0] if results else None, "initiated_by": initiated_by}
 
-
 async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "system"):
     """
     Stop and then terminate all instances given in launched_instance_ids.
@@ -224,6 +226,7 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
     """
     from app.business.script_management import run_script_for_runner  # Import here to avoid circular imports
     from app.models.runner_history import RunnerHistory
+    import traceback
 
     results = []
     for instance_id in launched_instance_ids:
@@ -290,35 +293,47 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
 
             logger.info(f"[{initiated_by}] Runner {runner.id} state updated from {old_state} to terminating")
 
-            # Execute the on_terminate script if the runner is in a state that requires cleanup
-            if old_state not in ["ready", "runner_starting", "app_starting", "terminated", "closed"]:
-                try:
-                    logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner.id}...")
-                    # Run the script with empty env_vars since credentials should be retrieved from the environment
-                    script_result = await run_script_for_runner("on_terminate", runner.id, env_vars={}, initiated_by=initiated_by)
+            try:
+                logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner.id}...")
+                # Run the script with empty env_vars since credentials should be retrieved from the environment
+                script_result = await run_script_for_runner("on_terminate", runner.id, env_vars={}, initiated_by=initiated_by)
 
-                    logger.info(f"[{initiated_by}] Script executed for runner {runner.id}")
-                    result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
-                except Exception as e:
-                    error_message = f"Error executing on_terminate script for runner {runner.id}: {e!s}"
-                    logger.error(f"[{initiated_by}] {error_message}")
+                logger.info(f"[{initiated_by}] Script executed for runner {runner.id}")
+                logger.info(f"[{initiated_by}] Script result: {script_result}")
 
-                    # Create history record for script error
-                    error_history = RunnerHistory(
-                        runner_id=runner.id,
-                        event_name="script_error_on_terminate",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "error": str(e),
-                            "initiated_by": initiated_by
-                        },
-                        created_by="system",
-                        modified_by="system"
-                    )
-                    session.add(error_history)
-                    session.commit()
+                result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
+            except Exception as e:
+                error_detail = str(e)
+                logger.error(f"[{initiated_by}] Error executing on_terminate script for runner {runner.id}: {error_detail}")
 
-                    result["details"].append({"step": "script_execution", "status": "error", "message": error_message})
+                # Format traceback as string
+                tb_string = "".join(traceback.format_tb(e.__traceback__)) if hasattr(e, "__traceback__") else ""
+
+                # Create detailed history record for the script error
+                error_history = RunnerHistory(
+                    runner_id=runner.id,
+                    event_name="script_error_on_terminate",
+                    event_data={
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "error": error_detail,
+                        "traceback": tb_string,
+                        "initiated_by": initiated_by
+                    },
+                    created_by="system",
+                    modified_by="system"
+                )
+                session.add(error_history)
+                session.commit()
+
+                # Add error information to result details
+                result["details"].append({
+                    "step": "script_execution",
+                    "status": "error",
+                    "message": f"Error executing on_terminate script: {error_detail}"
+                })
+
+                # Continue with termination despite script error
+                logger.info(f"[{initiated_by}] Continuing with termination despite script error")
 
         # Stop instance and update history
         try:

@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "../../ui/table";
 import Button from "../../ui/button/Button";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import { useRouter } from "next/navigation";
 import Toggle from "@/components/form/input/Toggle";
 import { useCloudConnectors } from "@/context/CloudConnectorsContext";
@@ -197,7 +197,7 @@ export default function CloudConnectorsTable() {
                       <TableCell className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 flex items-center justify-center">
-                            <Image
+                            <ProxyImage
                               width={32}
                               height={32}
                               src={item.image}
