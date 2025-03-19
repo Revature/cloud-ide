@@ -183,7 +183,7 @@ async def get_ready_runner(
 
     # Execute the script for the "awaiting_client" event, passing env_vars separately
     from app.models.runner_history import RunnerHistory
-    
+
     try:
         await execute_awaiting_client_script(runner.id, env_vars, session)
 
@@ -207,7 +207,7 @@ async def get_ready_runner(
     except Exception as e:
         error_detail = str(e)
         print(f"Error setting up runner {runner.id}: {error_detail}")
-        
+
         # Parse for specific error message about .git-credentials
         git_credentials_error = False
         if ".git-credentials: Is a directory" in error_detail:
@@ -215,13 +215,13 @@ async def get_ready_runner(
             specific_error = "Git credentials directory issue: The .git-credentials path exists as a directory instead of a file"
         else:
             specific_error = error_detail
-        
+
         # Format traceback as string if it exists
         import traceback
         tb_string = ""
         if hasattr(e, "__traceback__"):
             tb_string = "".join(traceback.format_tb(e.__traceback__))
-        
+
         # Create a detailed history record for the script error
         error_history = RunnerHistory(
             runner_id=runner.id,
@@ -249,4 +249,4 @@ async def get_ready_runner(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error #1 (Script Error): Environment setup failed. Please report this to your administrator."
-        )
+        ) from e

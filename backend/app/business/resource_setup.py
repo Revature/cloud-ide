@@ -22,36 +22,36 @@ class Resources:
 def load_script_from_file(script_file):
     """
     Load script content from a file.
-    
+
     Args:
         script_file: Relative path to the script file from the scripts directory
-        
+
     Returns:
         String content of the script file
     """
     # Determine the paths relative to the current file (which is in business/resource_setup.py)
     current_dir = Path(__file__).parent  # business/
     parent_dir = current_dir.parent      # app/
-    
+
     # First try db/sample_scripts directory
     scripts_dir = parent_dir / "db" / "sample_scripts"
     script_path = scripts_dir / script_file
-    
+
     try:
-        with open(script_path, 'r') as f:
+        with open(script_path) as f:
             return f.read()
     except FileNotFoundError:
         # Fallback to business/scripts
         business_scripts_dir = current_dir / "scripts"
         script_path = business_scripts_dir / script_file
         try:
-            with open(script_path, 'r') as f:
+            with open(script_path) as f:
                 return f.read()
         except FileNotFoundError:
             # Final fallback to app/scripts
             app_scripts_dir = parent_dir / "scripts"
             script_path = app_scripts_dir / script_file
-            with open(script_path, 'r') as f:
+            with open(script_path) as f:
                 return f.read()
 
 def setup_resources():
@@ -175,7 +175,7 @@ def setup_resources():
         # 5) Fetch or create default Script for the "on_awaiting_client" event.
         stmt_script = select(Script).where(Script.event == "on_awaiting_client", Script.image_id == db_image.id)
         awaiting_client_script = session.exec(stmt_script).first()
-        
+
         # Load script content from external file
         try:
             on_awaiting_client_content = load_script_from_file("on_awaiting_client.sh")
@@ -183,7 +183,7 @@ def setup_resources():
         except (FileNotFoundError, PermissionError) as e:
             print(f"Warning: Could not load script files: {e}")
             print("Creating scripts with embedded content")
-            
+
             # Fallback to embedded script content
             on_awaiting_client_content = """#!/bin/bash"""
             on_terminate_content = """#!/bin/bash"""
