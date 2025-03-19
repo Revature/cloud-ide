@@ -98,7 +98,7 @@ services:
     build: ./proxy
     container_name: nginx
     ports:
-      - "${PORT}:443"
+      - "${PORT}:80"
     env_file:
       - .env
     volumes:
