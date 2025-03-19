@@ -37,10 +37,6 @@ def password_authentication(auth: WorkOSAuthDTO):
     workos_session.set_decrypted_access_token(workos_auth_response.access_token)
     workos_session.set_decrypted_refresh_token(workos_auth_response.refresh_token)
 
-    print(f'\n\nStoring session: {workos_session}')
-    print(f'\n\nUnencrypted token: {workos_auth_response.access_token}')
-    print(f'\n\nWith encrypted token: {workos_session.encrypted_access_token}')
-
     create_workos_session(workos_session)
 
     return workos_auth_response.access_token
