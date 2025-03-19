@@ -1,9 +1,9 @@
 import GridShape from "@/components/common/GridShape";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import Link from "next/link";
 import React from "react";
 
-export default function NotFound() {
+export default function NotFound() {  
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1">
       <GridShape />
@@ -12,14 +12,14 @@ export default function NotFound() {
           ERROR
         </h1>
 
-        <Image
+        <ProxyImage
           src="/images/error/404.svg"
           alt="404"
           className="dark:hidden"
           width={472}
           height={152}
         />
-        <Image
+        <ProxyImage
           src="/images/error/404-dark.svg"
           alt="404"
           className="hidden dark:block"
