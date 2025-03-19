@@ -5,7 +5,6 @@ from sqlmodel import Session, select
 from pydantic import BaseModel
 from typing import Any
 from datetime import datetime, timedelta
-from app.api.authentication import token_authentication
 from app.db.database import get_session, engine
 from app.models.runner import Runner
 from app.models.user import User
@@ -44,12 +43,6 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-    try:
-        response.headers['Access-Token'] = token_authentication(access_token)
-    except exceptions.BadRequestException:
-        response.status_code = 401
-        return {"error": "Unauthorized"}
-
     max_session_minutes = 180
     # Retrieve the image record.
     stmt_image = select(Image).where(Image.id == request.image_id)

@@ -1,4 +1,5 @@
 """Users API routes."""
+import json
 import os
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
@@ -19,9 +20,9 @@ workos = WorkOSClient(api_key=os.getenv("WORKOS_API_KEY"), client_id=os.getenv("
 def read_users(session: Session = Depends(get_session)):
     """Retrieve all users."""
     users = session.exec(select(User)).all()
-    return users
+    return users #This might work through the middleware
 
-@router.get("/{user_id}", response_model=User)
+@router.get("/{user_id}")
 def read_user(user_id: int, session: Session = Depends(get_session)):
     """Retrieve a single user by ID."""
     user = session.get(User, user_id)
@@ -30,7 +31,7 @@ def read_user(user_id: int, session: Session = Depends(get_session)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    return user
+    return Response(status_code=status.HTTP_200_OK, content=json.dumps(user))
 
 @router.post("/", response_model=User)
 def create_user(user_create: UserCreate, session: Session = Depends(get_session)):
@@ -48,12 +49,7 @@ def create_user(user_create: UserCreate, session: Session = Depends(get_session)
         }
         user.workos_id = workos.user_management.create_user(**create_user_payload).id
     except Exception as e:
-        return {
-            "status": "error",
-            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "error": str(e),
-            "error_type": type(e).__name__
-        }
+        return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content = '{"response": "Unable to create user"}')
 
     session.add(user)
     session.commit()
@@ -79,9 +75,9 @@ def create_user(user_create: UserCreate, session: Session = Depends(get_session)
     session.refresh(user_role)
     session.refresh(user)
 
-    return user
+    return Response(status_code=status.HTTP_200_OK, content=json.dumps(user))
 
-@router.patch("/{user_id}", response_model=User)
+@router.patch("/{user_id}")
 def update_user(user_id: int, user: User, session: Session = Depends(get_session)):
     """Update an existing user, return the updated user."""
     db_user = session.get(User, user_id)
@@ -96,9 +92,9 @@ def update_user(user_id: int, user: User, session: Session = Depends(get_session
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
-    return db_user
+    return Response(status_code=status.HTTP_200_OK, content=json.dumps(db_user))
 
-@router.delete("/{user_id}", response_model=User)
+@router.delete("/{user_id}")
 def delete_user(user_id: int, session: Session = Depends(get_session)):
     """Delete a user, return the deleted user."""
     user = session.get(User, user_id)
@@ -109,4 +105,4 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         )
     session.delete(user)
     session.commit()
-    return user
+    return Response(status_code=status.HTTP_200_OK, content=json.dumps(user))
