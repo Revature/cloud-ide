@@ -75,7 +75,7 @@ def create_user(user_create: UserCreate, session: Session = Depends(get_session)
     session.refresh(user_role)
     session.refresh(user)
 
-    return Response(status_code=status.HTTP_200_OK, content=json.dumps(user))
+    return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
 
 @router.patch("/{user_id}")
 def update_user(user_id: int, user: User, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
@@ -92,7 +92,7 @@ def update_user(user_id: int, user: User, session: Session = Depends(get_session
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
-    return Response(status_code=status.HTTP_200_OK, content=json.dumps(db_user))
+    return Response(status_code=status.HTTP_200_OK, content=db_user.model_dump_json())
 
 @router.delete("/{user_id}")
 def delete_user(user_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
@@ -105,4 +105,4 @@ def delete_user(user_id: int, session: Session = Depends(get_session), access_to
         )
     session.delete(user)
     session.commit()
-    return Response(status_code=status.HTTP_200_OK, content=json.dumps(user))
+    return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
