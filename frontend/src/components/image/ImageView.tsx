@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useImages, VMImage } from '@/context/ImagesContext';
 import Button from "../../components/ui/button/Button";
-import Image from 'next/image';
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
@@ -157,7 +157,7 @@ const ViewImage: React.FC = () => {
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
                   <div className="flex items-center">
                     <div className="w-8 h-8 mr-3">
-                      <Image 
+                      <ProxyImage
                         src={image.cloudConnector.image} 
                         alt={image.cloudConnector.name}
                         width={32}

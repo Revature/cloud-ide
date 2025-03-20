@@ -11,6 +11,7 @@ import Button from "../../ui/button/Button";
 import { useRouter } from "next/navigation";
 import Toggle from "@/components/form/input/Toggle";
 import { useImages } from "@/context/ImagesContext";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 export default function ImagesTable() {
   // Get images from context
@@ -221,9 +222,11 @@ export default function ImagesTable() {
                         {item.cloudConnector ? (
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 relative flex-shrink-0">
-                              <img 
-                                src={item.cloudConnector.image} 
-                                alt={item.cloudConnector.name}
+                              <ProxyImage
+                                src={item.cloudConnector.image}
+                                alt={item.cloudConnector.name || 'Cloud provider'}
+                                width={32}
+                                height={32}
                                 className="w-full h-full object-contain"
                               />
                             </div>

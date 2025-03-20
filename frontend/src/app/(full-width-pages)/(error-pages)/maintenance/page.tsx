@@ -1,6 +1,6 @@
 import GridShape from "@/components/common/GridShape";
 import { Metadata } from "next";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import Link from "next/link";
 import React from "react";
 
@@ -18,14 +18,14 @@ export default function Maintenance() {
       <div>
         <div className="mx-auto w-full max-w-[274px] text-center sm:max-w-[555px]">
           <div className="mx-auto mb-10 w-full max-w-[155px] text-center sm:max-w-[204px]">
-            <Image
+            <ProxyImage
               src="/images/error/maintenance.svg"
               alt="maintenance"
               className="dark:hidden"
               width={205}
               height={205}
             />
-            <Image
+            <ProxyImage
               src="/images/error/maintenance-dark.svg"
               alt="maintenance"
               className="hidden dark:block"

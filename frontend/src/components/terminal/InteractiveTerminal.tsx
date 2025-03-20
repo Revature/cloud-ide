@@ -22,6 +22,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useXtermModules } from '@/hooks/useXterm';
 import useResizeObserver from '@/hooks/useResizeObserver';
 import FallbackTerminal from './FallbackTerminal';
+import type { Terminal } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
 
 interface InteractiveTerminalProps {
   logs: string[];
@@ -37,10 +39,11 @@ const InteractiveTerminal: React.FC<InteractiveTerminalProps> = ({
   allowInput = true 
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
-  const [terminal, setTerminal] = useState<any | null>(null);
-  const [fitAddon, setFitAddon] = useState<any | null>(null);
+  const [terminal, setTerminal] = useState<Terminal | null>(null);
+  const [fitAddon, setFitAddon] = useState<FitAddon | null>(null);
   const { modules, loading, error } = useXtermModules();
   const [isClient, setIsClient] = useState(false);
+  const [lastDisplayedLogIndex, setLastDisplayedLogIndex] = useState(-1);
   
   // Use the resize observer to automatically resize the terminal
   const resizeObserver = useResizeObserver<HTMLDivElement>(() => {
@@ -68,7 +71,7 @@ const InteractiveTerminal: React.FC<InteractiveTerminalProps> = ({
     if (!isClient) return;
     
     // Check if modules are loaded and terminal element exists
-    if (terminalRef.current && modules.xterm && !loading && !error) {
+    if (terminalRef.current && modules.xterm && !loading && !error && modules.fitAddon) {
       // Clean up any previous terminal instance
       if (terminal) {
         terminal.dispose();
@@ -125,16 +128,13 @@ const InteractiveTerminal: React.FC<InteractiveTerminalProps> = ({
         }, 100);
 
         // Setup key event handling
-        newTerminal.onKey(e => {
+        newTerminal.onKey((e: { key: string; domEvent: KeyboardEvent }) => {
           if (!inputEnabled) return;
 
           const ev = e.domEvent;
           const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
 
           if (ev.keyCode === 13) { // Enter key
-            // Log the full command with prompt for history display
-            const fullCommandDisplay = `${promptText}${currentCommand}`;
-            
             // First, write the current command to the terminal
             newTerminal.write('\r\n');
             
@@ -241,10 +241,10 @@ const InteractiveTerminal: React.FC<InteractiveTerminalProps> = ({
         console.error('Error initializing terminal:', error);
       }
     }
-  }, [modules, loading, error, isClient, onCommand]);
+  }, [modules, loading, error, isClient, onCommand, commandHistory, currentCommand, historyIndex, inputEnabled, terminal]);
 
   // Basic command handler for simulating shell behavior
-  const handleBasicCommands = (command: string, terminal: any) => {
+  const handleBasicCommands = (command: string, terminal: Terminal) => {
     const cmd = command.trim();
     
     if (cmd === '') return;
@@ -438,8 +438,7 @@ const InteractiveTerminal: React.FC<InteractiveTerminalProps> = ({
   useEffect(() => {
     if (terminal && logs.length > 0) {
       // Find the new logs that haven't been displayed yet
-      const lastDisplayedIndex = terminal._lastDisplayedLogIndex || -1;
-      const newLogs = logs.slice(lastDisplayedIndex + 1);
+      const newLogs = logs.slice(lastDisplayedLogIndex + 1);
       
       // Process and display each new log
       for (const logEntry of newLogs) {
@@ -475,9 +474,9 @@ const InteractiveTerminal: React.FC<InteractiveTerminalProps> = ({
       }
       
       // Update the last displayed log index
-      terminal._lastDisplayedLogIndex = logs.length - 1;
+      setLastDisplayedLogIndex(logs.length - 1);
     }
-  }, [logs, terminal]);
+  }, [logs, terminal, lastDisplayedLogIndex]);
 
   // Display loading state or error
   if (!isClient || loading) {

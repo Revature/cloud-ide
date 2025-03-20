@@ -11,6 +11,7 @@ from datetime import datetime
 import jinja2
 import asyncio
 from typing import Any, Optional
+import re
 
 def render_script(template: str, context: dict) -> str:
     """
@@ -36,12 +37,69 @@ def get_runner_key(runner_key_id: int) -> str:
     # Decrypt the key using the master encryption key.
     return decrypt_text(key_record.encrypted_key)
 
+def parse_script_output(stdout: str, stderr: str, exit_code: int) -> dict:
+    """
+    Parse the script output and extract structured status information.
+
+    Looks for specific patterns in stdout/stderr to determine success/failure
+    and extract relevant error messages.
+
+    Args:
+        stdout: The standard output from the script
+        stderr: The standard error from the script
+        exit_code: The exit code from the script
+
+    Returns:
+        A dictionary with parsed output information
+    """
+    result = {
+        "success": exit_code == 0,
+        "exit_code": exit_code,
+        "stdout": stdout,
+        "stderr": stderr,
+        "error_message": None,
+        "detailed_status": None
+    }
+
+    # Extract specific error messages
+    error_pattern = re.compile(r"ERROR: (.*)")
+    success_pattern = re.compile(r"SUCCESS: (.*)")
+
+    # Check stderr first for ERROR messages
+    error_matches = error_pattern.findall(stderr)
+    if error_matches:
+        result["error_message"] = error_matches[0]
+        result["detailed_status"] = "error"
+    elif not result["success"]:
+        # If exit code indicates failure but no specific ERROR pattern
+        # was found, use the entire stderr as the error message
+        result["error_message"] = stderr.strip() if stderr else "Unknown error occurred"
+        result["detailed_status"] = "error"
+
+    # Check stdout for SUCCESS messages
+    success_matches = success_pattern.findall(stdout)
+    if success_matches and result["success"]:
+        result["detailed_status"] = "success"
+    elif result["success"]:
+        result["detailed_status"] = "success"
+
+    # Extract additional contextual information
+    operations = []
+    if "Cloning repository" in stdout:
+        operations.append("repository_clone")
+    if "Git hooks configured" in stdout:
+        operations.append("hooks_configured")
+
+    result["operations"] = [*result.get("operations", []), *operations]
+
+    return result
+
 async def run_script_for_runner(
     event: str,
     runner_id: int,
     env_vars: Optional[dict[str, Any]] = None,
     initiated_by: str = "system"
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """
     Run scripts on runner based on event hook.
 
@@ -111,9 +169,7 @@ async def run_script_for_runner(
         if runner.env_data:
             template_context.update(runner.env_data)
 
-        # Add the env_vars to the context if provided, but in a separate namespace
-        if env_vars:
-            template_context["env_vars"] = env_vars
+        template_context["env_vars"] = env_vars or {}
 
         # Render the script template using the context
         rendered_script = render_script(script_record.script, template_context)
@@ -135,7 +191,17 @@ async def run_script_for_runner(
             cloud_service = get_cloud_service(cloud_connector)
 
             logger.info(f"[{initiated_by}] Executing script '{event}' on runner {runner_id} via SSH")
-            result = await cloud_service.ssh_run_script(runner.url, private_key, rendered_script)
+            ssh_result = await cloud_service.ssh_run_script(runner.url, private_key, rendered_script)
+
+            # Parse the output to get detailed status information
+            result = parse_script_output(
+                ssh_result.get("stdout", ""),
+                ssh_result.get("stderr", ""),
+                ssh_result.get("exit_code", 1)
+            )
+
+            # Merge the parsed result with the SSH result
+            result.update({k: v for k, v in ssh_result.items() if k not in result})
 
             # Record the script execution result
             execution_duration = (datetime.utcnow() - script_start_time).total_seconds()
@@ -144,10 +210,27 @@ async def run_script_for_runner(
             sanitized_result = {
                 "exit_code": result.get("exit_code", None),
                 "success": result.get("success", False),
-                "duration_seconds": execution_duration
+                "detailed_status": result.get("detailed_status", "unknown"),
+                "error_message": result.get("error_message", None),
+                "duration_seconds": execution_duration,
+                "operations": result.get("operations", [])
             }
 
-            logger.info(f"[{initiated_by}] Script '{event}' on runner {runner_id} completed with status: {sanitized_result}")
+            log_level = "info" if result.get("success", False) else "error"
+            getattr(logger, log_level)(
+                f"[{initiated_by}] Script '{event}' on runner {runner_id} "
+                f"completed with status: {sanitized_result['detailed_status']}"
+            )
+
+            if not result.get("success", False):
+                logger.error(
+                    f"[{initiated_by}] Script error: {result.get('error_message', 'Unknown error')}"
+                )
+
+            # Add these debug logs
+            print(f"[DEBUG] Result from parse_script_output: {result}")
+            print(f"[DEBUG] Success value: {result.get('success', False)}")
+            print(f"[DEBUG] Exit code: {result.get('exit_code')}, type: {type(result.get('exit_code'))}")
 
             # Create a script result history record
             script_result_record = RunnerHistory(
@@ -163,7 +246,10 @@ async def run_script_for_runner(
                     # Store stdout/stderr only if they are reasonably sized
                     "stdout": result.get("stdout", "")[:1000] if result.get("stdout") else "",
                     "stderr": result.get("stderr", "")[:1000] if result.get("stderr") else "",
-                    "exit_code": result.get("exit_code", None)
+                    "exit_code": result.get("exit_code", None),
+                    "detailed_status": result.get("detailed_status", "unknown"),
+                    "error_message": result.get("error_message", None),
+                    "operations": result.get("operations", [])
                 },
                 created_by=initiated_by,
                 modified_by=initiated_by
@@ -171,6 +257,11 @@ async def run_script_for_runner(
 
             session.add(script_result_record)
             session.commit()
+
+            # If script failed, raise an exception to ensure it's handled properly
+            if not result.get("success", False):
+                error_msg = result.get("error_message", "Unknown script execution error")
+                raise Exception(f"Script execution failed: {error_msg}")
 
             return result
 

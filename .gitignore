@@ -1,0 +1,7 @@
+# Ignore
+/.certs/
+*.env
+docker-compose.yml
+
+# Don't Ignore
+!local-compose.env
