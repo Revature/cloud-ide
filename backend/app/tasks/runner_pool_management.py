@@ -136,8 +136,8 @@ def manage_runner_pool():
                             "age_seconds": (now - runner.created_on).total_seconds() if runner.created_on else None,
                             "job_id": pool_run_id
                         },
-                        created_by=pool_run_id,
-                        modified_by=pool_run_id
+                        created_by="system",
+                        modified_by="system"
                     )
                     session.add(pool_terminate_record)
                 session.commit()

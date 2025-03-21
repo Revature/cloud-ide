@@ -71,9 +71,8 @@ async def route_guard(request: Request, call_next):
 
     # return await call_next(request)
 
-
-
     if request.url.path in UNSECURE_ROUTES:
+    # if True:
         return await call_next(request)
 
     access_token = request.headers.get("Access-Token")
