@@ -7,7 +7,7 @@ from app.models.key import Key
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
-from app.models import Machine, Image, Runner, CloudConnector
+from app.models import Machine, Image, Runner, CloudConnector, Script
 from app.business.cloud_services.factory import get_cloud_service
 from app.tasks.starting_runner import update_runner_state
 from app.business.key_management import get_daily_key
@@ -64,7 +64,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     try:
         key_record = await get_daily_key(cloud_connector_id=db_cloud_connector.id)
         if key_record is None:
-            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {cloud_connector.id}")
+            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {db_cloud_connector.id}")
             raise Exception("Key not found or created")
     except Exception as e:
         logger.error(f"[{initiated_by}] Error getting or creating key: {e!s}")

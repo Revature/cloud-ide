@@ -70,7 +70,7 @@ def cleanup_active_runners():
                         "minutes_expired": round((now - runner.session_end).total_seconds() / 60, 2) if runner.session_end else None
                     },
                     created_by=cleanup_run_id,
-                    modified_by=cleanup_run_id
+                    modified_by="system"
                 )
                 session.add(expiry_record)
                 session.commit()
@@ -112,7 +112,7 @@ def cleanup_active_runners():
                         event_name="runner_cleanup_error",
                         event_data=event_data,
                         created_by=cleanup_run_id,
-                        modified_by=cleanup_run_id
+                        modified_by="system"
                     )
                     session.add(history_record)
                     session.commit()
