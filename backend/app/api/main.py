@@ -7,6 +7,7 @@ API_ROOT_PATH: str = '/api' #stripped out of request.url.path by fastAPI or by t
 API_VERSION: str = '/v1'#still present in the path, not for docs
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/',
+    f'{API_VERSION}/machine_auth',
     f'{API_VERSION}/',
     '/docs',
     '/openapi.json',
