@@ -82,7 +82,7 @@ jobs:
 
             - name: Build Docker Image
               id: build-frontend
-              run: docker build --file ./proxy/frontend --tag cde/frontend:test ./frontend
+              run: docker build --file ./frontend/Dockerfile --tag cde/frontend:test ./frontend
               
             - name: Configure AWS credentials
               id: aws-credentials
