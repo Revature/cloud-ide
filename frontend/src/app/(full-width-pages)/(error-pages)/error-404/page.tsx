@@ -1,6 +1,6 @@
 import GridShape from "@/components/common/GridShape";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
@@ -19,14 +19,14 @@ export default function Error404() {
           ERROR
         </h1>
 
-        <Image
+        <ProxyImage
           src="/images/error/404.svg"
           alt="404"
           className="dark:hidden"
           width={472}
           height={152}
         />
-        <Image
+        <ProxyImage
           src="/images/error/404-dark.svg"
           alt="404"
           className="hidden dark:block"

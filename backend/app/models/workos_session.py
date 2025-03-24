@@ -14,8 +14,9 @@ class WorkosSession(TimestampMixin, SQLModel, table=True):
     expiration: int
     ip_address: str
     user_agent: str
-    encrypted_refresh_token: str = Field(sa_column=Column("refresh_token", String(255)))
+    encrypted_refresh_token: str = Field(sa_column=Column("refresh_token", Text))
     encrypted_access_token: str = Field(sa_column=Column( "access_token", Text)) #Need to index, can't use index=true with sa_column
+
 
     def get_decrypted_refresh_token(self) -> str:
         """Return the decrypted refresh token."""
@@ -54,6 +55,7 @@ def create_workos_session(workos_session: WorkosSession):
 def get_refresh_token(access_token: str):
     """Return a refresh token for an access token."""
     with next(get_session()) as database_session:
+        encrypted_access_token = encrypt_text(access_token)
         record: WorkosSession = database_session.exec(select(WorkosSession)
             .where(WorkosSession.encrypted_access_token == encrypt_text(access_token))).first()
         if not record:

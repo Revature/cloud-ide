@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useCloudConnectors, CloudConnector } from '@/context/CloudConnectorsContext';
 import Button from "../../components/ui/button/Button";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import { EyeOpenIcon, EyeClosedIcon } from "@/icons";
 
 const ViewConnector: React.FC = () => {
@@ -77,7 +77,7 @@ const ViewConnector: React.FC = () => {
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <Image
+              <ProxyImage
                 width={48}
                 height={48}
                 src={connector?.image || "/images/brand/default-logo.svg"}

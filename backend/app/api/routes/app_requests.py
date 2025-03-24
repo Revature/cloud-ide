@@ -1,18 +1,17 @@
-"""Application request handling API routes."""
+"""Routes for handling requests for runners."""
 from workos import exceptions
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from typing import Any
 from datetime import datetime, timedelta
-from app.api.authentication import token_authentication
 from app.db.database import get_session, engine
 from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants;
-from app.business.runner_management import launch_runners
-from app.business.script_management import run_script_for_runner  # Script management layer
+from app.business.runner_management import launch_runners, terminate_runner
+from app.business.script_management import run_script_for_runner
 from app.business.jwt_creation import create_jwt_token
 from app.business import image_management, user_management, runner_management
 import asyncio
@@ -29,10 +28,24 @@ class RunnerRequest(BaseModel):
     session_time: int  # in minutes, limit to 3 hours
     runner_type: str   # temporary/permanent
 
+async def execute_awaiting_client_script(runner_id: int, env_vars: dict, session: Session) -> None:
+    """Execute the on_awaiting_client script for a runner, handling script-specific errors."""
+    try:
+        script_result = await run_script_for_runner("on_awaiting_client", runner_id, env_vars, initiated_by="app_requests_endpoint")
+        print(f"Script executed for runner {runner_id}: {script_result}")
+        return script_result
+    except Exception as e:
+        if "No script found for event" in str(e):
+            # No script is available for this hook/image - this is acceptable
+            print(f"No script found for runner {runner_id}, continuing...")
+            return None
+        else:
+            # Re-raise the exception for the caller to handle
+            raise
+
 @router.post("/", response_model=dict[str, str])
 async def get_ready_runner(
     request: RunnerRequest,
-    response: Response,
     access_token: str = Header(..., alias="Access-Token"),
     x_forwarded_for: str = Header(..., alias="X-Forwarded-For"),
     client_ip: str = Header(..., alias="client-ip"),

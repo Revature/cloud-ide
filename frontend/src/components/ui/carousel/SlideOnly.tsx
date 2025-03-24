@@ -1,7 +1,7 @@
 "use client";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 const carouselData = [
   {
@@ -32,7 +32,7 @@ export default function SlideOnly() {
         {carouselData.map((item, i) => (
           <SwiperSlide key={i + 1}>
             <div className="overflow-hidden rounded-lg">
-              <Image
+              <ProxyImage
                 width={487}
                 height={297}
                 src={item.thumbnail}

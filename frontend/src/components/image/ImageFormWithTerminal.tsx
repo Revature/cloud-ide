@@ -25,7 +25,7 @@ import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import InteractiveTerminal from '@/components/terminal/InteractiveTerminal';
 import FallbackTerminal from '@/components/terminal/FallbackTerminal';
-import Image from 'next/image';
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -405,7 +405,7 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
                         <div className="flex items-center gap-2 mt-1">
                           <div className="w-6 h-6 relative flex-shrink-0">
                             {connector.image ? (
-                              <Image 
+                              <ProxyImage 
                                 src={connector.image}
                                 alt={connector.name || 'Cloud provider'}
                                 width={32}
