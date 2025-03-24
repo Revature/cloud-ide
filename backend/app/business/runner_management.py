@@ -86,7 +86,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
             )
             for _ in range(runner_count)
         ]
-        instances : list[Runner] = await asyncio.gather(*launch_tasks)
+        instances : list[str] = await asyncio.gather(*launch_tasks)
         launched_instances.extend(instances)
 
         logger.info(f"[{initiated_by}] Successfully launched {len(launched_instances)} instances: {launched_instances}")
@@ -99,7 +99,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     # 7) Create Runner records (URL will be updated later by a background job).
     created_runners = []
     for instance in instances:
-        new_runner : Runner = launch_runner(db_machine, db_image, key_record, instance.id, initiated_by)
+        new_runner : Runner = launch_runner(db_machine, db_image, key_record, instance, initiated_by)
         created_runners.append(new_runner)
 
     # Log summary information instead of creating a system-level history record
@@ -109,6 +109,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
 
     return launched_instances
 
+# TODO: Launch the instance in this function as well.
 def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
     """Launch a single runner and produce a record for it."""
     with Session(engine) as session:
