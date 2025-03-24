@@ -1,18 +1,15 @@
 """Routes for handling requests for runners."""
-from workos import exceptions
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from typing import Any
-from datetime import datetime, timedelta
-from app.db.database import get_session, engine
+from app.db.database import get_session
 from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants
-from app.business.runner_management import launch_runners, terminate_runner
+from app.business.runner_management import launch_runners
 from app.business.script_management import run_script_for_runner
-from app.business.jwt_creation import create_jwt_token
 from app.business import image_management, user_management, runner_management
 import asyncio
 import os
@@ -63,19 +60,19 @@ async def get_ready_runner(
     """
     # Check the user's requested session time.
     if request.session_time:
-        if request.session_time > constants.max_session_minutes:
+        if request.session_time > constants.max_runner_lifetime:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail=f"Requested session time is greater than the maximum: {constants.max_session_minutes}")
         else:
-            request.session_time = constants.max_session_minutes
+            request.session_time = constants.max_runner_lifetime
 
     # Retrieve the image record.
-    db_image: Image = image_management.get_image_by_id(request.id)
+    db_image: Image = image_management.get_image_by_id(request.image_id)
     if not db_image:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not found")
 
     # Look up the user by email.
-    db_user: User = user_management.get_user_by_email(request.email)
+    db_user: User = user_management.get_user_by_email(request.user_email)
     if not db_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User not found")
 
