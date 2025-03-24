@@ -19,14 +19,14 @@ export default function Maintenance() {
         <div className="mx-auto w-full max-w-[274px] text-center sm:max-w-[555px]">
           <div className="mx-auto mb-10 w-full max-w-[155px] text-center sm:max-w-[204px]">
             <ProxyImage
-              src="/images/error/maintenance.svg"
+              src="images/error/maintenance.svg"
               alt="maintenance"
               className="dark:hidden"
               width={205}
               height={205}
             />
             <ProxyImage
-              src="/images/error/maintenance-dark.svg"
+              src="images/error/maintenance-dark.svg"
               alt="maintenance"
               className="hidden dark:block"
               width={205}

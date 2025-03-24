@@ -17,14 +17,14 @@ export default function Success() {
       <div className="mx-auto w-full max-w-[274px] text-center sm:max-w-[555px]">
         <div className="mx-auto mb-10 w-full max-w-[100px] text-center sm:max-w-[160px]">
           <ProxyImage
-            src="./images/error/success.svg"
+            src="images/error/success.svg"
             alt="success"
             className="dark:hidden"
             width={148}
             height={148}
           />
           <ProxyImage
-            src="./images/error/success-dark.svg"
+            src="images/error/success-dark.svg"
             alt="success"
             className="hidden dark:block"
             width={148}

@@ -6,7 +6,7 @@ export default function TwoColumnImageGrid() {
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
         <ProxyImage
-          src="/images/grid-image/image-02.png"
+          src="images/grid-image/image-02.png"
           alt=" grid"
           className="w-full border border-gray-200 rounded-xl dark:border-gray-800"
           width={517}
@@ -16,7 +16,7 @@ export default function TwoColumnImageGrid() {
 
       <div>
         <ProxyImage
-          src="/images/grid-image/image-03.png"
+          src="images/grid-image/image-03.png"
           alt=" grid"
           className="w-full border border-gray-200 rounded-xl dark:border-gray-800"
           width={517}

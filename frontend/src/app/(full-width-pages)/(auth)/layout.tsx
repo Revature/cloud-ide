@@ -24,7 +24,7 @@ export default function AuthLayout({
                   <ProxyImage
                     width={231}
                     height={48}
-                    src="./images/logo/auth-logo.svg"
+                    src="images/logo/auth-logo.svg"
                     alt="Logo"
                   />
                 </Link>

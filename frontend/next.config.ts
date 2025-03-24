@@ -1,11 +1,23 @@
+// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: '/ui', // Set the base path to /ui
-
+  basePath: '/ui',
+  trailingSlash: true,
+  
   images: {
     path: '/ui/_next/image',
-    unoptimized: process.env.NODE_ENV !== 'production', // For development
+    unoptimized: process.env.NODE_ENV !== 'production',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
+  
+  publicRuntimeConfig: {
+    basePath: '/ui',
   },
   
   webpack(config) {
@@ -16,7 +28,6 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  // Configure rewrites to proxy API requests to the backend
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
     return [

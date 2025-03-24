@@ -80,7 +80,7 @@ const ViewConnector: React.FC = () => {
               <ProxyImage
                 width={48}
                 height={48}
-                src={connector?.image || "/images/brand/default-logo.svg"}
+                src={connector?.image || "images/brand/default-logo.svg"}
                 alt={connector?.name || "Cloud Provider"}
               />
             </div>
