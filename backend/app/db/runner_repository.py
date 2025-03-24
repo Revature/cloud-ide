@@ -25,7 +25,9 @@ def find_runner_by_user_id_and_image_id_and_states(session: Session, user_id: in
 
 def find_runner_by_image_id_and_states(session: Session, image_id: int, states: list[str]):
     """
-    Retrieve the runner by its image id and state. Query used to pull a runner out of the pool.
+    Retrieve the runner by its image id and state.
+
+    Query used to pull a runner out of the pool.
     TODO: We should be getting the oldest runner out of this query. That would allow it to accrue
     more bursting credits.
     """

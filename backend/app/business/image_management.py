@@ -13,12 +13,11 @@ from app.db import image_repository
 from app.models.runner_history import RunnerHistory
 
 def get_image_by_identifier(identifier:str) -> Image:
-    """Get an image by its identifier (AWS string)"""
+    """Get an image by its identifier (AWS string)."""
     with Session(engine) as session:
         return image_repository.find_image_by_identifier(session, identifier)
-    
+
 def get_image_by_id(id:int) -> Image:
-    """Get an image by its id (numeric)"""
+    """Get an image by its id (numeric)."""
     with Session(engine) as session:
         return image_repository.find_image_by_id(session, id)
-    

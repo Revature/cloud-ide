@@ -158,51 +158,48 @@ def get_existing_runner(user_id: int, image_id: int) -> Runner:
     """Retrieve a runner that is ready for use, else None."""
     with Session(engine) as session:
         return runner_repository.find_runner_by_user_id_and_image_id_and_states(session, user_id, image_id, ["active", "awaiting_client"])
-    
+
 def get_runner_from_pool(image_id) -> Runner:
     """Retrieve a runner that is ready for use from the pool, else None."""
     with Session(engine) as session:
         return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
-            
-async def prepare_runner(runner: Runner, requested_session_time: int, user: User, user_ip: str, script_vars, env_vars, is_reconnect: bool):
-    """A runner is ready to be delivered to the user. Create its JWT and prepare the DTO."""
-    # Update session_end for the existing runner.
-    runner.session_end = runner.session_start + timedelta(minutes=requested_session_time)
+
+def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str, script_vars):
+    """Assign a runner to a user's session."""
+    with Session(engine) as session:
+        # Update the runner state quickly to avoid race condition.
+        runner.state = "awaiting_client"
+        session.commit()
+        # Update session_end for the existing runner.
+        runner.session_end = runner.session_start + timedelta(minutes=requested_session_time)
+        # Update the runner: assign the user, update environment data, and change state to "awaiting_client".
+        runner.user_id = user.id
+        # Store only script_vars in runner.env_data, not env_vars
+        runner.env_data = script_vars
+        # Store user_ip if present
+        if user_ip:
+            runner.user_ip = user_ip
+        session.commit()
+
+async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
+    """Create Runner JWT, execute its script and prepare the DTO."""
     # Generate a JWT token for the existing runner
     jwt_token = jwt_creation.create_jwt_token(
         runner_ip=str(runner.url),
         runner_id=runner.id,
-        user_ip=user_ip
+        user_ip=runner.user_ip
     )
-    # Get the workspace path from env_data
-    workspace_path = runner.env_data.get("path", "")
-    if not workspace_path.startswith("/"):
-        workspace_path = "/" + workspace_path
-    # Construct the full URL with domain, token, and workspace path
-    full_url = f"{constants.domain}/dest/{jwt_token}{workspace_path}"
-
-    # Update the runner: assign the user, update environment data, and change state to "awaiting_client".
-    runner.user_id = user.id
-    # Store only script_vars in runner.env_data, not env_vars
-    runner.env_data = script_vars
-    runner.state = "awaiting_client"
-    # Store user_ip if present
-    if user_ip:
-        runner.user_ip = user_ip
-    
+    full_url = f"{constants.domain}/dest/{jwt_token}/"
     if not is_reconnect:
         try:
-            script_result = await script_management.run_script_for_runner("on_awaiting_client", runner.id, env_vars, initiated_by="app_requests_endpoint")
+            script_result = await script_management.run_script_for_runner("on_awaiting_client",
+                                                                          runner.id,
+                                                                          env_vars,
+                                                                          initiated_by="app_requests_endpoint")
             print(f"Script executed for runner {runner.id}: {script_result}")
         except Exception as e:
             print(f"Error executing script for runner {runner.id}: {e}")
             return {"error": f"Error executing script for runner {runner.id}"}
-    
-        # TODO: Is this really necessary? I would prefer to eliminate use-case specific code later.
-        # Use repo_name from script_vars. If not present, default to "project".
-        repo_name = script_vars.get("git_repo_name", "project")
-        # Add path to env_data
-        runner.env_data["path"] = "/#/home/ubuntu/" + repo_name
 
     return {"url": full_url, "runner_id": str(runner.id)}
 

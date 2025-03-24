@@ -9,7 +9,7 @@ from app.db.database import get_session, engine
 from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
-from app.util import constants;
+from app.util import constants
 from app.business.runner_management import launch_runners, terminate_runner
 from app.business.script_management import run_script_for_runner
 from app.business.jwt_creation import create_jwt_token
@@ -61,7 +61,7 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-    if(constants.auth_mode=="OFF"):
+    if(constants.auth_mode!="OFF"):
         try:
             response.headers['Access-Token'] = token_authentication(access_token)
         except exceptions.BadRequestException:
@@ -71,7 +71,8 @@ async def get_ready_runner(
     # Check the user's requested session time.
     if request.session_time:
         if request.session_time > constants.max_session_minutes:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Requested session time is greater than the maximum: {constants.max_session_minutes}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Requested session time is greater than the maximum: {constants.max_session_minutes}")
         else:
             request.session_time = constants.max_session_minutes
 
@@ -93,24 +94,17 @@ async def get_ready_runner(
     # Check if the user already has a runner.
     existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
     if existing_runner :
-        return runner_management.prepare_runner(existing_runner, 
-                                                request.session_time,
-                                                db_user,
-                                                user_ip,
-                                                None,
+        return runner_management.prepare_runner(existing_runner,
                                                 None,
                                                 True)
- 
+
     ready_runner : Runner = runner_management.get_runner_from_pool(db_image.id)
     if ready_runner:
         # Launch a new runner asynchronously to replenish the pool if the image definition specifies a pool.
         if db_image.runner_pool_size != 0:
             asyncio.create_task(launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
+        ready_runner = runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars)
         return runner_management.prepare_runner(ready_runner,
-                                                request.session_time,
-                                                db_user,
-                                                user_ip,
-                                                script_vars,
                                                 env_vars,
                                                 False)
     else:
@@ -124,10 +118,7 @@ async def get_ready_runner(
             await asyncio.sleep(5)
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
+        fresh_runner = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars)
         return runner_management.prepare_runner(fresh_runner,
-                                                request.session_time,
-                                                db_user,
-                                                user_ip,
-                                                script_vars,
                                                 env_vars,
                                                 False)

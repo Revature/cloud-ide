@@ -1,1 +1,1 @@
-# TODO: Mocked cloud connector that delivers a dummy Runner.
+"""Mocked cloud connector that delivers a dummy Runner. TODO."""
