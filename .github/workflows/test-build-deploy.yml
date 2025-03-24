@@ -41,6 +41,7 @@ jobs:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
                 docker tag cde/proxy:test $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:test
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:test
 
     Build-Backend:
         runs-on: ubuntu-latest
