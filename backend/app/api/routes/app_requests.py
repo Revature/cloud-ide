@@ -84,9 +84,10 @@ async def get_ready_runner(
     # Check if the user already has a runner.
     existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
     if existing_runner :
-        return runner_management.prepare_runner(existing_runner,
+        res = await runner_management.prepare_runner(existing_runner,
                                                 None,
                                                 True)
+        return res
 
     ready_runner : Runner = runner_management.get_runner_from_pool(db_image.id)
     if ready_runner:
@@ -94,9 +95,10 @@ async def get_ready_runner(
         if db_image.runner_pool_size != 0:
             asyncio.create_task(launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
         ready_runner = runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars)
-        return runner_management.prepare_runner(ready_runner,
+        res = await runner_management.prepare_runner(ready_runner,
                                                 env_vars,
                                                 False)
+        return res
     else:
         # Launch a new runner and wait for it to be ready.
         fresh_runners : list[Runner] = await launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")
@@ -110,6 +112,7 @@ async def get_ready_runner(
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
         fresh_runner = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars)
-        return runner_management.prepare_runner(fresh_runner,
+        res = await runner_management.prepare_runner(fresh_runner,
                                                 env_vars,
                                                 False)
+        return res

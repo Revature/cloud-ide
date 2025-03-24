@@ -201,8 +201,9 @@ async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
         except Exception as e:
             print(f"Error executing script for runner {runner.id}: {e}")
             return {"error": f"Error executing script for runner {runner.id}"}
-
-    return {"url": full_url, "runner_id": str(runner.id)}
+    runnerDTO = {"url": full_url, "runner_id": str(runner.id)}
+    logger.info("Delivering a runner: "+ runnerDTO)
+    return runnerDTO
 
 # Modify terminate_runner in app/business/runner_management.py
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
