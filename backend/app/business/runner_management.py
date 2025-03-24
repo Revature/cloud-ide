@@ -181,6 +181,7 @@ def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str,
         if user_ip:
             runner.user_ip = user_ip
         session.commit()
+        return runner
 
 async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
     """Create Runner JWT, execute its script and prepare the DTO."""
