@@ -1,4 +1,4 @@
-name: Docker Build Proxy
+name: Build and Deployment to Test
 
 on:
     push:
@@ -117,7 +117,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v2
             
-            - name: SCP Docker-Compose
+            - name: SCP Docker Environment
               uses: moonpathbg/scp_uploader@latest
               with:
                 host: ${{ secrets.HOST }}
@@ -132,10 +132,10 @@ jobs:
                 host: ${{ secrets.HOST }}
                 username: ${{ secrets.USER }}
                 key: ${{ secrets.RSA_KEY }}
-                source: ./orchestration/docker-compose.yml
+                source: ./orchestration/test-compose.yml
                 target: /home/${{ secrets.USER }}/orchestration
 
-            - name: Clean Up
+            - name: Docker System Prune
               uses: D3rHase/ssh-command-action@v0.3.1
               with:
                 host: ${{ secrets.HOST }}
@@ -151,4 +151,4 @@ jobs:
                 port: 22
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/docker-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env.docker up --quiet-pull -d"
+                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/test-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env.docker up --quiet-pull -d"
