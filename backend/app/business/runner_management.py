@@ -169,6 +169,7 @@ def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str,
     """Assign a runner to a user's session."""
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(session, runner.id)
+        session.add(runner)
         # Update the runner state quickly to avoid race condition.
         runner.state = "awaiting_client"
         session.commit()
