@@ -9,6 +9,13 @@ report_error() {
     exit 1  # Exit with non-zero status code to indicate failure
 }
 
+# Function to report success in a format that script_management.py can understand
+report_success() {
+    local success_message="$1"
+    echo "SUCCESS: $success_message"
+    exit 0
+}
+
 # Enable better error reporting but with custom error handling
 set +e  # Don't exit immediately on error, let us handle it
 exec 2>&1  # Redirect stderr to stdout for better logging
@@ -27,13 +34,15 @@ REPO_PATH="/home/ubuntu/$REPO_NAME"
 # Extract environment variables from the new payload structure
 GIT_ACCESS_TOKEN="{{ env_vars.git_access_token }}"
 GIT_USERNAME="{{ env_vars.git_username }}"
-HOST_B64="{{ env_vars.HOST }}"
-TRAINEE_ID_B64="{{ env_vars.TRAINEE_CODING_LAB_ID }}"
-PROJECT_TYPE_B64="{{ env_vars.PROJECT_TYPE }}"
-GITPOD_WORKSPACE_URL="{{ env_vars.GITPOD_WORKSPACE_CONTEXT_URL }}"
+HOST="{{ env_vars.HOST }}"
+TRAINEE_CODING_LAB_ID="{{ env_vars.TRAINEE_CODING_LAB_ID }}"
+PROJECT_TYPE="{{ env_vars.PROJECT_TYPE }}"
+GITPOD_WORKSPACE_CONTEXT_URL="{{ env_vars.GITPOD_WORKSPACE_CONTEXT_URL }}"
 REVPRO_WORKSPACE_ID="{{ env_vars.REVPRO_WORKSPACE_ID }}"
+INTERN_ID="{{ env_vars.INTERN_ID }}"
+TOKEN="{{ env_vars.TOKEN }}"
 
-# Create .revature config file in the root directory
+# Create .revature config file in ubuntu home directory
 REVATURE_CONFIG="/home/ubuntu/.revature"
 
 # Write configuration to the .revature file
@@ -46,20 +55,22 @@ REPO_URL="$REPO_URL"
 REPO_NAME="$REPO_NAME"
 REPO_PATH="$REPO_PATH"
 USER_IP="$USER_IP"
-HOST="$HOST_B64"
-TRAINEE_CODING_LAB_ID="$TRAINEE_ID_B64"
-PROJECT_TYPE="$PROJECT_TYPE_B64"
-GITPOD_WORKSPACE_CONTEXT_URL="$GITPOD_WORKSPACE_URL"
+HOST="$HOST"
+TRAINEE_CODING_LAB_ID="$TRAINEE_CODING_LAB_ID"
+PROJECT_TYPE="$PROJECT_TYPE"
+GITPOD_WORKSPACE_CONTEXT_URL="$GITPOD_WORKSPACE_CONTEXT_URL"
 REVPRO_WORKSPACE_ID="$REVPRO_WORKSPACE_ID"
+INTERN_ID="$INTERN_ID"
+TOKEN="$TOKEN"
 EOF
 
-# Make the config file readable only by owner
-chmod 600 "$REVATURE_CONFIG"
+# Make the config file readable by both ubuntu and root
+chmod 644 "$REVATURE_CONFIG"
 
 # Source the configuration file to make variables available in this session
 source "$REVATURE_CONFIG"
 
-# Add to .bashrc for persistence across sessions
+# Add to ubuntu's .bashrc for persistence across sessions
 if ! grep -q "source $REVATURE_CONFIG" /home/ubuntu/.bashrc; then
     cat >> /home/ubuntu/.bashrc << EOF
 
@@ -68,26 +79,58 @@ source "$REVATURE_CONFIG"
 EOF
 fi
 
-# Configure git globally for this user
+# Create a root version of the config for root to source
+# This avoids permission issues with .bashrc
+sudo bash -c "cat > /root/.revature << EOF
+GIT_ACCESS_TOKEN=\"$GIT_ACCESS_TOKEN\"
+GIT_USERNAME=\"$GIT_USERNAME\"
+GITHUB_TOKEN=\"$GIT_ACCESS_TOKEN\"
+GITHUB_USERNAME=\"$GIT_USERNAME\"
+REPO_URL=\"$REPO_URL\"
+REPO_NAME=\"$REPO_NAME\"
+REPO_PATH=\"$REPO_PATH\"
+USER_IP=\"$USER_IP\"
+HOST=\"$HOST\"
+TRAINEE_CODING_LAB_ID=\"$TRAINEE_CODING_LAB_ID\"
+PROJECT_TYPE=\"$PROJECT_TYPE\"
+GITPOD_WORKSPACE_CONTEXT_URL=\"$GITPOD_WORKSPACE_CONTEXT_URL\"
+REVPRO_WORKSPACE_ID=\"$REVPRO_WORKSPACE_ID\"
+INTERN_ID=\"$INTERN_ID\"
+TOKEN=\"$TOKEN\"
+EOF"
+
+# Add to root's .bashrc the proper way
+sudo bash -c "if ! grep -q \"source /root/.revature\" /root/.bashrc; then
+    echo '
+# Revature environment configuration
+source /root/.revature' >> /root/.bashrc
+fi"
+
+# Configure git globally for ubuntu user
 git config --global user.name "$GIT_USERNAME"
 git config --global user.email "$GIT_USERNAME@github.com"
 git config --global credential.helper store
 git config --global --add safe.directory "$REPO_PATH"
 
-# FIX: Check if .git-credentials exists and handle it correctly
+# Configure git globally for root user
+sudo git config --global user.name "$GIT_USERNAME"
+sudo git config --global user.email "$GIT_USERNAME@github.com"
+sudo git config --global credential.helper store
+sudo git config --global --add safe.directory "$REPO_PATH"
+
 GIT_CREDENTIALS_PATH="/home/ubuntu/.git-credentials"
+ROOT_GIT_CREDENTIALS_PATH="/root/.git-credentials"
 
-# Remove any existing .git-credentials file or directory to start fresh
-if [ -e "$GIT_CREDENTIALS_PATH" ]; then
-    rm -rf "$GIT_CREDENTIALS_PATH"
-    echo "Removed existing .git-credentials"
-fi
-
-# Store GitHub credentials directly to file (not directory)
+# Store GitHub credentials for ubuntu user
 if [[ "$REPO_URL" == *"github.com"* ]]; then
     echo "https://$GIT_USERNAME:$GIT_ACCESS_TOKEN@github.com" > "$GIT_CREDENTIALS_PATH"
     chmod 600 "$GIT_CREDENTIALS_PATH"
-    echo "Stored GitHub credentials"
+    
+    # Also for root user
+    echo "https://$GIT_USERNAME:$GIT_ACCESS_TOKEN@github.com" | sudo tee "$ROOT_GIT_CREDENTIALS_PATH" > /dev/null
+    sudo chmod 600 "$ROOT_GIT_CREDENTIALS_PATH"
+    
+    echo "Stored GitHub credentials for both ubuntu and root users"
 fi
 
 # Check if the repository already exists
@@ -109,19 +152,10 @@ fi
 # Clone the repository if it doesn't exist or wasn't a valid git repo
 if [ ! -d "$REPO_PATH" ]; then
     echo "Cloning repository from $REPO_URL..."
-
-    # Use the token for authentication with the proper username
-    if [[ "$REPO_URL" == *"github.com"* ]]; then
-        # For GitHub repositories
-        AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GIT_USERNAME:$GIT_ACCESS_TOKEN@/")
-        if ! git clone "$AUTH_REPO_URL" "$REPO_PATH"; then
-            report_error "Failed to clone repository from $REPO_URL"
-        fi
-    else
-        # For non-GitHub repositories, use default approach
-        if ! git clone "$REPO_URL" "$REPO_PATH"; then
-            report_error "Failed to clone repository from $REPO_URL"
-        fi
+    # For GitHub repositories
+    AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s/https:\/\//https:\/\/$GIT_USERNAME:$GIT_ACCESS_TOKEN@/")
+    if ! git clone "$AUTH_REPO_URL" "$REPO_PATH"; then
+        report_error "Failed to clone repository from $REPO_URL"
     fi
 fi
 
@@ -129,33 +163,26 @@ fi
 echo "Setting up Git hooks for tracking commit history and test cases..."
 cd "$REPO_PATH"
 
-# Mark the repository as safe (in case we run as root)
+# Make the repository readable by both ubuntu and root
+sudo chmod -R 755 "$REPO_PATH"
+sudo chmod -R 755 "$REPO_PATH/.git"
+
+# Mark the repository as safe for both users
 git config --global --add safe.directory "$REPO_PATH"
+sudo git config --global --add safe.directory "$REPO_PATH"
 
 # Create post-commit hook to track commit history and run tests
 cat <<'EOF' > .git/hooks/post-commit
 #!/bin/bash
 echo "Running post-commit hook..."
 
-# Function to log errors but continue execution
-log_error() {
-    local command_name="$1"
-    local exit_status="$2"
-    echo "WARNING: $command_name failed with status: $exit_status" >&2
-    # We don't exit the hook because we want it to continue with other operations
-}
-
 # Push changes
 echo "Pushing changes to remote repository..."
-if ! git push; then
-    log_error "Git push" $?
-fi
+git push
 
 # Log commit history
 echo "Generating commit history log..."
-if ! git log -1 --shortstat > history_log.txt; then
-    log_error "Git log" $?
-fi
+git log -1 --shortstat > history_log.txt
 
 echo "Post-commit hook completed"
 EOF
@@ -170,6 +197,9 @@ fi
 
 echo "Git hooks configured for history and test case tracking"
 
+# Make sure hook scripts are executable by both users
+sudo chmod a+x .git/hooks/post-commit
+
 echo "Environment setup and repository clone completed successfully!"
 
 # Verify the .revature file exists and is properly set up
@@ -178,6 +208,13 @@ if [ -f "$REVATURE_CONFIG" ]; then
     echo "Configuration file exists and is properly set up at $REVATURE_CONFIG"
 else
     report_error ".revature configuration file was not created properly"
+fi
+
+# Verify the root .revature file exists
+if sudo test -f "/root/.revature"; then
+    echo "Root configuration file exists and is properly set up at /root/.revature"
+else
+    report_error "Root configuration file was not created properly"
 fi
 
 # Verify hooks existence
@@ -192,5 +229,4 @@ echo "Git hooks verified successfully."
 cd ~
 
 # If we've reached this point without errors, the script was successful
-echo "SUCCESS: Environment setup and repository clone completed successfully!"
-exit 0
+report_success "Environment setup and repository clone completed successfully!"
