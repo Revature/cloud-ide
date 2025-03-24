@@ -61,16 +61,6 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-    # if(constants.auth_mode!="OFF"):
-    #     try:
-    #         response.headers['Access-Token'] = token_authentication(access_token)
-    #     except exceptions.BadRequestException:
-    #         response.status_code = 401
-    #         return {"error": "Unauthorized"}
-
-    print(f"client-ip: {request.client_ip}")
-    print(f"X-Forwarded-For: {request.x_forwarded_for}")
-
     # Check the user's requested session time.
     if request.session_time:
         if request.session_time > constants.max_session_minutes:
