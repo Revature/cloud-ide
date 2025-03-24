@@ -168,7 +168,7 @@ def get_runner_from_pool(image_id) -> Runner:
 def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str, script_vars):
     """Assign a runner to a user's session."""
     with Session(engine) as session:
-        runner = runner_repository.find_runner_by_id(runner.id)
+        runner = runner_repository.find_runner_by_id(session, runner.id)
         # Update the runner state quickly to avoid race condition.
         runner.state = "awaiting_client"
         session.commit()
