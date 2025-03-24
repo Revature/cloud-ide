@@ -61,7 +61,6 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-
     # Check the user's requested session time.
     if request.session_time:
         if request.session_time > constants.max_session_minutes:
