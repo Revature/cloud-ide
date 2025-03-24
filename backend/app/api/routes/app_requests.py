@@ -67,7 +67,7 @@ async def get_ready_runner(
     #     except exceptions.BadRequestException:
     #         response.status_code = 401
     #         return {"error": "Unauthorized"}
-    
+
     print(f"client-ip: {request.client_ip}")
     print(f"X-Forwarded-For: {request.x_forwarded_for}")
 
