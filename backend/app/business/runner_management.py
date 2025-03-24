@@ -16,8 +16,8 @@ from app.db import cloud_connector_repository, machine_repository, runner_reposi
 from app.business import image_management, jwt_creation
 from app.models.runner_history import RunnerHistory
 from app.exceptions.runner_exceptions import RunnerCreationException, RunnerRetrievalException, RunnerDefinitionException
-from backend.app.business import script_management
-from backend.app.models.user import User
+from app.business import script_management
+from app.models.user import User
 
 logger = get_task_logger(__name__)
 
