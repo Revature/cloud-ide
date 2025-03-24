@@ -109,7 +109,7 @@ async def get_ready_runner(
                                                 False)
     else:
         # Launch a new runner and wait for it to be ready.
-        fresh_runner : Runner = await launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")[0]     
+        fresh_runner : Runner = await launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")[0]
         # Poll up to 60 seconds (12 attempts, every 5 seconds).
         for _ in range(12):
             runner_management.get_runner_by_id(fresh_runner.id)
