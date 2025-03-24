@@ -40,7 +40,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     # Open one DB session for reading resources.
     with Session(engine) as session:
         # 1) Fetch the Image.
-        db_image : Image = image_management.get_image_by_identifier(session, image_identifier)
+        db_image : Image = image_management.get_image_by_identifier(image_identifier)
         if not db_image:
             logger.error(f"[{initiated_by}] Image not found: {image_identifier}")
             raise RunnerCreationException("Image not found")
