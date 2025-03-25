@@ -110,8 +110,8 @@ async def get_ready_runner(
             workspace_path = "/" + workspace_path
 
         # Construct the full URL with domain, token, and workspace path
-        # full_url = f"{domain}/dest/{jwt_token}{workspace_path}"
-        full_url = f"{existing_runner.url}:3000{workspace_path}"
+        full_url = f"{domain}/dest/{jwt_token}{workspace_path}"
+        #full_url = f"{existing_runner.url}:3000{workspace_path}"
 
         return {"url": full_url, "runner_id": str(existing_runner.id)}
 
@@ -194,8 +194,8 @@ async def get_ready_runner(
             workspace_path = "/" + workspace_path
 
         # Construct the full URL with your domain, token, and workspace path
-        #full_url = f"{domain}/dest/{jwt_token}"
-        full_url = f"{runner.url}:3000{workspace_path}"
+        full_url = f"{domain}/dest/{jwt_token}{workspace_path}"
+        #full_url = f"{runner.url}:3000{workspace_path}"
 
         return {"url": full_url, "runner_id": str(runner.id)}
     except Exception as e:
