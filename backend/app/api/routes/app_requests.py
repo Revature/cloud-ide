@@ -2,11 +2,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
 from sqlmodel import Session
 from pydantic import BaseModel
-from typing import Any
+from typing import Any, Optional
 from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants
+from app.api import http
 from app.business import image_management, user_management, runner_management, script_management
 import logging
 import asyncio
@@ -42,8 +43,8 @@ async def execute_awaiting_client_script(runner_id: int, env_vars: dict, session
 async def get_ready_runner(
     request: RunnerRequest,
     access_token: str = Header(..., alias="Access-Token"),
-    # x_forwarded_for: str = Header(..., alias="X-Forwarded-For"),
-    # client_ip: str = Header(..., alias="client-ip")
+    x_forwarded_for: Optional[str] = Header(None),
+    client_ip: Optional[str] = Header(None)
 ):
     """
     Retrieve a runner with the "ready" state for the given image and assign it to a user.
@@ -76,21 +77,14 @@ async def get_ready_runner(
     # Extract data from request
     script_vars = request.env_data.get("script_vars", {})
     env_vars = request.env_data.get("env_vars", {})
-    user_ip = script_vars.get("user_ip")
+    user_ip = http.extract_original_ip(client_ip, x_forwarded_for)
 
     # Check if the user already has a runner.
     existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
     if existing_runner :
         logger.info(f"User {db_user.id} requested runner, got existing runner: {existing_runner}")
-        url : str = runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
-        try:
-            script_result = await script_management.run_script_for_runner("on_awaiting_client",
-                                                                        ready_runner.id,
-                                                                        env_vars,
-                                                                        initiated_by="app_requests_endpoint")
-        except Exception as e:
-            return {"error": f"Error executing script for runner {existing_runner.id}"}
-        return app_requests_dto(url, ready_runner)
+        url : str = runner_management.claim_runner(existing_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
+        return app_requests_dto(url, existing_runner)
 
     ready_runner : Runner = runner_management.get_runner_from_pool(db_image.id)
     # Check if there is a runner already available in the pool.
@@ -113,7 +107,6 @@ async def get_ready_runner(
         fresh_runners : list[Runner] = await runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")
         fresh_runner : Runner = fresh_runners[0]
         logger.info(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
-        # Poll up to 60 seconds (12 attempts, every 5 seconds).
         fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready", 60)
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
