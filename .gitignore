@@ -2,6 +2,7 @@
 /.certs/
 *.env
 docker-compose.yml
+/.venv/
 
 # Don't Ignore
 !local-compose.env
