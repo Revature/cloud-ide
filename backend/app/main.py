@@ -16,6 +16,7 @@ from app.business.runner_management import launch_runners, shutdown_all_runners
 from app.exceptions.no_matching_key import NoMatchingKeyException
 from app.models.image import Image
 from app.models.workos_session import get_refresh_token, refresh_session
+from app.util import constants
 
 load_dotenv()
 
@@ -71,7 +72,7 @@ async def route_guard(request: Request, call_next):
 
     # return await call_next(request)
 
-    if request.url.path in UNSECURE_ROUTES:
+    if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
         return await call_next(request)
 
     access_token = request.headers.get("Access-Token")
