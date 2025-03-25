@@ -196,6 +196,7 @@ async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
     full_url = f"{constants.domain}/dest/{jwt_token}/"
     if not is_reconnect:
         try:
+            print(f"Executing script for runner {runner.id} with env_data {runner.env_data}")
             script_result = await script_management.run_script_for_runner("on_awaiting_client",
                                                                           runner.id,
                                                                           env_vars,

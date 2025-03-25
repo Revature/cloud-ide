@@ -95,9 +95,11 @@ async def get_ready_runner(
     ready_runner : Runner = runner_management.get_runner_from_pool(db_image.id)
     if ready_runner:
         logger.info(f"User {db_user.id} requested runner, got ready runner: {ready_runner}")
+        print(f"User {db_user.id} requested runner, got ready runner: {ready_runner}")
         # Launch a new runner asynchronously to replenish the pool if the image definition specifies a pool.
         if db_image.runner_pool_size != 0:
             asyncio.create_task(launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
+        print(f"env_data is {script_vars}")
         ready_runner = runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
         res = await runner_management.prepare_runner(ready_runner,
                                                 env_vars,
@@ -108,6 +110,7 @@ async def get_ready_runner(
         fresh_runners : list[Runner] = await launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")
         fresh_runner : Runner = fresh_runners[0]
         logger.info(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
+        print(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
         # Poll up to 60 seconds (12 attempts, every 5 seconds).
         for _ in range(12):
             runner_management.get_runner_by_id(fresh_runner.id)
