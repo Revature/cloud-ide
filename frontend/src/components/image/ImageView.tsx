@@ -1,41 +1,51 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useImages, VMImage } from '@/context/ImagesContext';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/api/api';
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { images } = useImages();
-  const imageIndex = parseInt(params.id as string, 10);
+  const imageId = parseInt(params.id as string, 10);
   
-  const [image, setImage] = useState<VMImage | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!isNaN(imageIndex) && images[imageIndex]) {
-      setImage(images[imageIndex]);
-      setLoading(false);
-    } else {
-      // Handle invalid index
-      router.push('/images');
-    }
-  }, [imageIndex, images, router]);
+  // Use React Query to fetch the image data
+  const { 
+    data: image, 
+    isLoading, 
+    error 
+  } = useQuery({
+    queryKey: ['image', imageId],
+    queryFn: () => api.images.getById(imageId),
+    enabled: !isNaN(imageId),
+    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
+  });
 
   const goBack = () => {
     router.push('/images');
   };
 
   const navigateToEdit = () => {
-    router.push(`/images/edit/${imageIndex}`);
+    router.push(`/images/edit/${imageId}`);
   };
 
-  if (loading || !image) {
+  if (isLoading) {
     return (
       <div className="flex justify-center">
         <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error || !image) {
+    return (
+      <div className="flex flex-col items-center">
+        <p className="text-red-500 dark:text-red-400 mb-4">
+          {error ? `Error loading image: ${error instanceof Error ? error.message : 'Unknown error'}` : 'Image not found'}
+        </p>
+        <Button onClick={goBack}>Back to Images</Button>
       </div>
     );
   }
@@ -75,7 +85,7 @@ const ViewImage: React.FC = () => {
           <div className="flex items-center gap-4">
             <div>
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{image.name}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Created on {image.createdAt}</p>
+              <p className="text-gray-500 dark:text-gray-400">Created on {image.createdOn}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -135,17 +145,21 @@ const ViewImage: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">Identifier</span>
                   <span className="text-gray-800 dark:text-white">{image.identifier}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
-                  <span className="text-gray-800 dark:text-white">{image.machine.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
-                  <span className="text-gray-800 dark:text-white">{image.machine.identifier}</span>
-                </div>
+                {image.machine && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
+                      <span className="text-gray-800 dark:text-white">{image.machine.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
+                      <span className="text-gray-800 dark:text-white">{image.machine.identifier}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Last Updated</span>
-                  <span className="text-gray-800 dark:text-white">{image.updatedAt}</span>
+                  <span className="text-gray-800 dark:text-white">{image.updatedOn}</span>
                 </div>
               </div>
             </div>
@@ -156,21 +170,27 @@ const ViewImage: React.FC = () => {
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Cloud Provider</h4>
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
                   <div className="flex items-center">
-                    <div className="w-8 h-8 mr-3">
-                      <ProxyImage
-                        src={image.cloudConnector.image} 
-                        alt={image.cloudConnector.name}
-                        width={32}
-                        height={32}
-                        className="w-full h-full object-contain"
-                      />
+                  <div className="w-8 h-8 mr-3">
+                      {image.cloudConnector.image ? (
+                        <ProxyImage
+                          src={image.cloudConnector.image}
+                          alt={image.cloudConnector.name}
+                          width={32}
+                          height={32}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">?</span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <span className="block text-gray-800 dark:text-white font-medium">
                         {image.cloudConnector.name}
                       </span>
                       <span className="block text-xs text-gray-600 dark:text-gray-400">
-                        Added on {image.cloudConnector.added}
+                        Added on {image.cloudConnector.createdOn}
                       </span>
                     </div>
                   </div>
@@ -202,35 +222,37 @@ const ViewImage: React.FC = () => {
               </div>
             )}
 
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Hardware Configuration</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">CPU</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {image.machine.cpu_count} {image.machine.cpu_count === 1 ? 'Core' : 'Cores'}
-                    </span>
+            {image.machine && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Hardware Configuration</h4>
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-300">CPU</span>
+                    <div className="flex items-center">
+                      <span className="text-gray-800 dark:text-white">
+                        {image.machine.cpu_count} {image.machine.cpu_count === 1 ? 'Core' : 'Cores'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Memory</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {image.machine.memory_size} GB
-                    </span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-300">Memory</span>
+                    <div className="flex items-center">
+                      <span className="text-gray-800 dark:text-white">
+                        {image.machine.memory_size} GB
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Storage</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {image.machine.storage_size} GB
-                    </span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-300">Storage</span>
+                    <div className="flex items-center">
+                      <span className="text-gray-800 dark:text-white">
+                        {image.machine.storage_size} GB
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex flex-col h-full">

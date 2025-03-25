@@ -28,15 +28,16 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ];
-  },
+  // next.config.ts
+  // async rewrites() {
+  //   const backendApiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+  //   return [
+  //     {
+  //       source: '/api/v1/:path*',
+  //       destination: `${backendApiUrl}/api/v1/:path*`,
+  //     },
+  //   ];
+  // },
   
   poweredByHeader: false,
   reactStrictMode: true,

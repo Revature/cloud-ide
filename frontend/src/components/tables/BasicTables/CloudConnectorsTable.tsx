@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -11,11 +12,35 @@ import Button from "../../ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { useRouter } from "next/navigation";
 import Toggle from "@/components/form/input/Toggle";
-import { useCloudConnectors } from "@/context/CloudConnectorsContext";
+import api from "@/api/api";
+import { CloudConnector } from "@/types";
 
 export default function CloudConnectorsTable() {
-  // Get connectors from context
-  const { connectors, updateConnectorStatus } = useCloudConnectors();
+  // Use React Query to fetch cloud connectors
+  const { 
+    data: connectorsData, 
+    isLoading, 
+    error 
+  } = useQuery({
+    queryKey: ['cloudConnectors'],
+    queryFn: api.cloudConnectors.getAll,
+  });
+  
+  // Get the query client for mutations
+  const queryClient = useQueryClient();
+  
+  // Mutation for updating connector status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      // This would typically call an API endpoint to update the status
+      // For now, we'll mock this by returning the updated data
+      return { id, active };
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['cloudConnectors'] });
+    },
+  });
   
   // State for current page and items per page
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -23,28 +48,33 @@ export default function CloudConnectorsTable() {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredConnectors, setFilteredConnectors] = useState(connectors);
+  const [filteredConnectors, setFilteredConnectors] = useState<CloudConnector[]>([]);
 
   // Router for navigation
   const router = useRouter();
 
-  // Filter connectors when search term changes
+  // Filter connectors when search term or data changes
   useEffect(() => {
+    if (!connectorsData) {
+      setFilteredConnectors([]);
+      return;
+    }
+    
     if (searchTerm.trim() === "") {
-      setFilteredConnectors(connectors);
+      setFilteredConnectors(connectorsData);
     } else {
       const lowercasedSearch = searchTerm.toLowerCase();
-      const results = connectors.filter(
+      const results = connectorsData.filter(
         (connector) =>
           connector.name.toLowerCase().includes(lowercasedSearch) ||
-          connector.region.toLowerCase().includes(lowercasedSearch) ||
-          connector.type.toLowerCase().includes(lowercasedSearch)
+        (connector.region?.toLowerCase() || '').includes(lowercasedSearch) ||
+        (connector.type?.toLowerCase() || '').includes(lowercasedSearch)
       );
       setFilteredConnectors(results);
     }
     // Reset to first page when search results change
     setCurrentPage(1);
-  }, [searchTerm, connectors]);
+  }, [searchTerm, connectorsData]);
 
   // Calculate the indexes for the current page
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -80,7 +110,7 @@ export default function CloudConnectorsTable() {
   
   // Handle toggle state change
   const handleToggleChange = (id: number, enabled: boolean) => {
-    updateConnectorStatus(id, enabled);
+    updateStatusMutation.mutate({ id, active: enabled });
   };
 
   // Handle search input change
@@ -88,15 +118,25 @@ export default function CloudConnectorsTable() {
     setSearchTerm(e.target.value);
   };
   
-  // Find the original index in the connectors array
-  const getOriginalIndex = (index: number) => {
-    const item = currentItems[index];
-    return connectors.findIndex(connector => 
-      connector.name === item.name && 
-      connector.region === item.region && 
-      connector.type === item.type
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="animate-pulse">Loading cloud connectors...</div>
+      </div>
     );
-  };
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="text-red-500">
+          Error loading cloud connectors: {error instanceof Error ? error.message : 'Unknown error'}
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -190,78 +230,81 @@ export default function CloudConnectorsTable() {
                   </TableCell>
                 </TableRow>
               ) : (
-                currentItems.map((item, index) => {
-                  const originalIndex = getOriginalIndex(index);
-                  return (
-                    <TableRow key={index}>
-                      <TableCell className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 flex items-center justify-center">
+                currentItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 flex items-center justify-center">
+                          {item.image ? (
                             <ProxyImage
                               width={32}
                               height={32}
                               src={item.image}
                               alt={item.name}
                             />
-                          </div>
-                          <div>
-                            <span 
-                              className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400 hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer transition-colors"
-                              onClick={() => navigateToViewConnector(originalIndex)}
-                            >
-                              {item.name}
-                            </span>
-                          </div>
+                          ) : (
+                            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">?</span>
+                            </div>
+                          )}
                         </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 whitespace-nowrap text-theme-sm dark:text-gray-400">
-                        {item.added}
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
-                        {item.region}
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
-                        {item.type}
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]">
-                        <Toggle
-                          enabled={item.active}
-                          setEnabled={(enabled) => handleToggleChange(originalIndex, enabled)}
-                          label={item.active ? "Active" : "Inactive"}
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
-                        <button 
-                          onClick={() => navigateToEditConnector(originalIndex)}
-                          className="p-2 text-gray-500 hover:text-brand-500 transition-colors"
-                          title="Edit Connector"
-                        >
-                          <svg 
-                            width="20" 
-                            height="20" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="stroke-current"
+                        <div>
+                          <span 
+                            className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400 hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer transition-colors"
+                            onClick={() => item.id !== undefined && navigateToViewConnector(item.id)}
                           >
-                            <path 
-                              d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            />
-                            <path 
-                              d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                            {item.name}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 whitespace-nowrap text-theme-sm dark:text-gray-400">
+                      {item.createdOn}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
+                      {item.region}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
+                      {item.type}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]">
+                      <Toggle
+                        enabled={(item.active || false)}
+                        setEnabled={(enabled) => item.id !== undefined && handleToggleChange(item.id, enabled)}
+                        label={item.active ? "Active" : "Inactive"}
+                      />
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
+                      <button 
+                        onClick={() => item.id !== undefined && navigateToEditConnector(item.id)}
+                        className="p-2 text-gray-500 hover:text-brand-500 transition-colors"
+                        title="Edit Connector"
+                      >
+                        <svg 
+                          width="20" 
+                          height="20" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="stroke-current"
+                        >
+                          <path 
+                            d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                          <path 
+                            d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>

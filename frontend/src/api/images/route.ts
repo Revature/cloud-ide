@@ -1,12 +1,12 @@
-// frontend/app/api/images/route.ts
+// src/api/images/route.ts
 import { NextResponse } from 'next/server';
+import { BackendImage } from '@/types/api';
+import { Image } from '@/types';
 
 export async function GET() {
   try {
-    // In production, you'd validate authentication here
-    
-    // Call your backend API
-    const response = await fetch(`${process.env.API_URL || 'http://backend:8000'}/api/images/`, {
+    const backendApiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const response = await fetch(`${backendApiUrl}/api/v1/images/`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -16,88 +16,40 @@ export async function GET() {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data = await response.json();
-
-    // Transform data to match your frontend needs
-    const transformedData = data.map((image: any) => ({
+    const backendImages: BackendImage[] = await response.json();
+    
+    // Transform backend images to frontend format
+    const transformedImages = backendImages.map((image: BackendImage): Image => ({
       id: image.id,
       name: image.name,
       description: image.description,
       identifier: image.identifier,
-      machineType: image.machine_id, // You'll map this to your machine types
+      // We'll fetch full machine and cloud connector data separately
+      // or include placeholders for now
       active: Boolean(image.active),
-      createdAt: new Date(image.created_on).toLocaleDateString('en-US', {
+      createdOn: new Date(image.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short', 
         day: 'numeric'
       }),
-      updatedAt: new Date(image.modified_on).toLocaleDateString('en-US', {
+      updatedOn: new Date(image.updated_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       }),
-      // Add any other transformations needed
     }));
 
-    return NextResponse.json(transformedData);
-  } catch (error: any) {
+    return NextResponse.json({
+      data: transformedImages,
+      meta: {
+        total: transformedImages.length,
+      }
+    });
+  } catch (error) {
     console.error('Images API route error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch images' },
+      { error: error || 'Failed to fetch images', data: [] },
       { status: 500 }
     );
   }
 }
-
-// export async function POST(request: Request) {
-//   try {
-//     const imageData = await request.json();
-    
-//     // Transform data for backend
-//     const backendData = {
-//       name: imageData.name,
-//       description: imageData.description,
-//       identifier: imageData.identifier || generateRandomId(),
-//       machine_id: imageData.machineId,
-//       active: imageData.active,
-//       // Add other necessary fields
-//     };
-
-//     const response = await fetch(`${process.env.API_URL || 'http://backend:8000'}/api/images/`, {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Access-Token': process.env.API_TOKEN || 'development-token',
-//       },
-//       body: JSON.stringify(backendData),
-//     });
-
-//     if (!response.ok) {
-//       throw new Error(`API error: ${response.status}`);
-//     }
-
-//     const data = await response.json();
-    
-//     // Transform response data
-//     const transformedData = {
-//       id: data.id,
-//       name: data.name,
-//       description: data.description,
-//       identifier: data.identifier,
-//       // Transform other fields as needed
-//     };
-
-//     return NextResponse.json(transformedData);
-//   } catch (error: any) {
-//     console.error('Images API POST error:', error);
-//     return NextResponse.json(
-//       { error: error.message || 'Failed to create image' },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-// // Helper function to generate random ID (only used if backend doesn't provide one)
-// function generateRandomId() {
-//   return 'img_' + Math.random().toString(36).substring(2, 12);
-// }
