@@ -8,20 +8,15 @@ from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
 from app.models import Machine, Image, Runner, CloudConnector, Script
-from app.util import constants
 from app.business.cloud_services.factory import get_cloud_service
 from app.tasks.starting_runner import update_runner_state
 from app.business.key_management import get_daily_key
-from app.db import cloud_connector_repository, machine_repository, runner_repository, runner_history_repository
-from app.business import image_management, jwt_creation
+from app.db import image_repository, cloud_connector_repository, machine_repository, runner_repository
 from app.models.runner_history import RunnerHistory
-from app.exceptions.runner_exceptions import RunnerCreationException, RunnerRetrievalException, RunnerDefinitionException
-from app.business import script_management
-from app.models.user import User
 
 logger = get_task_logger(__name__)
 
-async def launch_runners(image_identifier: str, runner_count: int, initiated_by: str = "system") -> list[Runner]:
+async def launch_runners(image_identifier: str, runner_count: int, initiated_by: str = "system"):
     """
     Launch instances concurrently and create Runner records.
 
@@ -34,32 +29,32 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     Each new runner is associated with today's key.
     Returns a list of launched instance IDs.
     """
-    launched_instances : list[Runner] = []
+    launched_instance_ids = []
     launch_start_time = datetime.utcnow()
 
     # Open one DB session for reading resources.
     with Session(engine) as session:
         # 1) Fetch the Image.
-        db_image : Image = image_management.get_image_by_identifier(image_identifier)
+        db_image : Image = image_repository.find_image_by_identifier(session, image_identifier)
         if not db_image:
             logger.error(f"[{initiated_by}] Image not found: {image_identifier}")
-            raise RunnerCreationException("Image not found")
+            raise Exception("Image not found")
 
         # 2) Fetch the Machine associated with the image.
         if db_image.machine_id is None:
             logger.error(f"[{initiated_by}] No machine associated with image {db_image.id}")
-            raise RunnerCreationException("No machine associated with the image")
+            raise Exception("No machine associated with the image")
 
         db_machine = machine_repository.find_machine_by_id(session, db_image.machine_id)
         if not db_machine:
             logger.error(f"[{initiated_by}] Machine not found: {db_image.machine_id}")
-            raise RunnerCreationException("Machine not found")
+            raise Exception("Machine not found")
 
         # 3) Get the cloud connector
         db_cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, db_image.cloud_connector_id)
         if not db_cloud_connector:
             logger.error(f"[{initiated_by}] Cloud connector not found: {db_image.cloud_connector_id}")
-            raise RunnerCreationException("Cloud connector not found")
+            raise Exception("Cloud connector not found")
 
         # 4) Get the appropriate cloud service
         cloud_service = get_cloud_service(db_cloud_connector)
@@ -69,8 +64,8 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     try:
         key_record = await get_daily_key(cloud_connector_id=db_cloud_connector.id)
         if key_record is None:
-            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {db_db_cloud_connector.id}")
-            raise RunnerCreationException("Key not found or created")
+            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {db_cloud_connector.id}")
+            raise Exception("Key not found or created")
     except Exception as e:
         logger.error(f"[{initiated_by}] Error getting or creating key: {e!s}")
         raise
@@ -86,10 +81,10 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
             )
             for _ in range(runner_count)
         ]
-        instances : list[str] = await asyncio.gather(*launch_tasks)
-        launched_instances.extend(instances)
+        instance_ids = await asyncio.gather(*launch_tasks)
+        launched_instance_ids.extend(instance_ids)
 
-        logger.info(f"[{initiated_by}] Successfully launched {len(launched_instances)} instances: {launched_instances}")
+        logger.info(f"[{initiated_by}] Successfully launched {len(launched_instance_ids)} instances: {launched_instance_ids}")
     except Exception as e:
         # TODO: Refactor to handle a case where only one instance fails to launch, as opposed to
         # all-or-nothing
@@ -97,19 +92,18 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
         raise
 
     # 7) Create Runner records (URL will be updated later by a background job).
-    created_runners = []
-    for instance in instances:
-        new_runner : Runner = launch_runner(db_machine, db_image, key_record, instance, initiated_by)
-        created_runners.append(new_runner)
+    created_runner_ids = []
+    for instance_id in instance_ids:
+        new_runner : Runner = launch_runner(db_machine, db_image, key_record, instance_id, initiated_by)
+        created_runner_ids.append(new_runner.id)
 
     # Log summary information instead of creating a system-level history record
     duration_seconds = (datetime.utcnow() - launch_start_time).total_seconds()
-    logger.info(f"[{initiated_by}] Launch summary: Requested: {runner_count}, Launched: {len(launched_instances)}, "
-                f"Duration: {duration_seconds:.2f}s, Runner IDs: {created_runners}")
+    logger.info(f"[{initiated_by}] Launch summary: Requested: {runner_count}, Launched: {len(launched_instance_ids)}, "
+                f"Duration: {duration_seconds:.2f}s, Runner IDs: {created_runner_ids}")
 
-    return launched_instances
+    return launched_instance_ids
 
-# TODO: Launch the instance in this function as well.
 def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
     """Launch a single runner and produce a record for it."""
     with Session(engine) as session:
@@ -144,65 +138,11 @@ def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initia
             created_by="system",
             modified_by="system"
         )
-        runner_history_repository.add_runner_history(session, runner_creation_record)
+        session.add(runner_creation_record)
         session.commit()
         # Queue a Celery task to update runner state when instance is ready.
         update_runner_state.delay(new_runner.id, instance_id)
         return new_runner
-
-def get_runner_by_id(id:int) -> Runner:
-    """Retrieve a runner by its ID, else None."""
-    with Session(engine) as session:
-        return runner_repository.find_runner_by_id(session, id)
-
-def get_existing_runner(user_id: int, image_id: int) -> Runner:
-    """Retrieve a runner that is ready for use, else None."""
-    with Session(engine) as session:
-        return runner_repository.find_runner_by_user_id_and_image_id_and_states(session, user_id, image_id, ["active", "awaiting_client"])
-
-def get_runner_from_pool(image_id) -> Runner:
-    """Retrieve a runner that is ready for use from the pool, else None."""
-    with Session(engine) as session:
-        return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
-
-def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str, script_vars):
-    """Assign a runner to a user's session."""
-    with Session(engine) as session:
-        # Update the runner state quickly to avoid race condition.
-        runner.state = "awaiting_client"
-        session.commit()
-        # Update session_end for the existing runner.
-        runner.session_end = runner.session_start + timedelta(minutes=requested_session_time)
-        # Update the runner: assign the user, update environment data, and change state to "awaiting_client".
-        runner.user_id = user.id
-        # Store only script_vars in runner.env_data, not env_vars
-        runner.env_data = script_vars
-        # Store user_ip if present
-        if user_ip:
-            runner.user_ip = user_ip
-        session.commit()
-
-async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
-    """Create Runner JWT, execute its script and prepare the DTO."""
-    # Generate a JWT token for the existing runner
-    jwt_token = jwt_creation.create_jwt_token(
-        runner_ip=str(runner.url),
-        runner_id=runner.id,
-        user_ip=runner.user_ip
-    )
-    full_url = f"{constants.domain}/dest/{jwt_token}/"
-    if not is_reconnect:
-        try:
-            script_result = await script_management.run_script_for_runner("on_awaiting_client",
-                                                                          runner.id,
-                                                                          env_vars,
-                                                                          initiated_by="app_requests_endpoint")
-            print(f"Script executed for runner {runner.id}: {script_result}")
-        except Exception as e:
-            print(f"Error executing script for runner {runner.id}: {e}")
-            return {"error": f"Error executing script for runner {runner.id}"}
-
-    return {"url": full_url, "runner_id": str(runner.id)}
 
 # Modify terminate_runner in app/business/runner_management.py
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
@@ -219,7 +159,7 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
     from app.models.runner_history import RunnerHistory
 
     with Session(engine) as session:
-        runner = runner_repository.find_runner_by_id(session, runner_id)
+        runner = session.get(Runner, runner_id)
         if not runner:
             logger.error(f"[{initiated_by}] Runner with ID {runner_id} not found for termination")
             return {
@@ -253,7 +193,7 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             created_by="system",
             modified_by="system"
         )
-        runner_history_repository.add_runner_history(session, termination_request)
+        session.add(termination_request)
         session.commit()
 
         # Get the instance ID for shutdown_runners
