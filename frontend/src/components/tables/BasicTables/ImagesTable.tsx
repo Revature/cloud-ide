@@ -14,7 +14,7 @@ import Toggle from "@/components/form/input/Toggle";
 import { Image } from '@/types';
 // import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
-import { imagesApi } from '@/api/api';
+import { imagesApi } from '@/app/frontend-api/api';
 
 export default function ImagesTable() {
   const router = useRouter();

@@ -3,20 +3,17 @@
 import uuid
 import asyncio
 from datetime import datetime, timedelta
-from app.models.key import Key
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
-from app.models import Machine, Image, Runner, CloudConnector, Script
+from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key
 from app.util import constants
 from app.business.cloud_services.factory import get_cloud_service
 from app.tasks.starting_runner import update_runner_state
 from app.business.key_management import get_daily_key
 from app.db import cloud_connector_repository, machine_repository, runner_repository, runner_history_repository
 from app.business import image_management, jwt_creation
-from app.models.runner_history import RunnerHistory
-from app.exceptions.runner_exceptions import RunnerCreationException, RunnerRetrievalException, RunnerDefinitionException
-from app.business import script_management
+from app.exceptions.runner_exceptions import RunnerCreationException
 from app.models.user import User
 
 logger = get_task_logger(__name__)

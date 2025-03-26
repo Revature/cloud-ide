@@ -1,10 +1,10 @@
-// frontend/src/api/api.ts
+// frontend/src/frontend-api/api.ts
 import { Image } from '@/types';
 import { CloudConnector } from '@/types';
 import { Machine } from '@/types';
 
 // Base URL for API requests
-const BASE_URL = '/api';
+const BASE_URL = '/frontend-api';
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -27,7 +27,6 @@ export const imagesApi = {
     return handleResponse<Image>(response);
   },
 
-  // later to do: add more API methods here
 };
 
 export const cloudConnectorsApi = {

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import api from '@/api/api';
+import api from '@/app/frontend-api/api';
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 

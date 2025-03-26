@@ -28,17 +28,19 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  // next.config.ts
-  // async rewrites() {
-  //   const backendApiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
-  //   return [
-  //     {
-  //       source: '/api/v1/:path*',
-  //       destination: `${backendApiUrl}/api/v1/:path*`,
-  //     },
-  //   ];
-  // },
   
+  // Other config...
+  
+  // Enable API route rewrites
+  async rewrites() {
+    return [
+      {
+        source: '/frontend-api/:path*',
+        destination: '/frontend-api/:path*',  // This points to your Next.js API routes
+      },
+    ];
+  },
+
   poweredByHeader: false,
   reactStrictMode: true,
 };
