@@ -1,5 +1,4 @@
 """Routes for handling requests for runners."""
-from workos import exceptions
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
 from sqlmodel import Session
 from pydantic import BaseModel
@@ -57,18 +56,23 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-    max_session_minutes = 180
+    # Check the user's requested session time.
+    if request.session_time:
+        if request.session_time > constants.max_runner_lifetime:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Requested session time is greater than the maximum: {constants.max_session_minutes}")
+        else:
+            request.session_time = constants.max_runner_lifetime
+
     # Retrieve the image record.
-    stmt_image = select(Image).where(Image.id == request.image_id)
-    db_image = session.exec(stmt_image).first()
+    db_image: Image = image_management.get_image_by_id(request.image_id)
     if not db_image:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not found")
 
     # Look up the user by email.
-    stmt_user = select(User).where(User.email == request.user_email)
-    user_obj = session.exec(stmt_user).first()
-    if not user_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    db_user: User = user_management.get_user_by_email(request.user_email)
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User not found")
 
     # Extract data from request
     script_vars = request.env_data.get("script_vars", {})
