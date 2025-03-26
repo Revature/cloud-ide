@@ -139,7 +139,107 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     logger.info(f"[{initiated_by}] Launch summary: Requested: {runner_count}, Launched: {len(launched_instance_ids)}, "
                 f"Duration: {duration_seconds:.2f}s, Runner IDs: {created_runner_ids}")
 
-    return launched_instance_ids
+    return launched_instances
+
+# TODO: Launch the instance in this function as well.
+def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
+    """Launch a single runner and produce a record for it."""
+    with Session(engine) as session:
+        new_runner = Runner(
+            machine_id=machine.id,
+            image_id=image.id,
+            user_id=None,           # No user assigned yet.
+            key_id=key.id,     # Associate the runner with today's key.
+            state="runner_starting",  # State will update once instance is running.
+            url="",                 # Empty URL; background task will update it.
+            token="",
+            identifier=instance_id,
+            external_hash=uuid.uuid4().hex,
+            session_start=datetime.utcnow(),
+            session_end=datetime.utcnow() + timedelta(minutes=10)
+        )
+
+        new_runner = runner_repository.add_runner(session, new_runner)
+
+        # Create a history record for the new runner
+        runner_creation_record = RunnerHistory(
+            runner_id=new_runner.id,
+            event_name="runner_created",
+            event_data={
+                "timestamp": datetime.utcnow().isoformat(),
+                "image_id": image.id,
+                "machine_id": machine.id,
+                "instance_id": instance_id,
+                "state": "runner_starting",
+                "initiated_by": initiated_by
+            },
+            created_by="system",
+            modified_by="system"
+        )
+        runner_history_repository.add_runner_history(session, runner_creation_record)
+        session.commit()
+        # Queue a Celery task to update runner state when instance is ready.
+        update_runner_state.delay(new_runner.id, instance_id)
+        return new_runner
+
+def get_runner_by_id(id:int) -> Runner:
+    """Retrieve a runner by its ID, else None."""
+    with Session(engine) as session:
+        return runner_repository.find_runner_by_id(session, id)
+
+def get_existing_runner(user_id: int, image_id: int) -> Runner:
+    """Retrieve a runner that is ready for use, else None."""
+    with Session(engine) as session:
+        return runner_repository.find_runner_by_user_id_and_image_id_and_states(session, user_id, image_id, ["active", "awaiting_client"])
+
+def get_runner_from_pool(image_id) -> Runner:
+    """Retrieve a runner that is ready for use from the pool, else None."""
+    with Session(engine) as session:
+        return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
+
+def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str, script_vars):
+    """Assign a runner to a user's session."""
+    with Session(engine) as session:
+        runner = runner_repository.find_runner_by_id(session, runner.id)
+        session.add(runner)
+        # Update the runner state quickly to avoid race condition.
+        runner.state = "awaiting_client"
+        session.commit()
+        # Update session_end for the existing runner.
+        runner.session_end = runner.session_start + timedelta(minutes=requested_session_time)
+        # Update the runner: assign the user, update environment data, and change state to "awaiting_client".
+        runner.user_id = user.id
+        # Store only script_vars in runner.env_data, not env_vars
+        runner.env_data = script_vars
+        # Store user_ip if present
+        if user_ip:
+            runner.user_ip = user_ip
+        session.commit()
+        return runner
+
+async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
+    """Create Runner JWT, execute its script and prepare the DTO."""
+    # Generate a JWT token for the existing runner
+    jwt_token = jwt_creation.create_jwt_token(
+        runner_ip=str(runner.url),
+        runner_id=runner.id,
+        user_ip=runner.user_ip
+    )
+    full_url = f"{constants.domain}/dest/{jwt_token}/"
+    if not is_reconnect:
+        try:
+            print(f"Executing script for runner {runner.id} with env_data {runner.env_data}")
+            script_result = await script_management.run_script_for_runner("on_awaiting_client",
+                                                                          runner.id,
+                                                                          env_vars,
+                                                                          initiated_by="app_requests_endpoint")
+            print(f"Script executed for runner {runner.id}: {script_result}")
+        except Exception as e:
+            print(f"Error executing script for runner {runner.id}: {e}")
+            return {"error": f"Error executing script for runner {runner.id}"}
+    runnerDTO = {"url": full_url, "runner_id": str(runner.id)}
+    logger.info("Delivering a runner: "+ runnerDTO)
+    return runnerDTO
 
 # Modify terminate_runner in app/business/runner_management.py
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
