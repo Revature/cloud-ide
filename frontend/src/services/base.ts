@@ -10,7 +10,7 @@ type RequestOptions<TBody = unknown> = {
   headers?: Record<string, string>;
 }
 
-const BASE_URL = '/frontend-api';
+const BASE_URL = '/ui/frontend-api';
 
 export async function apiRequest<TResponse, TBody = unknown>(
   endpoint: string, 

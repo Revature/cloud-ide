@@ -21,7 +21,7 @@ import {
 } from "@/icons";
 
 export default function CloudConnectorsTable() {
-  // Use React Query to fetch cloud connectors with the new API
+  // React Query for data fetching
   const { 
     data: connectorsData = [], 
     isLoading, 
@@ -31,24 +31,32 @@ export default function CloudConnectorsTable() {
     queryFn: cloudConnectorsApi.getAll,
   });
   
-  // State for current page and items per page
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 5; // Set the number of items per page
-  
-  // Search state
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredConnectors, setFilteredConnectors] = useState<CloudConnector[]>([]);
-
   // Router for navigation
   const router = useRouter();
-
-  // Filter connectors when search term or data changes
+    
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [filteredConnectors, setFilteredConnectors] = useState<CloudConnector[]>([]);
+  
+  // Track if filtered data needs to be updated
+  const [dataInitialized, setDataInitialized] = useState(false);
+  
+  // Initialize filtered data when data loads
   useEffect(() => {
-    if (connectorsData.length === 0) {
-      setFilteredConnectors([]);
+    if (connectorsData.length > 0 && !dataInitialized) {
+      setFilteredConnectors(connectorsData);
+      setDataInitialized(true);
+    }
+  }, [connectorsData, dataInitialized]);
+  
+  // Handle searching - only run when search term changes
+  useEffect(() => {
+    // Skip if no data or not initialized
+    if (connectorsData.length === 0 || !dataInitialized) {
       return;
     }
-    
+
     if (searchTerm.trim() === "") {
       setFilteredConnectors(connectorsData);
     } else {
@@ -61,9 +69,7 @@ export default function CloudConnectorsTable() {
       );
       setFilteredConnectors(results);
     }
-    // Reset to first page when search results change
-    setCurrentPage(1);
-  }, [searchTerm, connectorsData]);
+  }, [searchTerm, connectorsData, dataInitialized]);
 
   // Calculate the indexes for the current page
   const indexOfLastItem = currentPage * itemsPerPage;

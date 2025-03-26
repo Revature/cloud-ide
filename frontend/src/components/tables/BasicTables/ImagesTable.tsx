@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -9,12 +9,14 @@ import {
 } from "../../ui/table";
 import Button from "../../ui/button/Button";
 import { useRouter } from "next/navigation";
-import Toggle from "@/components/form/input/Toggle";
-// import ProxyImage from "@/components/ui/images/ProxyImage";
-import { Image } from '@/types';
-// import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {useQuery, useQueryClient} from '@tanstack/react-query';
-import { imagesApi } from '@/app/frontend-api/api';
+import ProxyImage from "@/components/ui/images/ProxyImage";
+import { VMImage } from '@/types/images';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { imagesApi } from '@/services/cloud-resources/images';
+import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
+import { machinesApi } from '@/services/cloud-resources/machines';
+import { CloudConnector } from '@/types/cloudConnectors';
+import { Machine } from '@/types/machines';
 
 export default function ImagesTable() {
   const router = useRouter();
@@ -30,33 +32,100 @@ export default function ImagesTable() {
   // Fetch images using React Query
   const { 
     data: images = [], 
-    isLoading, 
-    error 
-  } = useQuery<Image[]>({
+    isLoading: imagesLoading, 
+    error: imagesError 
+  } = useQuery<VMImage[]>({
     queryKey: ['images'],
     queryFn: imagesApi.getAll,
   });
-  
-  // Mutation for toggling image status
-  // const toggleStatusMutation = useMutation({
-  //   mutationFn: ({ id, active }: { id: number, active: boolean }) => 
-  //     imagesApi.toggleStatus(id, active),
-  //   onSuccess: () => {
-  //     // Invalidate queries to refetch data
-  //     queryClient.invalidateQueries({ queryKey: ['images'] });
-  //   },
-  // });
-  
-  // Filter images based on search term
-  const [filteredImages, setFilteredImages] = useState(images);
 
-  // Filter images when search term or images change
-  useEffect(() => {
+  // Extract unique IDs for related resources
+  const uniqueConnectorIds = useMemo(() => 
+    [...new Set(images
+      .map(img => img.cloudConnector_id)
+      .filter((id): id is number => id !== undefined && id !== null)
+    )],
+    [images]
+  );
+
+  const uniqueMachineIds = useMemo(() => 
+    [...new Set(images
+      .map(img => img.machine_id)
+      .filter((id): id is number => id !== undefined && id !== null)
+    )],
+    [images]
+  );
+
+  // Fetch all cloud connectors in parallel
+  const connectorQueries = useQueries({
+    queries: uniqueConnectorIds.map(id => ({
+      queryKey: ['cloudConnector', id],
+      queryFn: () => cloudConnectorsApi.getById(id),
+      enabled: id !== undefined && id !== null
+    }))
+  });
+
+  // Fetch all machines in parallel
+  const machineQueries = useQueries({
+    queries: uniqueMachineIds.map(id => ({
+      queryKey: ['machine', id],
+      queryFn: () => machinesApi.getById(id),
+      enabled: id !== undefined && id !== null
+    }))
+  });
+  
+  // Create lookup maps for faster access
+  const connectorsMap = useMemo(() => {
+    const map: Record<number, CloudConnector> = {};
+    connectorQueries
+      .filter(q => q.data)
+      .forEach(q => { 
+        if (q.data && q.data.id) map[q.data.id] = q.data; 
+      });
+    return map;
+  }, [connectorQueries]);
+
+  const machinesMap = useMemo(() => {
+    const map: Record<number, Machine> = {};
+    machineQueries
+      .filter(q => q.data)
+      .forEach(q => { 
+        if (q.data && q.data.id) map[q.data.id] = q.data; 
+      });
+    return map;
+  }, [machineQueries]);
+
+  // Join the data
+  const enrichedImages = useMemo(() => 
+    images.map(image => ({
+      ...image,
+      cloudConnector: image.cloudConnector_id && connectorsMap[image.cloudConnector_id] 
+        ? connectorsMap[image.cloudConnector_id] 
+        : undefined,
+      machine: image.machine_id && machinesMap[image.machine_id] 
+        ? machinesMap[image.machine_id] 
+        : undefined
+    })),
+    [images, connectorsMap, machinesMap]
+  );
+  
+  // Loading state for all data
+  const isLoading = imagesLoading || 
+    connectorQueries.some(q => q.isLoading) || 
+    machineQueries.some(q => q.isLoading);
+  
+  // Error state for any query
+  const error = imagesError || 
+    connectorQueries.some(q => q.error) || 
+    machineQueries.some(q => q.error);
+  
+  // Use useMemo to filter images based on search term
+  const filteredImages = useMemo(() => {
     if (searchTerm.trim() === "") {
-      setFilteredImages(images);
+      return enrichedImages;
     } else {
       const lowercasedSearch = searchTerm.toLowerCase();
-      const results = images.filter(
+      return enrichedImages.filter(
         (image) =>
           image.name.toLowerCase().includes(lowercasedSearch) ||
           (image.machine?.name && image.machine.name.toLowerCase().includes(lowercasedSearch)) ||
@@ -64,11 +133,13 @@ export default function ImagesTable() {
           image.description.toLowerCase().includes(lowercasedSearch) ||
           (image.cloudConnector?.name && image.cloudConnector.name.toLowerCase().includes(lowercasedSearch))
       );
-      setFilteredImages(results);
     }
-    // Reset to first page when search results change
+  }, [searchTerm, enrichedImages]);
+
+  // Reset to first page when search results change
+  useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, images]);
+  }, [searchTerm]);
 
   // Calculate the indexes for the current page
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -101,11 +172,6 @@ export default function ImagesTable() {
   const navigateToEditImage = (id: number) => {
     router.push(`/images/edit/${id}`);
   };
-  
-  // Handle toggle state change
-  // const handleToggleChange = (id: number, enabled: boolean) => {
-  //   toggleStatusMutation.mutate({ id, active: enabled });
-  // };
 
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +183,7 @@ export default function ImagesTable() {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>
-        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading images...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading images and related data...</p>
       </div>
     );
   }
@@ -127,13 +193,21 @@ export default function ImagesTable() {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800/30 dark:bg-red-900/20">
         <p className="text-red-700 dark:text-red-400">
-          Error loading images: {(error as Error).message}
+          Error loading data: {(error as Error).message}
         </p>
         <Button
           variant="primary"
           size="sm"
           className="mt-4"
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['images'] })}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['images'] });
+            uniqueConnectorIds.forEach(id => {
+              queryClient.invalidateQueries({ queryKey: ['cloudConnector', id] });
+            });
+            uniqueMachineIds.forEach(id => {
+              queryClient.invalidateQueries({ queryKey: ['machine', id] });
+            });
+          }}
         >
           Try Again
         </Button>
@@ -263,13 +337,13 @@ export default function ImagesTable() {
                       {item.cloudConnector ? (
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 relative flex-shrink-0">
-                            {/* <ProxyImage
-                              src={item.cloudConnector.image}
+                            <ProxyImage
+                              src={item.cloudConnector.image || "/images/brand/default-logo.svg"}
                               alt={item.cloudConnector.name || 'Cloud provider'}
                               width={32}
                               height={32}
                               className="w-full h-full object-contain"
-                            /> */}
+                            />
                           </div>
                           <span className="text-gray-700 text-theme-sm dark:text-gray-400">
                             {item.cloudConnector.name}
@@ -297,12 +371,13 @@ export default function ImagesTable() {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]">
-                      <Toggle
-                        enabled={item.active}
-                        setEnabled={(enabled) => console.log(enabled)}
-                        // setEnabled={(enabled) => handleToggleChange(item.id, enabled)}
-                        label={item.active ? "Active" : "Inactive"}
-                      />
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        item.active 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {item.active ? 'Active' : 'Inactive'}
+                      </span>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
                       <button 

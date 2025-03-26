@@ -33,12 +33,7 @@ const nextConfig: NextConfig = {
   
   // Enable API route rewrites
   async rewrites() {
-    return [
-      {
-        source: '/frontend-api/:path*',
-        destination: '/frontend-api/:path*',  // This points to your Next.js API routes
-      },
-    ];
+    return [];
   },
 
   poweredByHeader: false,

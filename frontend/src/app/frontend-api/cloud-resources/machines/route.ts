@@ -1,56 +1,44 @@
-// src/app/api/v1/machines/route.ts
-import { NextResponse } from 'next/server';
-import { BackendMachine } from '@/types/api';
-import { Machine } from '@/types';
+// src/app/frontend-api/cloud-resources/machines/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { Machine, convertBackendMachine } from '@/types/machines';
+import { BackendMachine, APIResponse } from '@/types/api';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const apiUrl = process.env.NEXT_API_URL || 'http://frontend:3500';
-    const response = await fetch(`${apiUrl}/api/machines/`, {
+    // Backend API URL
+    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const endpoint = '/api/v1/machines/';
+    
+    console.log(request);
+    console.log(`Fetching machines from backend: ${apiUrl}${endpoint}`);
+    
+    // Make the actual request to your backend
+    const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const backendMachines: BackendMachine[] = await response.json();
     
-    // Transform backend machines to frontend format
-    const transformedMachines = backendMachines.map((machine: BackendMachine): Machine => ({
-      id: machine.id,
-      name: machine.name,
-      identifier: machine.identifier,
-      cpu_count: machine.cpu_count,
-      memory_size: machine.memory_size,
-      storage_size: machine.storage_size,
-      createdOn: new Date(machine.created_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }),
-      updatedOn: new Date(machine.updated_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short', 
-        day: 'numeric'
-      }),
-      // Add created_by and modified_by if available in the backend data
-      createdBy: machine.created_by,
-      modifiedBy: machine.modified_by,
-    }));
-
-    return NextResponse.json({
-      data: transformedMachines,
-      meta: {
-        total: transformedMachines.length,
-      }
-    });
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+    
+    // Get the backend data with proper typing
+    const apiResponse = await response.json() as APIResponse<BackendMachine[]>;
+    const backendData = apiResponse.data || [];
+    console.log('Backend response:', backendData);
+    
+    // Transform the backend data using the helper function
+    const transformedData: Machine[] = backendData.map(convertBackendMachine);
+    
+    // Return the transformed data
+    return NextResponse.json(transformedData);
   } catch (error) {
-    console.error('Machines API route error:', error);
+    console.error('Machines API error:', error);
+    
     return NextResponse.json(
-      { error: error || 'Failed to fetch machines', data: [] },
+      { error: 'Failed to fetch machines', data: [] },
       { status: 500 }
     );
   }

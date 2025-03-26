@@ -1,61 +1,72 @@
-// src/app/api/v1/cloud-connectors/[id]/route.ts
-import { NextResponse } from 'next/server';
+// src/app/frontend-api/cloud-resources/cloud-connectors/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { CloudConnector } from '@/types/cloudConnectors';
 import { BackendCloudConnector } from '@/types/api';
-import { CloudConnector } from '@/types';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params } : { params: Promise<{ id: string }> }
 ) {
   try {
+    const awaitedParams = await params;
+    const id = awaitedParams.id;
+    
+    // Backend API URL
     const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
-    const id = params.id;
-
-    // Fetch the cloud connector details
-    const response = await fetch(`${apiUrl}/api/cloud_connectors/${id}`, {
+    const endpoint = `/api/v1/cloud_connectors/${id}`;
+    
+    console.log(`Fetching individual cloud connector from backend: ${apiUrl}${endpoint}`);
+    
+    // Make the actual request to your backend
+    const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch cloud connector with ID ${id}` },
-        { status: response.status }
-      );
-    }
-
-    const backendConnector: BackendCloudConnector = await response.json();
     
-    // Transform backend cloud connector to frontend format
-    const transformedConnector: CloudConnector = {
-      id: backendConnector.id,
-      name: backendConnector.name,
-      type: backendConnector.provider_type,
-      region: backendConnector.region,
-      active: Boolean(backendConnector.active),
-      image: `/images/providers/${backendConnector.provider_type.toLowerCase()}.svg`,
-      createdOn: new Date(backendConnector.created_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short', 
-        day: 'numeric'
-      }),
-      updatedOn: new Date(backendConnector.updated_on).toLocaleDateString('en-US', {
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+    
+    // Get the backend data with proper typing
+    const backendData = await response.json() as BackendCloudConnector;
+    console.log('Backend response for single connector:', backendData);
+    
+    // Transform the backend data using proper types
+    const transformedData: CloudConnector = {
+      id: backendData.id,
+      name: `${backendData.provider} ${backendData.region}`, // Generated name
+      type: backendData.provider,
+      region: backendData.region,
+      active: true, // Default to active
+      accessKey: backendData.encrypted_access_key,
+      secretKey: backendData.encrypted_secret_key,
+      createdOn: new Date(backendData.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       }),
-      // Include additional details for single connector view
-      // These fields might be masked in the list view
-      accessKey: backendConnector.access_key,
-      secretKey: backendConnector.secret_key,
+      updatedOn: new Date(backendData.updated_on).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }),
+      image: `/images/brand/${backendData.provider.toLowerCase()}-logo.svg`,
+      modifiedBy: backendData.modified_by,
+      createdBy: backendData.created_by
     };
-
-    return NextResponse.json(transformedConnector);
+    
+    // Return the transformed data
+    return NextResponse.json(transformedData);
   } catch (error) {
-    console.error('Cloud Connector API route error:', error);
+    const awaitedParams = await params;
+    const id = awaitedParams.id;
+
+    console.error(`Error fetching cloud connector with ID ${id}:`, error);
+    
     return NextResponse.json(
-      { error: 'Failed to fetch cloud connector details' },
+      { error: `Failed to fetch cloud connector with ID ${id}` },
       { status: 500 }
     );
   }

@@ -2,8 +2,6 @@
 import { apiRequest } from '../base';
 import { 
   CloudConnector, 
-  // NewCloudConnector, 
-  // UpdateCloudConnector 
 } from '@/types/cloudConnectors';
 
 export const cloudConnectorsApi = {
