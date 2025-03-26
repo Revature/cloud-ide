@@ -2,6 +2,7 @@ networks:
   monitor:
     driver: bridge
 
+services:
   loki:
     container_name: loki
     image: grafana/loki:latest
@@ -11,16 +12,10 @@ networks:
       - ./loki-config.yml:/etc/loki/loki-config.yml
     networks:
       - monitor
-    depends_on:
-      - promtail
 
   grafana:
     container_name: grafana
     image: grafana/grafana:latest
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
       - DS_PROMETHEUS=prometheus

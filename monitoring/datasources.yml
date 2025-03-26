@@ -1,31 +1,31 @@
 datasources:
-  - name: Test
+  - name: test
     type: prometheus
     url: http://35.94.250.154:9090
     access: proxy
-    isDefault: true
+    isDefault: false
     
-  - name: Dev
+  - name: dev
     type: prometheus
     url: http://44.239.41.57:9090
     access: proxy
-    isDefault: true
+    isDefault: false
   
-  - name: Demo
+  - name: demo
     type: prometheus
     url: http://44.226.153.74:9090
     access: proxy
-    isDefault: true
+    isDefault: false
   
-  - name: Prod
+  - name: prod
     type: prometheus
     url: http://52.26.101.232:9090
     access: proxy
-    isDefault: true
+    isDefault: false
     
     
   - name: loki
     type: loki
     url: http://loki:3100
     access: proxy
-    isDefault: falsef
+    isDefault: true
