@@ -66,8 +66,8 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     try:
         key_record = await get_daily_key(cloud_connector_id=cloud_connector.id)
         if key_record is None:
-            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {cloud_connector.id}")
-            raise Exception("Key not found or created")
+            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {db_cloud_connector.id}")
+            raise RunnerCreationException("Key not found or created")
     except Exception as e:
         logger.error(f"[{initiated_by}] Error getting or creating key: {e!s}")
         raise
@@ -182,6 +182,16 @@ def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initia
         update_runner_state.delay(new_runner.id, instance_id)
         return new_runner
 
+async def wait_for_runner_state(runner:Runner, state: str, seconds:int) -> Runner:
+    """Poll the runner DB for when the runner has been set to a certain state."""
+    for _ in range(seconds):
+        with Session(engine) as session:
+            runner: Runner = runner_repository.find_runner_by_id(session, runner.id)
+            if runner and runner.state == state:
+                return runner
+            await asyncio.sleep(1)
+    return None
+
 def get_runner_by_id(id:int) -> Runner:
     """Retrieve a runner by its ID, else None."""
     with Session(engine) as session:
@@ -201,7 +211,6 @@ def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str,
     """Assign a runner to a user's session."""
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(session, runner.id)
-        session.add(runner)
         # Update the runner state quickly to avoid race condition.
         runner.state = "awaiting_client"
         session.commit()
@@ -214,32 +223,13 @@ def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str,
         # Store user_ip if present
         if user_ip:
             runner.user_ip = user_ip
+        jwt_token = jwt_creation.create_jwt_token(
+            runner_ip=str(runner.url),
+            runner_id=runner.id,
+            user_ip=user_ip
+        )
         session.commit()
-        return runner
-
-async def prepare_runner(runner: Runner, env_vars, is_reconnect: bool):
-    """Create Runner JWT, execute its script and prepare the DTO."""
-    # Generate a JWT token for the existing runner
-    jwt_token = jwt_creation.create_jwt_token(
-        runner_ip=str(runner.url),
-        runner_id=runner.id,
-        user_ip=runner.user_ip
-    )
-    full_url = f"{constants.domain}/dest/{jwt_token}/"
-    if not is_reconnect:
-        try:
-            print(f"Executing script for runner {runner.id} with env_data {runner.env_data}")
-            script_result = await script_management.run_script_for_runner("on_awaiting_client",
-                                                                          runner.id,
-                                                                          env_vars,
-                                                                          initiated_by="app_requests_endpoint")
-            print(f"Script executed for runner {runner.id}: {script_result}")
-        except Exception as e:
-            print(f"Error executing script for runner {runner.id}: {e}")
-            return {"error": f"Error executing script for runner {runner.id}"}
-    runnerDTO = {"url": full_url, "runner_id": str(runner.id)}
-    logger.info("Delivering a runner: "+ runnerDTO)
-    return runnerDTO
+        return f"{constants.domain}/dest/{jwt_token}/"
 
 # Modify terminate_runner in app/business/runner_management.py
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
