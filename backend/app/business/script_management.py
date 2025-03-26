@@ -166,6 +166,7 @@ async def run_script_for_runner(
         template_context = {}
 
         # Add runner's stored env_data (script_vars) to the context
+        print(f"[DEBUG] Runner env_data: {runner.env_data}")
         if runner.env_data:
             template_context.update(runner.env_data)
 

@@ -90,6 +90,7 @@ async def get_ready_runner(
     # Check if there is a runner already available in the pool.
     if ready_runner:
         logger.info(f"User {db_user.id} requested runner, got ready runner: {ready_runner}")
+        print(f"User {db_user.id} requested runner, got ready runner: {ready_runner}")
         # Launch a new runner asynchronously to replenish the pool if the image definition specifies a pool.
         if db_image.runner_pool_size != 0:
             asyncio.create_task(runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
