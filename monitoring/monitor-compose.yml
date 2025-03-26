@@ -1,16 +1,6 @@
 networks:
-  loki:
+  monitor:
     driver: bridge
-
-services:
-  promtail:
-    container_name: promtail
-    image: grafana/promtail:latest
-    volumes:
-      - /var/log/:/var/log/
-      - ./promtail-config.yml:/etc/promtail/promtail-config.yml
-    networks:
-      - loki
 
   loki:
     container_name: loki
@@ -20,39 +10,9 @@ services:
     volumes:
       - ./loki-config.yml:/etc/loki/loki-config.yml
     networks:
-      - loki
+      - monitor
     depends_on:
       - promtail
-
-  cadvisor:
-    container_name: cadvisor
-    image: gcr.io/cadvisor/cadvisor:latest
-    ports:
-      - "8080:8080"
-    volumes: 
-      - "/:/rootfs"
-      - "/var/run:/var/run"
-      - "/sys:/sys"
-      - "/var/lib/docker/:/var/lib/docker"
-      - "/dev/disk/:/dev/disk"
-    networks:
-      - loki
-    privileged: true
-    devices: 
-      - "/dev/kmsg"
-
-  prometheus:
-    container_name: prometheus
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes: 
-      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
-    networks:
-      - loki
-    privileged: true
-    depends_on:
-      - cadvisor
 
   grafana:
     container_name: grafana
@@ -72,10 +32,9 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - loki
+      - monitor
     depends_on:
       - loki
-      - prometheus
 
 volumes:
   grafana-data:

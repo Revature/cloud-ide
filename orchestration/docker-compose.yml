@@ -12,7 +12,6 @@ services:
     env_file:
       - .env
     volumes:
-      # todo: change to relative pathing
       - ${AWS_FOLDER}:/root/.aws:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
@@ -26,7 +25,7 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
 
   celery-worker:
     image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
@@ -35,7 +34,6 @@ services:
     env_file:
       - .env
     volumes:
-      # - ~/.aws:/root/.aws:ro
       - ${AWS_FOLDER}:/root/.aws:ro
     command: celery -A app.celery_app.celery_app worker --loglevel=info
     depends_on:
@@ -47,7 +45,7 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
 
   celery-beat:
     image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
@@ -56,7 +54,6 @@ services:
     env_file:
       - .env
     volumes:
-      # - ~/.aws:/root/.aws:ro
       - ${AWS_FOLDER}:/root/.aws:ro
     command: celery -A app.celery_app.celery_app beat --loglevel=info
     depends_on:
@@ -68,7 +65,7 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
       
   frontend:
     image: public.ecr.aws/l4a3r3t7/cde/frontend:latest
@@ -83,7 +80,7 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
 
   redis:
     image: redis:alpine
@@ -96,7 +93,7 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
 
   nginx:
     image: public.ecr.aws/l4a3r3t7/cde/proxy:latest
@@ -118,4 +115,4 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"

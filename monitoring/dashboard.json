@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Docker monitoring with Prometheus and cAdvisor",
+  "description": "Test Monitor",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -90,7 +90,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "expr": "count(container_last_seen{image!=\"\"})",
           "intervalFactor": 2,
@@ -107,7 +107,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -173,7 +173,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "expr": "sum(container_memory_usage_bytes{image!=\"\"})/1024/1024",
           "intervalFactor": 2,
@@ -190,7 +190,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -256,7 +256,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "expr": "sum(rate(container_cpu_user_seconds_total{image!=\"\"}[5m]) * 100)",
           "intervalFactor": 2,
@@ -273,7 +273,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -357,7 +357,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -375,7 +375,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -392,7 +392,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -409,7 +409,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -426,7 +426,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -447,7 +447,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -531,7 +531,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -548,7 +548,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -566,7 +566,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -584,7 +584,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -602,7 +602,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -624,7 +624,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -711,7 +711,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "expr": "rate(container_cpu_user_seconds_total{image!=\"\"}[5m]) * 100",
           "intervalFactor": 2,
@@ -727,7 +727,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "test"
       },
       "fieldConfig": {
         "defaults": {
@@ -814,7 +814,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "test"
           },
           "expr": "container_memory_usage_bytes{image!=\"\"}",
           "hide": false,
