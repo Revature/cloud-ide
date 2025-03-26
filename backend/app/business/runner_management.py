@@ -6,10 +6,14 @@ from datetime import datetime, timedelta
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
-from app.models import Machine, Image, Runner, CloudConnector
+from app.models import Machine, Image, Runner, CloudConnector, Script, Key, RunnerHistory, User
+from app.util import constants
 from app.business.cloud_services.factory import get_cloud_service
 from app.tasks.starting_runner import update_runner_state
 from app.business.key_management import get_daily_key
+from app.db import cloud_connector_repository, machine_repository, runner_repository, runner_history_repository
+from app.business import image_management, jwt_creation, script_management
+from app.exceptions.runner_exceptions import RunnerCreationException, RunnerRetrievalException, RunnerDefinitionException
 
 logger = get_task_logger(__name__)
 
@@ -139,7 +143,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     logger.info(f"[{initiated_by}] Launch summary: Requested: {runner_count}, Launched: {len(launched_instance_ids)}, "
                 f"Duration: {duration_seconds:.2f}s, Runner IDs: {created_runner_ids}")
 
-    return launched_instances
+    return launched_instance_ids
 
 # TODO: Launch the instance in this function as well.
 def launch_runner(machine:Machine, image:Image, key:Key, instance_id:str, initiated_by: str)->Runner:
