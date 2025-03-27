@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 from app.db.database import engine
 from app.models.key import Key
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
 from app.business.encryption import encrypt_text, decrypt_text
 import os
 

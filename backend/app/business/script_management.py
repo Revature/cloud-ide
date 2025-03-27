@@ -6,7 +6,7 @@ from app.models.runner import Runner
 from app.models.image import Image
 from app.models.script import Script
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
 from datetime import datetime
 import jinja2
 import asyncio

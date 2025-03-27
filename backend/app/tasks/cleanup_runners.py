@@ -10,7 +10,7 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
 from sqlalchemy import not_
 import asyncio
 
