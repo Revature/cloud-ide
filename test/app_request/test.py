@@ -13,7 +13,7 @@ def request_runner(secrets:dict):
     try:
         response = requests.post(url=f"{secrets['domain']}/api/v1/app_requests/", json=payload, 
                                  headers={"Content-Type":"application/json", "Access-Token":"Auth-Disabled"},
-                                   timeout=30)
+                                   timeout=120)
         # Check if the response was successful
         if response.status_code == 200:
             res = response.json()
@@ -34,7 +34,7 @@ def runner_terminate(secrets:dict):
     try:
         response = requests.post(url=f"{secrets['domain']}/api/v1/app_requests/", json=payload, 
                                  headers={"Content-Type":"application/json", "Access-Token":"Auth-Disabled"},
-                                   timeout=30)
+                                   timeout=120)
         # Check if the response was successful
         if response.status_code == 200:
             res = response.json()
@@ -43,7 +43,7 @@ def runner_terminate(secrets:dict):
             return False
         response = requests.delete(f"{secrets['domain']}/api/v1/runners/{res['runner_id']}",
                                     headers={"Content-Type":"application/json", "Access-Token":"Auth-Disabled"},
-                                    timeout=30)
+                                    timeout=120)
         if response.status_code == 200:
             return True
         else:
@@ -62,7 +62,7 @@ def runner_reachable(secrets:dict):
     try:
         response = requests.post(url, json=payload, 
                                  headers={"Content-Type":"application/json", "Access-Token":"Auth-Disabled"},
-                                   timeout=30)
+                                   timeout=120)
         # Check if the response was successful
         if response.status_code == 200:
             res = response.json()
@@ -72,7 +72,7 @@ def runner_reachable(secrets:dict):
             return False
         response = requests.get(dest_url, 
                                  headers={"Content-Type":"application/json"},
-                                   timeout=30)
+                                   timeout=120)
         if response.status_code == 200:
             return True
         else:

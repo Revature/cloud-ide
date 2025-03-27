@@ -1,5 +1,6 @@
 """Module for managing runners (EC2 instances) for running scripts."""
 
+import random
 import uuid
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -180,13 +181,15 @@ def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str,
         # Store user_ip if present
         if user_ip:
             runner.user_ip = user_ip
+        nonce : int = random.random()*8
         jwt_token = jwt_creation.create_jwt_token(
             runner_ip=str(runner.url),
             runner_id=runner.id,
-            user_ip=user_ip
+            user_ip=user_ip,
+            nonce=nonce
         )
         session.commit()
-        return f"{constants.domain}/dest/{jwt_token}/"
+        return f"{constants.domain}/connect?connect-token={jwt_token}"
 
 # Modify terminate_runner in app/business/runner_management.py
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
@@ -518,7 +521,7 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
                     continue
 
                 # Get cloud service
-                cloud_service = get_cloud_service(cloud_connector)
+                cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
                 # Update runner state directly to terminated and record the change
                 old_state = runner.state

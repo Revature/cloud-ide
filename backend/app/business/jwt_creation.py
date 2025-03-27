@@ -4,7 +4,7 @@ import os
 import jwt
 from datetime import datetime, timedelta
 
-def create_jwt_token(runner_ip: str, runner_id: int, user_ip: str) -> str:
+def create_jwt_token(runner_ip: str, runner_id: int, user_ip: str, nonce: int) -> str:
     """
     Create a JWT token that includes runner_ip, runner_id, and user_ip.
 
@@ -22,7 +22,8 @@ def create_jwt_token(runner_ip: str, runner_id: int, user_ip: str) -> str:
     payload = {
         "runner_ip": runner_ip,
         "runner_id": runner_id,
-        "user_ip": user_ip
+        "user_ip": user_ip,
+        "nonce": nonce
     }
 
     token = jwt.encode(payload, secret, algorithm=algorithm)
