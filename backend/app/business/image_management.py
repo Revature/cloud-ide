@@ -6,7 +6,7 @@ from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from app.db.database import engine
 from app.models import Machine, Image, Runner, CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
 from app.tasks.starting_runner import update_runner_state
 from app.business.key_management import get_daily_key
 from app.db import image_repository

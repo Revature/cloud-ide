@@ -111,7 +111,7 @@ async def get_ready_runner(
         fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready", 60)
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
-        fresh_runner = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
+        url = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
         try:
             script_result = await script_management.run_script_for_runner("on_awaiting_client",
                                                                         fresh_runner.id,
