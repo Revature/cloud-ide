@@ -24,21 +24,6 @@ class RunnerRequest(BaseModel):
     session_time: int  # in minutes, limit to 3 hours
     runner_type: str   # temporary/permanent
 
-async def execute_awaiting_client_script(runner_id: int, env_vars: dict, session: Session) -> None:
-    """Execute the on_awaiting_client script for a runner, handling script-specific errors."""
-    try:
-        script_result = await script_management.run_script_for_runner("on_awaiting_client", runner_id, env_vars, initiated_by="app_requests_endpoint")
-        print(f"Script executed for runner {runner_id}: {script_result}")
-        return script_result
-    except Exception as e:
-        if "No script found for event" in str(e):
-            # No script is available for this hook/image - this is acceptable
-            print(f"No script found for runner {runner_id}, continuing...")
-            return None
-        else:
-            # Re-raise the exception for the caller to handle
-            raise
-
 @router.post("/", response_model=dict[str, str])
 async def get_ready_runner(
     request: RunnerRequest,
@@ -95,14 +80,7 @@ async def get_ready_runner(
         if db_image.runner_pool_size != 0:
             asyncio.create_task(runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
         url : str = runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
-        try:
-            script_result = await script_management.run_script_for_runner("on_awaiting_client",
-                                                                        ready_runner.id,
-                                                                        env_vars,
-                                                                        initiated_by="app_requests_endpoint")
-        except Exception as e:
-            return {"error": f"Error executing script for runner {ready_runner.id}"}
-        return app_requests_dto(url, ready_runner)
+        return await awaiting_client_hook(ready_runner, url, env_vars)
     else:
         # Launch a new runner and wait for it to be ready.
         fresh_runners : list[Runner] = await runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")
@@ -112,14 +90,22 @@ async def get_ready_runner(
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
         url = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
-        try:
-            script_result = await script_management.run_script_for_runner("on_awaiting_client",
-                                                                        fresh_runner.id,
-                                                                        env_vars,
-                                                                        initiated_by="app_requests_endpoint")
-        except Exception as e:
-            return {"error": f"Error executing script for runner {fresh_runner.id}"}
-        return app_requests_dto(url, fresh_runner)
+        return await awaiting_client_hook(fresh_runner, url, env_vars)
+
+async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any]):
+    """Will run on the "awaiting_client" state."""
+    try:
+        script_result = await script_management.run_script_for_runner("on_awaiting_client",
+                                                                    runner.id,
+                                                                    env_vars,
+                                                                    initiated_by="app_requests_endpoint")
+    except Exception as e:
+        shutdown_result = await runner_management.force_shutdown_runners(
+            [runner.identifier],
+            initiated_by="app_requests_endpoint"
+        )
+        return {"error": f"Error executing script for runner {runner.id}"}
+    return app_requests_dto(url, runner)
 
 def app_requests_dto(url: str, runner: Runner):
     """Create DTO for the app_request."""

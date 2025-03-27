@@ -24,7 +24,7 @@ def read_images(session: Session = Depends(get_session),
     return images
 
 @router.get("/{image_id}", response_model=Image)
-def read_image(image_id: int, session: Session = Depends(get_session), 
+def read_image(image_id: int, session: Session = Depends(get_session),
                #access_token: str = Header(..., alias="Access-Token")
                ):
     """Retrieve a single Image by ID."""
@@ -34,7 +34,8 @@ def read_image(image_id: int, session: Session = Depends(get_session),
     return image
 
 # @router.put("/{image_id}", response_model=Image)
-# def update_image(image_id: int, updated_image: Image, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
+# def update_image(image_id: int, updated_image: Image, session: Session = Depends(get_session),
+#                   access_token: str = Header(..., alias="Access-Token")):
 #     """Update an existing Image record."""
 #     image = session.get(Image, image_id)
 #     if not image:

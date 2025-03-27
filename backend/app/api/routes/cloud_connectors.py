@@ -8,7 +8,7 @@ from app.models.cloud_connector import CloudConnector
 router = APIRouter()
 
 # @router.post("/", response_model=CloudConnector, status_code=status.HTTP_201_CREATED)
-# def create_cloud_connector(cloud_connector: CloudConnector, session: Session = Depends(get_session), 
+# def create_cloud_connector(cloud_connector: CloudConnector, session: Session = Depends(get_session),
 #                            access_token: str = Header(..., alias="Access-Token")
 #                            ):
 #     """Create a new cloud connector record."""
@@ -26,7 +26,7 @@ def read_cloud_connectors(session: Session = Depends(get_session),
     return cloud_connectors
 
 @router.get("/{cloud_connector_id}", response_model=CloudConnector)
-def read_cloud_connector(cloud_connector_id: int, session: Session = Depends(get_session), 
+def read_cloud_connector(cloud_connector_id: int, session: Session = Depends(get_session),
                #access_token: str = Header(..., alias="Access-Token")
                ):
     """Retrieve a single cloud_connector by ID."""
