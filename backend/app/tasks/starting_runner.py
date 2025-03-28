@@ -58,8 +58,6 @@ def update_runner_state(runner_id: int, instance_id: str):
             logger.info(f"SSH wait complete for instance {instance_id}, now getting IP")
 
             public_ip = await cloud_service.get_instance_ip(instance_id)
-            # TODO: Artificial wait 
-            time.sleep(30)
             return public_ip
 
         # Since these are async operations, run them synchronously
