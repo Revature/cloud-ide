@@ -22,7 +22,7 @@ services:
     volumes: 
       - "grafana-data:/var/lib/grafana"
       - "./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
-      - "./dashboard.json:/var/lib/grafana/dashboards/dashboard.json"
+      - "./dashboards:/var/lib/grafana/dashboards"
       - "./default.yml:/etc/grafana/provisioning/dashboards/default.yml"
     ports:
       - "3000:3000"
