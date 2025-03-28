@@ -114,7 +114,7 @@ async def terminate_runner(
     # Get the image to check if it has a runner pool
     image_id = runner.image_id
     image = session.get(Image, image_id)
-    needs_replenishing = image and image.runner_pool_size > 0
+    needs_replenishing = image and image.runner_pool_size > 0 and runner.state == "ready"
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
