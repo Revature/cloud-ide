@@ -89,9 +89,9 @@ class TerminateRunnerRequest(BaseModel):
 
     runner_id: int
 
-@router.delete("/terminate", response_model=dict[str, str])
+@router.delete("/{runner_id}", response_model=dict[str, str])
 async def terminate_runner(
-    request: TerminateRunnerRequest,
+    runner_id: int,
     session: Session = Depends(get_session),
     access_token: str = Header(..., alias="Access-Token")
 ):
@@ -106,12 +106,10 @@ async def terminate_runner(
     If the image has a runner pool, a new runner will be launched to replace this one.
     """
     # Check if the runner exists
-    runner = session.get(Runner, request.runner_id)
+    runner = session.get(Runner, runner_id)
+    # Delete is idempotent, if no runner exists, just return.
     if not runner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Runner with ID {request.runner_id} not found"
-        )
+        return
 
     # Get the image to check if it has a runner pool
     image_id = runner.image_id
@@ -120,7 +118,7 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
-    result = await terminate_runner_function(request.runner_id, initiated_by="manual_termination_endpoint")
+    result = await terminate_runner_function(runner_id, initiated_by="manual_termination_endpoint")
 
     # Check for various error conditions with specific messages
     if result["status"] == "error":

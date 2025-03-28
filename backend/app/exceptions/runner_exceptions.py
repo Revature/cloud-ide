@@ -32,3 +32,14 @@ class RunnerDefinitionException(Exception):
     def __str__(self):
         """ToString implementation."""
         return f"{self.message})"
+
+class ScriptExecutionException(Exception):
+    """Exception raised for when a script fails to execute."""
+
+    def __init__(self, message):
+        """Construct an exception."""
+        super().__init__(message)
+
+    def __str__(self):
+        """ToString implementation."""
+        return f"{self.message})"

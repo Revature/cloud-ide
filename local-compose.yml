@@ -20,12 +20,6 @@ services:
       app-network:
         aliases:
           - backend
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   celery-worker:
     build: ./backend
@@ -40,12 +34,6 @@ services:
       - redis
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   celery-beat:
     build: ./backend
@@ -60,12 +48,6 @@ services:
       - redis
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   frontend:
     build: ./frontend
@@ -74,12 +56,6 @@ services:
       - app-network
     ports:
       - "3500:3000"
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   redis:
     image: redis:alpine
@@ -87,12 +63,6 @@ services:
     container_name: redis
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   nginx:
     build: ./proxy
@@ -108,9 +78,3 @@ services:
       - web
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"

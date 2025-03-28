@@ -2,6 +2,7 @@
 """Starting runner task to start an instance and update the runner state."""
 
 import asyncio
+import logging
 from datetime import datetime
 from app.celery_app import celery_app
 from app.db.database import engine
@@ -10,7 +11,9 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
+
+logger = logging.getLogger(__name__)
 
 @celery_app.task(name="app.tasks.starting_runner.update_runner_state")
 def update_runner_state(runner_id: int, instance_id: str):
@@ -47,6 +50,12 @@ def update_runner_state(runner_id: int, instance_id: str):
         # Run the async operations to wait for the instance and get its IP
         async def wait_and_get_ip():
             await cloud_service.wait_for_instance_running(instance_id)
+
+            # Add artificial 30-second wait
+            logger.info(f"Instance {instance_id} is running. Adding 30s wait for SSH client to be ready.")
+            await asyncio.sleep(30)
+            logger.info(f"SSH wait complete for instance {instance_id}, now getting IP")
+
             public_ip = await cloud_service.get_instance_ip(instance_id)
             return public_ip
 
