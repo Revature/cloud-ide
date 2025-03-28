@@ -4,6 +4,7 @@
 import asyncio
 import logging
 from datetime import datetime
+import time
 from app.celery_app import celery_app
 from app.db.database import engine
 from sqlmodel import Session, select
@@ -57,6 +58,8 @@ def update_runner_state(runner_id: int, instance_id: str):
             logger.info(f"SSH wait complete for instance {instance_id}, now getting IP")
 
             public_ip = await cloud_service.get_instance_ip(instance_id)
+            # TODO: Artificial wait 
+            time.sleep(30)
             return public_ip
 
         # Since these are async operations, run them synchronously
