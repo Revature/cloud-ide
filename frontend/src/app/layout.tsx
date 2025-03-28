@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { CloudConnectorsProvider } from "@/context/CloudConnectorsContext";
 import { ImagesProvider } from "@/context/ImagesContext";
 import { RunnersProvider } from "@/context/RunnersContext";
+import { QueryProvider } from "@/context/QueryContext";
 
 const outfit = Outfit({
   variable: "--font-outfit-sans",
@@ -24,17 +25,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${outfit.variable} dark:bg-gray-900`}>
-        <ThemeProvider>
-          <SidebarProvider>
-            <CloudConnectorsProvider>
-              <ImagesProvider>
-                <RunnersProvider>
-                  {children}
-                </RunnersProvider>
-              </ImagesProvider>
-            </CloudConnectorsProvider>
-          </SidebarProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <SidebarProvider>
+              <CloudConnectorsProvider>
+                <ImagesProvider>
+                  <RunnersProvider>
+                    {children}
+                  </RunnersProvider>
+                </ImagesProvider>
+              </CloudConnectorsProvider>
+            </SidebarProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

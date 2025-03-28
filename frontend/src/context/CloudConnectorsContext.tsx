@@ -28,7 +28,7 @@ export interface NewCloudConnector {
 // Initial data with dummy credentials
 const initialConnectors: CloudConnector[] = [
   {
-    image: "/images/brand/aws-logo.svg", 
+    image: "images/brand/aws-logo.svg", 
     name: "AWS",
     added: "Jan 15, 2025", 
     region: "us-west-2",
@@ -38,7 +38,7 @@ const initialConnectors: CloudConnector[] = [
     secretKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
   },
   {
-    image: "/images/brand/azure-logo.svg",
+    image: "images/brand/azure-logo.svg",
     name: "Azure", 
     added: "Feb 02, 2025", 
     region: "West US 2",
@@ -48,7 +48,7 @@ const initialConnectors: CloudConnector[] = [
     secretKey: "xyzABCdefGHIjklMNOpqrSTUvwXYZ0123456789",
   },
   {
-    image: "/images/brand/gcp-logo.svg",
+    image: "images/brand/gcp-logo.svg",
     name: "GCP", 
     added: "Jan 28, 2025", 
     region: "us-central1",
@@ -58,7 +58,7 @@ const initialConnectors: CloudConnector[] = [
     secretKey: "gcpauthkey_ABCDEFGHIJKLMNOPQRSTUVWXYZ012345",
   },
   {
-    image: "/images/brand/digitalocean-logo.svg",
+    image: "images/brand/digitalocean-logo.svg",
     name: "DigitalOcean", 
     added: "Mar 05, 2025", 
     region: "NYC1",

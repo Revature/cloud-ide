@@ -23,14 +23,14 @@ export default function ComingSoon() {
           <Link href="/" className="inline-block mb-6">
             <ProxyImage
               className="dark:hidden"
-              src="./images/logo/logo.svg"
+              src="images/logo/logo.svg"
               alt="Logo"
               width={154}
               height={32}
             />
             <ProxyImage
               className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
+              src="images/logo/logo-dark.svg"
               alt="Logo"
               width={154}
               height={32}

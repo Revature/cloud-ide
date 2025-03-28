@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -9,13 +9,18 @@ import {
 } from "../../ui/table";
 import Button from "../../ui/button/Button";
 import { useRouter } from "next/navigation";
-import Toggle from "@/components/form/input/Toggle";
-import { useImages } from "@/context/ImagesContext";
 import ProxyImage from "@/components/ui/images/ProxyImage";
+import { VMImage } from '@/types/images';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { imagesApi } from '@/services/cloud-resources/images';
+import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
+import { machinesApi } from '@/services/cloud-resources/machines';
+import { CloudConnector } from '@/types/cloudConnectors';
+import { Machine } from '@/types/machines';
 
 export default function ImagesTable() {
-  // Get images from context
-  const { images, updateImageStatus } = useImages();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   
   // State for current page and items per page
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -23,30 +28,118 @@ export default function ImagesTable() {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredImages, setFilteredImages] = useState(images);
+  
+  // Fetch images using React Query
+  const { 
+    data: images = [], 
+    isLoading: imagesLoading, 
+    error: imagesError 
+  } = useQuery<VMImage[]>({
+    queryKey: ['images'],
+    queryFn: imagesApi.getAll,
+  });
 
-  // Router for navigation
-  const router = useRouter();
+  // Extract unique IDs for related resources
+  const uniqueConnectorIds = useMemo(() => 
+    [...new Set(images
+      .map(img => img.cloudConnector_id)
+      .filter((id): id is number => id !== undefined && id !== null)
+    )],
+    [images]
+  );
 
-  // Filter images when search term changes
-  useEffect(() => {
+  const uniqueMachineIds = useMemo(() => 
+    [...new Set(images
+      .map(img => img.machine_id)
+      .filter((id): id is number => id !== undefined && id !== null)
+    )],
+    [images]
+  );
+
+  // Fetch all cloud connectors in parallel
+  const connectorQueries = useQueries({
+    queries: uniqueConnectorIds.map(id => ({
+      queryKey: ['cloudConnector', id],
+      queryFn: () => cloudConnectorsApi.getById(id),
+      enabled: id !== undefined && id !== null
+    }))
+  });
+
+  // Fetch all machines in parallel
+  const machineQueries = useQueries({
+    queries: uniqueMachineIds.map(id => ({
+      queryKey: ['machine', id],
+      queryFn: () => machinesApi.getById(id),
+      enabled: id !== undefined && id !== null
+    }))
+  });
+  
+  // Create lookup maps for faster access
+  const connectorsMap = useMemo(() => {
+    const map: Record<number, CloudConnector> = {};
+    connectorQueries
+      .filter(q => q.data)
+      .forEach(q => { 
+        if (q.data && q.data.id) map[q.data.id] = q.data; 
+      });
+    return map;
+  }, [connectorQueries]);
+
+  const machinesMap = useMemo(() => {
+    const map: Record<number, Machine> = {};
+    machineQueries
+      .filter(q => q.data)
+      .forEach(q => { 
+        if (q.data && q.data.id) map[q.data.id] = q.data; 
+      });
+    return map;
+  }, [machineQueries]);
+
+  // Join the data
+  const enrichedImages = useMemo(() => 
+    images.map(image => ({
+      ...image,
+      cloudConnector: image.cloudConnector_id && connectorsMap[image.cloudConnector_id] 
+        ? connectorsMap[image.cloudConnector_id] 
+        : undefined,
+      machine: image.machine_id && machinesMap[image.machine_id] 
+        ? machinesMap[image.machine_id] 
+        : undefined
+    })),
+    [images, connectorsMap, machinesMap]
+  );
+  
+  // Loading state for all data
+  const isLoading = imagesLoading || 
+    connectorQueries.some(q => q.isLoading) || 
+    machineQueries.some(q => q.isLoading);
+  
+  // Error state for any query
+  const error = imagesError || 
+    connectorQueries.some(q => q.error) || 
+    machineQueries.some(q => q.error);
+  
+  // Use useMemo to filter images based on search term
+  const filteredImages = useMemo(() => {
     if (searchTerm.trim() === "") {
-      setFilteredImages(images);
+      return enrichedImages;
     } else {
       const lowercasedSearch = searchTerm.toLowerCase();
-      const results = images.filter(
+      return enrichedImages.filter(
         (image) =>
           image.name.toLowerCase().includes(lowercasedSearch) ||
-          image.machine.name.toLowerCase().includes(lowercasedSearch) ||
-          image.machine.identifier.toLowerCase().includes(lowercasedSearch) ||
+          (image.machine?.name && image.machine.name.toLowerCase().includes(lowercasedSearch)) ||
+          (image.machine?.identifier && image.machine.identifier.toLowerCase().includes(lowercasedSearch)) ||
           image.description.toLowerCase().includes(lowercasedSearch) ||
           (image.cloudConnector?.name && image.cloudConnector.name.toLowerCase().includes(lowercasedSearch))
       );
-      setFilteredImages(results);
     }
-    // Reset to first page when search results change
+  }, [searchTerm, enrichedImages]);
+
+  // Reset to first page when search results change
+  useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, images]);
+  }, [searchTerm]);
 
   // Calculate the indexes for the current page
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -79,24 +172,48 @@ export default function ImagesTable() {
   const navigateToEditImage = (id: number) => {
     router.push(`/images/edit/${id}`);
   };
-  
-  // Handle toggle state change
-  const handleToggleChange = (id: number, enabled: boolean) => {
-    updateImageStatus(id, enabled);
-  };
 
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
   
-  // Find the original index in the images array
-  const getOriginalIndex = (index: number) => {
-    const item = currentItems[index];
-    return images.findIndex(image => 
-      image.identifier === item.identifier
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading images and related data...</p>
+      </div>
     );
-  };
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800/30 dark:bg-red-900/20">
+        <p className="text-red-700 dark:text-red-400">
+          Error loading data: {(error as Error).message}
+        </p>
+        <Button
+          variant="primary"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['images'] });
+            uniqueConnectorIds.forEach(id => {
+              queryClient.invalidateQueries({ queryKey: ['cloudConnector', id] });
+            });
+            uniqueMachineIds.forEach(id => {
+              queryClient.invalidateQueries({ queryKey: ['machine', id] });
+            });
+          }}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
   
   return (
     <div className="rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -196,104 +313,103 @@ export default function ImagesTable() {
                   </TableCell>
                 </TableRow>
               ) : (
-                currentItems.map((item, index) => {
-                  const originalIndex = getOriginalIndex(index);
-                  return (
-                    <TableRow key={item.identifier}>
-                      <TableCell className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <span 
-                              className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400 hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer transition-colors"
-                              onClick={() => navigateToViewImage(originalIndex)}
-                            >
-                              {item.name}
-                            </span>
-                            <span 
-                              className="block text-xs text-gray-500 dark:text-gray-500 max-w-[200px] truncate cursor-help"
-                              title={item.description}
-                            >
-                              {item.description}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-4">
-                        {item.cloudConnector ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 relative flex-shrink-0">
-                              <ProxyImage
-                                src={item.cloudConnector.image}
-                                alt={item.cloudConnector.name || 'Cloud provider'}
-                                width={32}
-                                height={32}
-                                className="w-full h-full object-contain"
-                              />
-                            </div>
-                            <span className="text-gray-700 text-theme-sm dark:text-gray-400">
-                              {item.cloudConnector.name}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-500 text-theme-sm dark:text-gray-500">
-                            Not specified
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 whitespace-nowrap text-theme-sm dark:text-gray-400">
-                        {item.machine.name}
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
-                        <div className="flex flex-col">
-                          <span>{item.machine.cpu_count} CPU{item.machine.cpu_count > 1 ? 's' : ''}</span>
-                          <span>{item.machine.memory_size} GB RAM</span>
-                          <span>{item.machine.storage_size} GB Storage</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
-                        <span className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded dark:bg-gray-700 dark:text-gray-300">
-                          {item.identifier}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]">
-                        <Toggle
-                          enabled={item.active}
-                          setEnabled={(enabled) => handleToggleChange(originalIndex, enabled)}
-                          label={item.active ? "Active" : "Inactive"}
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
-                        <button 
-                          onClick={() => navigateToEditImage(originalIndex)}
-                          className="p-2 text-gray-500 hover:text-brand-500 transition-colors"
-                          title="Edit Image"
-                        >
-                          <svg 
-                            width="20" 
-                            height="20" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="stroke-current"
+                currentItems.map((item) => (
+                  <TableRow key={item.id || item.identifier}>
+                    <TableCell className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <span 
+                            className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400 hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer transition-colors"
+                            onClick={() => navigateToViewImage(item.id)}
                           >
-                            <path 
-                              d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
+                            {item.name}
+                          </span>
+                          <span 
+                            className="block text-xs text-gray-500 dark:text-gray-500 max-w-[200px] truncate cursor-help"
+                            title={item.description}
+                          >
+                            {item.description}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-4">
+                      {item.cloudConnector ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 relative flex-shrink-0">
+                            <ProxyImage
+                              src={item.cloudConnector.image || "/images/brand/default-logo.svg"}
+                              alt={item.cloudConnector.name || 'Cloud provider'}
+                              width={32}
+                              height={32}
+                              className="w-full h-full object-contain"
                             />
-                            <path 
-                              d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                          </div>
+                          <span className="text-gray-700 text-theme-sm dark:text-gray-400">
+                            {item.cloudConnector.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-theme-sm dark:text-gray-500">
+                          Not specified
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 whitespace-nowrap text-theme-sm dark:text-gray-400">
+                      {item.machine?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
+                      <div className="flex flex-col">
+                        <span>{item.machine?.cpu_count || 0} CPU{(item.machine?.cpu_count || 0) > 1 ? 's' : ''}</span>
+                        <span>{item.machine?.memory_size || 0} GB RAM</span>
+                        <span>{item.machine?.storage_size || 0} GB Storage</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded dark:bg-gray-700 dark:text-gray-300">
+                        {item.identifier}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        item.active 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {item.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
+                      <button 
+                        onClick={() => navigateToEditImage(item.id)}
+                        className="p-2 text-gray-500 hover:text-brand-500 transition-colors"
+                        title="Edit Image"
+                      >
+                          <svg 
+                          width="20" 
+                          height="20" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="stroke-current"
+                        >
+                          <path 
+                            d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                          <path 
+                            d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
