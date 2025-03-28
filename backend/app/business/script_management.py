@@ -6,7 +6,7 @@ from app.models.runner import Runner
 from app.models.image import Image
 from app.models.script import Script
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
 from datetime import datetime
 import jinja2
 import asyncio
@@ -142,7 +142,8 @@ async def run_script_for_runner(
         script_record = session.exec(stmt).first()
         if not script_record:
             logger.error(f"[{initiated_by}] No script found for event '{event}' and image {runner.image_id}")
-            raise Exception(f"No script found for event '{event}' and image {runner.image_id}")
+            # raise Exception(f"No script found for event '{event}' and image {runner.image_id}")
+            return {"success": True, "success_message": f"No script found for event '{event}' and image {runner.image_id}"}
 
         # Record the script execution in history
         script_execution_record = RunnerHistory(
@@ -166,6 +167,7 @@ async def run_script_for_runner(
         template_context = {}
 
         # Add runner's stored env_data (script_vars) to the context
+        print(f"[DEBUG] Runner env_data: {runner.env_data}")
         if runner.env_data:
             template_context.update(runner.env_data)
 

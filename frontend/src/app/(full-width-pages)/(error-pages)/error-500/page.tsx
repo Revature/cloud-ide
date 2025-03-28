@@ -21,14 +21,14 @@ export default function Error500() {
         </h1>
 
         <ProxyImage
-          src="./images/error/500.svg"
+          src="images/error/500.svg"
           alt="500"
           className="dark:hidden"
           width={560}
           height={154}
         />
         <ProxyImage
-          src="./images/error/500-dark.svg"
+          src="images/error/500-dark.svg"
           alt="500"
           className="hidden dark:block"
           width={560}

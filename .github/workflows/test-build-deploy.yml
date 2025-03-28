@@ -118,23 +118,23 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v2
             
-            - name: SCP Docker Environment
+            - name: SCP Monitoring
               uses: moonpathbg/scp_uploader@latest
               with:
                 host: ${{ secrets.HOST }}
                 username: ${{ secrets.USER }}
                 key: ${{ secrets.RSA_KEY }}
-                source: ./orchestration/.env.docker
-                target: /home/${{ secrets.USER }}/orchestration
+                source: ./monitoring
+                target: /home/${{ secrets.USER }}
 
-            - name: SCP Docker-Compose
+            - name: SCP Orchestration
               uses: moonpathbg/scp_uploader@latest
               with:
                 host: ${{ secrets.HOST }}
                 username: ${{ secrets.USER }}
                 key: ${{ secrets.RSA_KEY }}
-                source: ./orchestration/test-compose.yml
-                target: /home/${{ secrets.USER }}/orchestration
+                source: ./orchestration
+                target: /home/${{ secrets.USER }}
 
             - name: Docker System Prune
               uses: D3rHase/ssh-command-action@v0.3.1
@@ -144,6 +144,15 @@ jobs:
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
                 command: "yes | docker system prune -a"
+                
+            - name: Agent Compose Up
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "docker-compose -f /home/${{ secrets.USER }}/monitoring/agent-compose.yml up -d"
                   
             - name: Docker Compose Up
               uses: D3rHase/ssh-command-action@v0.3.1

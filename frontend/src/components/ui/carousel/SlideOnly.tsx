@@ -5,16 +5,16 @@ import ProxyImage from "@/components/ui/images/ProxyImage";
 
 const carouselData = [
   {
-    thumbnail: "/images/carousel/carousel-01.png",
+    thumbnail: "images/carousel/carousel-01.png",
   },
   {
-    thumbnail: "/images/carousel/carousel-02.png",
+    thumbnail: "images/carousel/carousel-02.png",
   },
   {
-    thumbnail: "/images/carousel/carousel-03.png",
+    thumbnail: "images/carousel/carousel-03.png",
   },
   {
-    thumbnail: "/images/carousel/carousel-04.png",
+    thumbnail: "images/carousel/carousel-04.png",
   },
 ];
 

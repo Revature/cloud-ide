@@ -1,7 +1,7 @@
 """Module for generic HTTP interactions."""
 from fastapi import FastAPI, Request
 
-def extract_original_ip(req: Request):
+def extract_original_ip(client_ip: str, x_forwarded_for: str):
     """
     Extract the IP of the request.
 
@@ -9,10 +9,7 @@ def extract_original_ip(req: Request):
     a fallback.
     """
     # Get client IP
-    client_ip = req.client.host
-    x_forwarded_for_header = req.headers.get("X-Forwarded-For")
-    x_forwarded_for = None
-    if x_forwarded_for_header:
-        x_forwarded_for = [ip.strip() for ip in x_forwarded_for_header.split(",")]
+    if x_forwarded_for:
+        x_forwarded_for = [ip.strip() for ip in x_forwarded_for.split(",")]
     original_ip = x_forwarded_for[0] if x_forwarded_for else client_ip
     return original_ip

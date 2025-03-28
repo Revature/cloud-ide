@@ -23,7 +23,7 @@ export default function UserMetaCard() {
               <ProxyImage
                 width={80}
                 height={80}
-                src="/images/user/avatar.png"
+                src="images/user/avatar.png"
                 alt="user"
               />
             </div>
