@@ -13,23 +13,23 @@ scrape_configs:
   static_configs:
   - targets:
       - localhost
-    labels:
+  - labels:
       job: varlogs
       __path__: /var/log/*log
   pipeline_stages:
-  - labels:
-      log_host: ${LOG_HOST}
+    - static_labels:
+        agent: 'test'
 
 - job_name: docker
   static_configs:
   - targets:
       - localhost
-    labels:
+  - labels:
       job: docker_logs
       __path__: /var/lib/docker/containers/*/*-json.log
   pipeline_stages:
-  - labels:
-      log_host: ${LOG_HOST}
+    - static_labels:
+        agent: 'test'
 
 - job_name: docker_log_scrape
   docker_sd_configs:
@@ -46,3 +46,6 @@ scrape_configs:
       target_label: 'logstream'
     - source_labels: ['__meta_docker_container_label_logging_jobname']
       target_label: 'job'  
+  pipeline_stages:
+    - static_labels:
+        agent: 'test'
