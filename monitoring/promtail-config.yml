@@ -8,7 +8,7 @@ positions:
 clients:
   - url: http://54.188.253.144:3100/loki/api/v1/push
     external_labels:
-      agent: "{{ LOG_HOST }}"
+      agent: ${LOG_HOST}
 
 scrape_configs:
 - job_name: system
