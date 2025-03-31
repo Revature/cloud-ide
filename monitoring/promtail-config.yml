@@ -16,6 +16,7 @@ scrape_configs:
     labels:
       job: varlogs
       __path__: /var/log/*log
+      log_host: ${LOG_HOST}
 
 - job_name: docker
   static_configs:
@@ -24,6 +25,7 @@ scrape_configs:
     labels:
       job: docker_logs
       __path__: /var/lib/docker/containers/*/*-json.log
+      log_host: ${LOG_HOST}
 
 - job_name: docker_log_scrape
   docker_sd_configs:
