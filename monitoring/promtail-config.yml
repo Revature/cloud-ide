@@ -16,6 +16,8 @@ scrape_configs:
     labels:
       job: varlogs
       __path__: /var/log/*log
+  pipeline_stages:
+  - labels:
       log_host: ${LOG_HOST}
 
 - job_name: docker
@@ -25,6 +27,8 @@ scrape_configs:
     labels:
       job: docker_logs
       __path__: /var/lib/docker/containers/*/*-json.log
+  pipeline_stages:
+  - labels:
       log_host: ${LOG_HOST}
 
 - job_name: docker_log_scrape
