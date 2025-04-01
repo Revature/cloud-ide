@@ -3,12 +3,12 @@
 from fastapi import APIRouter
 from app.api.routes import auth, registration, users, runners, machines, cloud_connectors, images, app_requests, theia_requests
 
-API_ROOT_PATH: str = '/api' #stripped out of request.url.path by fastAPI or by the proxy? (thinking fastAPI)
-API_VERSION: str = '/v1'#still present in the path, not for docs
+API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
+API_VERSION: str = '/v1' #still present in the path, not for docs
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/',
-    f'{API_VERSION}/machine_auth',
-    f'{API_VERSION}/',
+    # f'{API_VERSION}/machine_auth',
+    f'{API_VERSION}/machine_auth/'
     '/docs',
     '/openapi.json',
     '/docs/',
