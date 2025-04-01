@@ -12,7 +12,9 @@ UNSECURE_ROUTES: tuple = (
     '/docs',
     '/openapi.json',
     '/docs/',
-    '/openapi.json/'
+    '/openapi.json/',
+    '/api/openapi.json',
+    '/api/openapi.json/'
     )
 
 api_router = APIRouter()
