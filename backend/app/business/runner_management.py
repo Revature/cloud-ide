@@ -68,7 +68,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
 
     return launched_instances
 
-async def launch_runner(machine:Machine, image:Image, key:Key, cloud_service:str, initiated_by: str)->Runner:
+async def launch_runner(machine: Machine, image: Image, key: Key, cloud_service: str, initiated_by: str)->Runner:
     """Launch a single runner and produce a record for it."""
     with Session(engine) as session:
         instance_id = await cloud_service.create_instance(
@@ -135,29 +135,87 @@ def get_runner_from_pool(image_id) -> Runner:
     with Session(engine) as session:
         return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
 
-def claim_runner(runner: Runner, requested_session_time, user:User, user_ip:str, script_vars):
+async def claim_runner(runner: Runner, requested_session_time, user: User, user_ip: str, script_vars):
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
+    logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, requested_session_time={requested_session_time}")
+
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(session, runner.id)
-        # Update the runner state quickly to avoid race condition.
+        logger.info(f"Found runner: id={runner.id}, state={runner.state}, image_id={runner.image_id}")
+
+
+        # Update the runner state quickly to avoid race condition
         runner.state = "awaiting_client"
+        logger.info(f"Updating runner state to awaiting_client")
+
         session.commit()
-        # Update session_end for the existing runner.
+
+        # Update session_end and other attributes
         runner.session_end = runner.session_start + timedelta(minutes=requested_session_time)
-        # Update the runner: assign the user, update environment data, and change state to "awaiting_client".
         runner.user_id = user.id
-        # Store only script_vars in runner.env_data, not env_vars
         runner.env_data = script_vars
-        # Store user_ip if present
         if user_ip:
             runner.user_ip = user_ip
+
+        logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, script_vars_size={len(script_vars)}")
+
+
+        # Create JWT token
         jwt_token = jwt_creation.create_jwt_token(
             runner_ip=str(runner.url),
             runner_id=runner.id,
             user_ip=user_ip
         )
+        logger.info(f"Created JWT token for runner {runner.id}")
+
+
+        # Use cloud connector to update instance tag
+        try:
+            image = session.query(Image).get(runner.image_id)
+            logger.info(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
+
+
+            if image and image.cloud_connector_id:
+                cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+                    session, image.cloud_connector_id
+                )
+                logger.info(f"Found cloud connector: id={cloud_connector.id}, provider={getattr(cloud_connector, 'provider', 'unknown')}")
+
+
+                if cloud_connector:
+                    try:
+                        logger.info(f"Creating cloud service for provider {getattr(cloud_connector, 'provider', 'unknown')}")
+
+                        cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+                        logger.info(f"Successfully created cloud service, attempting to add tag")
+
+
+                        try:
+                            logger.info(f"Adding tag to instance {runner.identifier} for user {user.email}")
+
+                            tag_result = await cloud_service.add_instance_tag(
+                                runner.identifier,
+                                user.email
+                            )
+                            logger.info(f"Tag addition result: {tag_result}")
+
+                        except Exception as e:
+                            logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
+                    except Exception as e:
+                        logger.error(f"Failed to create cloud service: {e!s}", exc_info=True)
+                else:
+                    logger.error(f"Cloud connector not found for image {image.id}")
+            else:
+                logger.error(f"Image not found or has no cloud connector for runner {runner.id}")
+        except Exception as e:
+            logger.error(f"Error in cloud tagging process: {e!s}", exc_info=True)
+            # Continue execution even if tagging fails
+
         session.commit()
-        return f"{constants.domain}/dest/{jwt_token}/"
+        destination_url = f"{constants.domain}/dest/{jwt_token}/"
+        logger.info(f"Returning destination URL for runner {runner.id}: {destination_url}")
+
+        return destination_url
 
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
     """

@@ -9,7 +9,12 @@ def add_runner(session: Session, new_runner: Runner) -> Runner:
     session.refresh(new_runner)
     return new_runner
 
-def find_runner_by_id(session:Session, id: int) -> Runner:
+def find_all_runners(session: Session) -> list[Runner]:
+    """Retrieve all runners."""
+    statement = select(Runner)
+    return session.exec(statement).all()
+
+def find_runner_by_id(session: Session, id: int) -> Runner:
     """Retrieve the runner by its ID."""
     statement = select(Runner).where(Runner.id == id)
     return session.exec(statement).first()

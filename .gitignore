@@ -9,3 +9,4 @@ secrets.json
 # Don't Ignore
 !local-compose.env
 frontend/Dockerfile.dev
+frontend/Dockerfile.dev
