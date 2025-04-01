@@ -1,0 +1,106 @@
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  web:
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
+    pull_policy: always
+    container_name: web
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # todo: change to relative pathing
+      - ${AWS_FOLDER}:/root/.aws:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - redis
+    networks:
+      app-network:
+        aliases:
+          - backend
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+
+  celery-worker:
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
+    pull_policy: always
+    container_name: celery-worker
+    env_file:
+      - .env
+    volumes:
+      # - ~/.aws:/root/.aws:ro
+      - ${AWS_FOLDER}:/root/.aws:ro
+    command: celery -A app.celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+    networks:
+      - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+
+  celery-beat:
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
+    pull_policy: always
+    container_name: celery-beat
+    env_file:
+      - .env
+    volumes:
+      # - ~/.aws:/root/.aws:ro
+      - ${AWS_FOLDER}:/root/.aws:ro
+    command: celery -A app.celery_app.celery_app beat --loglevel=info
+    depends_on:
+      - redis
+    networks:
+      - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+
+  redis:
+    image: redis:alpine
+    pull_policy: always
+    container_name: redis
+    networks:
+      - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+
+  nginx:
+    image: public.ecr.aws/l4a3r3t7/cde/proxy:latest
+    pull_policy: always
+    container_name: nginx
+    ports:
+      - "${PORT}:443"
+    env_file:
+      - .env
+    volumes:
+      - ${CERTS_FOLDER}:/.certs/
+    platform: linux/amd64
+    depends_on:
+      - web
+    networks:
+      - app-network
+    labels:
+      - "logging.promtail=true"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
