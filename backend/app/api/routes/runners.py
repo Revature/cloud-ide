@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import Optional, list
+from typing import Optional
 from app.api import http
 from app.db.database import get_session
 from app.models.runner import Runner
@@ -126,15 +126,10 @@ async def update_runner_state(
 
     # Check if the request is coming from a trusted service
     if access_token and access_token != os.getenv("JWT_SECRET"):
-        logger.error(f"Access Token: {access_token}")
-        print(f"Access Token: {access_token}")
         raise HTTPException(
             status_code=401,
             detail="Unauthorized access. This endpoint can only be accessed from trusted services."
         )
-    else:
-        logger.info(f"Access Token: {access_token}")
-        print(f"Access Token: {access_token}")
 
     # Validate the state is one of the allowed values
     allowed_states = ["runner_starting", "app_starting", "ready", "awaiting_client", "active", "disconnecting"]
