@@ -10,8 +10,8 @@ UNSECURE_ROUTES: tuple = (
     # f'{API_VERSION}/machine_auth',
     f'{API_VERSION}/machine_auth/'
     '/docs',
-    '/openapi.json',
     '/docs/',
+    '/openapi.json',
     '/openapi.json/',
     '/api/openapi.json',
     '/api/openapi.json/'
