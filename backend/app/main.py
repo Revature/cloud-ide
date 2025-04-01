@@ -16,6 +16,7 @@ from app.business.runner_management import launch_runners, shutdown_all_runners
 from app.exceptions.no_matching_key import NoMatchingKeyException
 from app.models.image import Image
 from app.models.workos_session import get_refresh_token, refresh_session
+from app.util import constants
 
 load_dotenv()
 
@@ -45,7 +46,25 @@ async def lifespan(app: FastAPI):
     yield
 
     # On shutdown: terminate all alive runners
-    await shutdown_all_runners()
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Starting application shutdown process...")
+
+        # Set a reasonable timeout for the shutdown process
+        import asyncio
+        shutdown_task = asyncio.create_task(shutdown_all_runners())
+
+        # Wait with a timeout to ensure we don't hang forever
+        try:
+            await asyncio.wait_for(shutdown_task, timeout=60)  # 60 second timeout
+            logger.info("All runners successfully terminated")
+        except asyncio.TimeoutError:
+            logger.error("Timeout while shutting down runners - some may remain active")
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Error during shutdown_all_runners: {e}\n{traceback.format_exc()}")
 
 workos = get_workos_client()
 
@@ -71,7 +90,7 @@ async def route_guard(request: Request, call_next):
 
     # return await call_next(request)
 
-    if request.url.path in UNSECURE_ROUTES:
+    if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
         return await call_next(request)
 
     access_token = request.headers.get("Access-Token")

@@ -11,7 +11,6 @@ services:
     env_file:
       - .env
     volumes:
-      # todo: change to relative pathing
       - ${AWS_FOLDER}:/root/.aws:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
@@ -20,12 +19,6 @@ services:
       app-network:
         aliases:
           - backend
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   celery-worker:
     build: ./backend
@@ -33,19 +26,12 @@ services:
     env_file:
       - .env
     volumes:
-      # - ~/.aws:/root/.aws:ro
       - ${AWS_FOLDER}:/root/.aws:ro
     command: celery -A app.celery_app.celery_app worker --loglevel=info
     depends_on:
       - redis
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   celery-beat:
     build: ./backend
@@ -53,19 +39,12 @@ services:
     env_file:
       - .env
     volumes:
-      # - ~/.aws:/root/.aws:ro
       - ${AWS_FOLDER}:/root/.aws:ro
     command: celery -A app.celery_app.celery_app beat --loglevel=info
     depends_on:
       - redis
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   frontend:
     build: ./frontend
@@ -74,12 +53,6 @@ services:
       - app-network
     ports:
       - "3500:3000"
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   redis:
     image: redis:alpine
@@ -87,12 +60,6 @@ services:
     container_name: redis
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
   nginx:
     build: ./proxy
@@ -108,9 +75,3 @@ services:
       - web
     networks:
       - app-network
-    labels:
-      - "logging.promtail=true"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"

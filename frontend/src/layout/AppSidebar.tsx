@@ -66,14 +66,14 @@ const AppSidebar: React.FC = () => {
             <>
               <ProxyImage
                 className="dark:hidden"
-                src="/images/brand/revature-logo.svg"
+                src="images/brand/revature-logo.svg"
                 alt="Logo"
                 width={150}
                 height={40}
               />
               <ProxyImage
                 className="hidden dark:block"
-                src="/images/brand/revature-logo.svg"
+                src="images/brand/revature-logo.svg"
                 alt="Logo"
                 width={150}
                 height={40}
@@ -81,7 +81,7 @@ const AppSidebar: React.FC = () => {
             </>
           ) : (
             <ProxyImage
-              src="/images/brand/revature-logo.svg"
+              src="images/brand/revature-logo.svg"
               alt="Logo"
               width={32}
               height={32}

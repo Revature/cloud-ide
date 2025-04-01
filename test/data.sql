@@ -1,1 +1,0 @@
--- Sample data for use in e2e testing.

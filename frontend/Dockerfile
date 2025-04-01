@@ -12,7 +12,7 @@ COPY . .
 
 RUN npm run build
 
-EXPOSE 3000
+EXPOSE 3500
 
 USER node
 
