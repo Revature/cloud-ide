@@ -123,10 +123,6 @@ async def update_runner_state(
       - active        → on_connect script
     """
     logger.info(f"Received state update for runner {update.runner_id}: {update.state}")
-    print("\n")
-    print(f"Received state update for runner {update.runner_id}: {update.state}")
-    print(f"Token: {access_token}")
-    print("\n")
     
     # Check if the request is coming from a trusted service
     if access_token and access_token != os.getenv("JWT_SECRET"):
