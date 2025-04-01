@@ -11,8 +11,8 @@ class RunnerRetrievalException(Exception):
         """ToString implementation."""
         return f"{self.message})"
 
-class RunnerCreationException(Exception):
-    """Exception raised for an issue creating a runner."""
+class RunnerExecException(Exception):
+    """Exception raised for an issue that prevents the normal flow of the Runner lifecycle."""
 
     def __init__(self, message):
         """Construct an exception."""

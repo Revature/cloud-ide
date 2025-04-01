@@ -8,7 +8,7 @@ from datetime import datetime
 from app.db.database import get_session
 from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
-from app.business.script_management import run_script_for_runner  # Script management layer
+from app.business import script_management  # Script management layer
 import logging
 
 router = APIRouter()
@@ -109,7 +109,10 @@ async def update_runner_state_endpoint(
         try:
             # For on_awaiting_client, we need env_vars which we don't have here
             # For other events, empty env_vars is fine
-            script_result = await run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
+            script_result = await script_management.run_script_for_runner(script_event,
+                                                                          runner.id,
+                                                                          env_vars={},
+                                                                          initiated_by="update_runner_state_endpoint")
             logger.info(f"Script executed for runner {runner.id}: {script_result}")
         except Exception as e:
             # Get detailed error information

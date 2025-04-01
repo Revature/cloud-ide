@@ -3,12 +3,17 @@
 
 from datetime import date, datetime
 from sqlmodel import Session, select
+from celery.utils.log import get_task_logger
+from app.business import encryption
+from app.exceptions.runner_exceptions import RunnerExecException
 from app.db.database import engine
 from app.models.key import Key
 from app.models.cloud_connector import CloudConnector
 from app.business.cloud_services.cloud_service_factory import get_cloud_service
 from app.business.encryption import encrypt_text, decrypt_text
 import os
+
+logger = get_task_logger(__name__)
 
 async def get_daily_key(cloud_connector_id: int) -> Key:
     """
@@ -72,6 +77,19 @@ async def get_daily_key(cloud_connector_id: int) -> Key:
         session.commit()
         session.refresh(key_record)
         return key_record
+
+def get_runner_key(runner_key_id: int) -> str:
+    """
+    Retrieve and decrypt the private key for the given runner's key record.
+
+    Assumes there is a function get_key_by_id in key_management and a decrypt_text function.
+    """
+    key_record = get_key_by_id(runner_key_id)
+    if not key_record:
+        logger.error(f"Runner key is missing: {runner_key_id}")
+        raise RunnerExecException("Key record not found")
+    # Decrypt the key using the master encryption key.
+    return encryption.decrypt_text(key_record.encrypted_key)
 
 def get_key_by_id(key_id: int) -> Key:
     """
