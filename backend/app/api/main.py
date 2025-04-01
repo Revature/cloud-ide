@@ -13,10 +13,10 @@ UNSECURE_ROUTES: tuple = (
     f'/docs/',
     f'/openapi.json',
     f'/openapi.json/',
-    f'{API_VERSION}/openapi.json', #Test environment keeps api path
-    f'{API_VERSION}/openapi.json/',
-    f'{API_VERSION}/docs',
-    f'{API_VERSION}/docs/',
+    f'{API_ROOT_PATH}/openapi.json', #Test environment keeps api path
+    f'{API_ROOT_PATH}/openapi.json/',
+    f'{API_ROOT_PATH}/docs',
+    f'{API_ROOT_PATH}/docs/',
     )
 
 api_router = APIRouter()
