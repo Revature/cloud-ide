@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, list
 from app.api import http
 from app.db.database import get_session
 from app.models.runner import Runner
@@ -14,7 +14,7 @@ from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
 from app.business.runner_management import terminate_runner as terminate_runner_function
 from app.business.runner_management import launch_runners
-from app.business.script_management import run_script_for_runner 
+from app.business.script_management import run_script_for_runner
 from app.db import runner_repository
 import logging
 import asyncio
@@ -123,7 +123,7 @@ async def update_runner_state(
       - active        → on_connect script
     """
     logger.info(f"Received state update for runner {update.runner_id}: {update.state}")
-    
+
     # Check if the request is coming from a trusted service
     if access_token and access_token != os.getenv("JWT_SECRET"):
         logger.error(f"Access Token: {access_token}")

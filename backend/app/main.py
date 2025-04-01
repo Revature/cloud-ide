@@ -110,16 +110,13 @@ async def route_guard(request: Request, call_next):
         response: Response = await call_next(request)
         response.headers['Access-Token'] = access_token
         return response
-        # response: Response = await call_next(request)
-        # return response
 
-    except exceptions.BadRequestException:
-        return Response(status_code = 400, content = "Invalid workos session")
-    except NoMatchingKeyException as e:
-        return Response(status_code = 400, content = "Bad Token Header")
+    except (exceptions.BadRequestException, NoMatchingKeyException) as e:
+        error_message = "Invalid workos session" if isinstance(e, exceptions.BadRequestException) else "Bad Token Header"
+        return Response(status_code=400, content=error_message)
     except Exception as e:
         print(e)
-        return Response(status_code = 500, content = "Something went wrong when verifying the access token")
+        return Response(status_code=500, content="Something went wrong when verifying the access token")
 
 app.include_router(api_router)
 
