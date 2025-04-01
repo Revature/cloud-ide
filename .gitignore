@@ -1,7 +1,6 @@
 # Ignore
 /.certs/
 *.env
-docker-compose.yml
 /.venv/
 secrets.json
 /test/*/config.json
