@@ -13,9 +13,6 @@ services:
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
     networks:
       - monitor
-    command:
-      -client.external_labels=agent=${LOG_HOST}
-      -config.expand-env=true
 
   cadvisor:
     container_name: cadvisor
