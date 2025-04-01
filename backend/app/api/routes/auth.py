@@ -1,6 +1,6 @@
 """Authorization route for acquiring bearer tokens."""
 import os
-from workos import exceptions
+from workos import exceptions as workos_exceptions
 from app.business.authentication import password_authentication
 from app.business.workos import get_workos_client
 from app.schemas.auth_schema import PasswordAuth, WorkOSAuthDTO
@@ -26,7 +26,7 @@ def machine_auth(request: Request, passwordAuth: PasswordAuth):
             content = '{"response": "Access-Token granted"}',
             headers = {'Access-Token': access_token}
             )
-    except exceptions.BadRequestException:
+    except workos_exceptions.BadRequestException:
         return Response(
             status_code = status.HTTP_401_UNAUTHORIZED,
             content = '{"response": "Bad username or password"}'

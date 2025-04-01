@@ -1,5 +1,5 @@
 """Module for checking authentication with WorkOS."""
-from app.business.pkce import decode_signed_token, decode_token
+from app.business.pkce import decode_token
 from app.business.workos import get_workos_client
 from app.models.workos_session import WorkosSession, create_workos_session, get_refresh_token, refresh_session
 from app.schemas.auth_schema import WorkOSAuthDTO
