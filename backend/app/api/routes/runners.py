@@ -195,7 +195,8 @@ async def update_runner_state(
             # For on_awaiting_client, we need env_vars which we don't have here
             # For other events, empty env_vars is fine
             script_result = await run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
-            logger.info(f"Script executed for runner {runner.id}: {script_result}")
+            if script_result:
+                logger.info(f"Script executed for runner {runner.id}: {script_result}")
         except Exception as e:
             # Get detailed error information
             error_detail = str(e)

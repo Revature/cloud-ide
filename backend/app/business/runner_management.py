@@ -440,9 +440,9 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
                     env_vars={},
                     initiated_by=initiated_by
                 )
-
-                logger.info(f"[{initiated_by}] Script executed for runner {runner_id}")
-                logger.info(f"[{initiated_by}] Script result: {script_result}")
+                if script_result:
+                    logger.info(f"[{initiated_by}] Script executed for runner {runner_id}")
+                    logger.info(f"[{initiated_by}] Script result: {script_result}")
 
                 result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
             except Exception as e:
