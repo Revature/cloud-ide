@@ -7,16 +7,11 @@ API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/',
-    # f'{API_VERSION}/machine_auth',
-    f'{API_VERSION}/machine_auth/'
+    f'{API_VERSION}/machine_auth',
     f'/docs',
     f'/docs/',
     f'/openapi.json',
     f'/openapi.json/',
-    f'{API_ROOT_PATH}/openapi.json', #Test environment keeps api path
-    f'{API_ROOT_PATH}/openapi.json/',
-    f'{API_ROOT_PATH}/docs',
-    f'{API_ROOT_PATH}/docs/',
     )
 
 api_router = APIRouter()
