@@ -1,13 +1,17 @@
 """Main application file for the API."""
 
 from fastapi import APIRouter
-from app.api.routes import auth, registration, users, runners, machines, cloud_connectors, images, app_requests, theia_requests
+from app.api.routes import auth, registration, users, runners, machines, cloud_connectors, images, app_requests
 
 API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
 
 
 UNSECURE_ROUTES: tuple = (
+    f'{API_VERSION}/machine_auth/',
+    f'{API_VERSION}/machine_auth',
+    f'{API_VERSION}/runners/[0-9]+/state',
+    f'{API_VERSION}/',
     # Everything behind the proxy loses the api root path from the URI
     '/docs',
     '/docs/',
@@ -30,4 +34,3 @@ api_router.include_router(images.router, prefix=f"{API_VERSION}/images", tags=["
 api_router.include_router(machines.router, prefix=f"{API_VERSION}/machines", tags=["machines"])
 api_router.include_router(cloud_connectors.router, prefix=f"{API_VERSION}/cloud_connectors", tags=["cloud_connectors"])
 api_router.include_router(app_requests.router, prefix=f"{API_VERSION}/app_requests", tags=["app_requests"])
-api_router.include_router(theia_requests.router, prefix=f"{API_VERSION}/theia_requests", tags=["theia_requests"])

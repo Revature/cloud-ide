@@ -46,8 +46,6 @@ async def get_ready_runner(
         if request.session_time > constants.max_runner_lifetime:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail=f"Requested session time is greater than the maximum: {constants.max_session_minutes}")
-        else:
-            request.session_time = constants.max_runner_lifetime
 
     # Retrieve the image record.
     db_image: Image = image_management.get_image_by_id(request.image_id)

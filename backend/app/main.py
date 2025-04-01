@@ -5,12 +5,13 @@ from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
 from workos import exceptions
+import re
 
 # Import business modules
 from app.business.pkce import verify_token_exp
 from app.business.workos import get_workos_client
 from app.db.database import create_db_and_tables, engine
-from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router
+from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION
 from app.business.resource_setup import setup_resources
 from app.business.runner_management import launch_runners, shutdown_all_runners
 from app.exceptions.no_matching_key import NoMatchingKeyException
@@ -88,7 +89,13 @@ async def route_guard(request: Request, call_next):
     """
     print(f'\n\nDEBUG PATH: {request.url.path}\n\n')
 
+    # Check exact matches
     if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
+        return await call_next(request)
+
+    # Use pattern matching for runner state endpoints
+    runner_state_pattern = re.compile(f'^{API_VERSION}/runners/[0-9]+/state$')
+    if runner_state_pattern.match(request.url.path):
         return await call_next(request)
 
     access_token = request.headers.get("Access-Token")
@@ -104,13 +111,12 @@ async def route_guard(request: Request, call_next):
         response.headers['Access-Token'] = access_token
         return response
 
-    except exceptions.BadRequestException:
-        return Response(status_code = 400, content = "Invalid workos session")
-    except NoMatchingKeyException as e:
-        return Response(status_code = 400, content = "Bad Token Header")
+    except (exceptions.BadRequestException, NoMatchingKeyException) as e:
+        error_message = "Invalid workos session" if isinstance(e, exceptions.BadRequestException) else "Bad Token Header"
+        return Response(status_code=400, content=error_message)
     except Exception as e:
         print(e)
-        return Response(status_code = 500, content = "Something went wrong when verifying the access token")
+        return Response(status_code=500, content="Something went wrong when verifying the access token")
 
 app.include_router(api_router)
 
