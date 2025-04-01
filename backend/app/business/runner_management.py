@@ -13,7 +13,7 @@ from app.business.cloud_services import cloud_service_factory
 from app.tasks.starting_runner import update_runner_state
 from app.business import image_management, jwt_creation, key_management, script_management
 from app.db import cloud_connector_repository, machine_repository, runner_repository, runner_history_repository, image_repository
-from app.exceptions.runner_exceptions import RunnerCreationException, RunnerRetrievalException, RunnerDefinitionException
+from app.exceptions.runner_exceptions import RunnerExecException, RunnerRetrievalException, RunnerDefinitionException
 
 logger = get_task_logger(__name__)
 
@@ -32,41 +32,15 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     """
     launched_instances : list[Runner] = []
     launch_start_time = datetime.now(timezone.utc)
-
-    # Open one DB session for reading resources.
-    with Session(engine) as session:
-        # 1) Fetch the Image.
-        db_image : Image = image_repository.find_image_by_identifier(session, image_identifier)
-        if not db_image:
-            logger.error(f"[{initiated_by}] Image not found: {image_identifier}")
-            raise RunnerDefinitionException("Image not found")
-
-        # 2) Fetch the Machine associated with the image.
-        if db_image.machine_id is None:
-            logger.error(f"[{initiated_by}] No machine associated with image {db_image.id}")
-            raise RunnerCreationException("No machine associated with the image")
-
-        db_machine = machine_repository.find_machine_by_id(session, db_image.machine_id)
-        if not db_machine:
-            logger.error(f"[{initiated_by}] Machine not found: {db_image.machine_id}")
-            raise RunnerCreationException("Machine not found")
-
-        # 3) Get the cloud connector
-        db_cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, db_image.cloud_connector_id)
-        if not db_cloud_connector:
-            logger.error(f"[{initiated_by}] Cloud connector not found: {db_image.cloud_connector_id}")
-            raise RunnerCreationException("Cloud connector not found")
-
-        # 4) Get the appropriate cloud service
-        cloud_service = cloud_service_factory.get_cloud_service(db_cloud_connector)
-        logger.info(f"[{initiated_by}] Launching {runner_count} runners for image {image_identifier} on machine {db_machine.identifier}.")
-
+    image = image_management.get_image_by_identifier(image_identifier)
+    config: dict = image_management.get_image_config(image_id=image.id)
+    logger.info(f"[{initiated_by}] Launching {runner_count} runners for image {image_identifier} on machine {config["machine"]}.")
     # 5) Get or create today's key.
     try:
-        key_record = await key_management.get_daily_key(cloud_connector_id=db_cloud_connector.id)
+        key_record = await key_management.get_daily_key(cloud_connector_id=config["cloud_connector"].id)
         if key_record is None:
-            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {db_cloud_connector.id}")
-            raise RunnerCreationException("Key not found or created")
+            logger.error(f"[{initiated_by}] Key not found or created for cloud connector {config["cloud_connector"].id}")
+            raise RunnerExecException("Key not found or created")
     except Exception as e:
         logger.error(f"[{initiated_by}] Error getting or creating key: {e!s}")
         raise
@@ -74,7 +48,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     # 6) Launch all instances concurrently using the appropriate cloud service.
     coroutines = []
     for _ in range(runner_count):
-        coroutine = launch_runner(db_machine, db_image, key_record, cloud_service, initiated_by)
+        coroutine = launch_runner(config["machine"], config["image"], key_record, config["cloud_service"], initiated_by)
         coroutines.append(coroutine)
     for i in range(runner_count):
         try:
@@ -85,7 +59,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
 
     if not launched_instances:
         logger.error(f"All {runner_count} runners have failed to launch! With image_id {image_identifier}")
-        raise RunnerCreationException(f"All {runner_count} Runner(s) of image {image_identifier} have failed to start.")
+        raise RunnerExecException(f"All {runner_count} Runner(s) of image {image_identifier} have failed to start.")
 
     # Log summary information instead of creating a system-level history record
     duration_seconds = (datetime.now(timezone.utc) - launch_start_time).total_seconds()
@@ -103,10 +77,8 @@ async def launch_runner(machine: Machine, image: Image, key: Key, cloud_service:
                 instance_type=machine.identifier,
                 instance_count=1
             )
-
         if not instance_id:
-            raise RunnerCreationException("Failed to create instance.")
-
+            raise RunnerExecException("Failed to create instance.")
         new_runner = Runner(
             machine_id=machine.id,
             image_id=image.id,
@@ -122,15 +94,16 @@ async def launch_runner(machine: Machine, image: Image, key: Key, cloud_service:
         )
 
         new_runner = runner_repository.add_runner(session, new_runner)
-        runner_history_repository.add_runner_history(session,
-                                                     new_runner,
-                                                     "runner_created",
-                                                     {"timestamp": datetime.utcnow().isoformat(),
+        runner_history_repository.add_runner_history(session=session,
+                                                     runner=new_runner,
+                                                     event_name="runner_created",
+                                                     event_data={"timestamp": datetime.utcnow().isoformat(),
                                                       "image_id": image.id,
                                                       "machine_id": machine.id,
                                                       "instance_id": instance_id,
                                                       "state": "runner_starting",
-                                                      "initiated_by": initiated_by}
+                                                      "initiated_by": initiated_by},
+                                                      created_by=initiated_by
                                                      )
         session.commit()
         # Queue a Celery task to update runner state when instance is ready.
@@ -289,8 +262,8 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             is_expired = session_end_time and session_end_time < datetime.utcnow()
 
             runner_history_repository.add_runner_history(
-                session,
-                runner,
+                session=session,
+                runner=runner,
                 event_name="termination_requested",
                 event_data={
                     "timestamp": datetime.utcnow().isoformat(),
@@ -301,7 +274,8 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
                         "session_end": runner.session_end.isoformat() if runner.session_end else None,
                         "is_expired": is_expired
                     }
-                }
+                },
+                created_by=initiated_by
             )
             session.commit()
 
