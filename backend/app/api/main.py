@@ -16,19 +16,9 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/',
     f'{API_VERSION}/machine_auth',
     f'{API_VERSION}/machine_auth/',
-    f'{API_VERSION}/registration',
     f'{API_VERSION}/registration/email_invite',
     f'{API_VERSION}/registration/email_invite/'
     # Test keeps api root path
-    f'{API_ROOT_PATH}/docs',
-    f'{API_ROOT_PATH}/docs/',
-    f'{API_ROOT_PATH}/openapi.json', 
-    f'{API_ROOT_PATH}/openapi.json/',
-    f'{API_ROOT_PATH}{API_VERSION}/',
-    f'{API_ROOT_PATH}{API_VERSION}/machine_auth',
-    f'{API_ROOT_PATH}{API_VERSION}/machine_auth/',
-    f'{API_ROOT_PATH}{API_VERSION}/registration/email_invite',
-    f'{API_ROOT_PATH}{API_VERSION}/registration/email_invite/'
     )
 
 api_router = APIRouter()
