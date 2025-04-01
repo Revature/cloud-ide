@@ -53,7 +53,7 @@ def update_runner_state(runner_id: int, instance_id: str):
         async def wait_and_get_ip():
             await cloud_service.wait_for_instance_running(instance_id)
             public_ip = await cloud_service.get_instance_ip(instance_id)
-            await health_check.wait_for_life(30, public_ip, key, cloud_service)
+            await health_check.wait_for_life(60, public_ip, key, cloud_service)
             return public_ip
 
         # Since these are async operations, run them synchronously

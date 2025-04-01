@@ -117,8 +117,7 @@ def get_script_for_runner(
         script = script_repository.find_script_by_event_and_image_id(session, event, runner.image_id)
         if not script:
             logger.error(f"[{initiated_by}] No script found for event '{event}' and image {runner.image_id}")
-            return {"success": True, "success_message": f"No script found for event '{event}' and image {runner.image_id}"}
-
+            return None
         runner_history_repository.add_runner_history(session=session,
                                                      runner=runner,
                                                      event_name=f"script_execution_{event}",
@@ -260,5 +259,7 @@ async def run_script_for_runner(
     initiated_by: str = "system"):
     """Locate and execute the script on a runner."""
     script : str = get_script_for_runner(event=event, runner_id=runner_id, env_vars=env_vars, initiated_by=initiated_by)
-    result = await execute_script_for_runner(event=event, runner_id=runner_id, script=script, initiated_by=initiated_by)
-    return result
+    if script:
+        result = await execute_script_for_runner(event=event, runner_id=runner_id, script=script, initiated_by=initiated_by)
+        return result
+    return None
