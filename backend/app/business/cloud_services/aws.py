@@ -128,6 +128,22 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
+    async def add_instance_tag(self, instance_id: str, tag: str) -> str:
+        """Add a tag to an existing instance."""
+        try:
+            response = self.ec2_client.create_tags(
+                Resources=[instance_id],
+                Tags=[
+                    {
+                        'Key': 'User',
+                        'Value': tag
+                    }
+                ]
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
+        except Exception as e:
+            return str(e)
+
     async def get_instance_ip(self, instance_id: str) -> str:
         """
         Describe the EC2 instance with the given InstanceId.
