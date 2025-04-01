@@ -2,7 +2,7 @@
 from app.models import RunnerHistory, Runner
 from sqlmodel import Session
 
-def add_runner_history(session: Session, runner: Runner, event_name:str, event_data:dict) -> RunnerHistory:
+def add_runner_history(session: Session, runner: Runner, event_name: str, event_data: dict) -> RunnerHistory:
     """Add a new runner history record, flush to retrieve ID."""
     record = RunnerHistory(
             runner_id=runner.id,

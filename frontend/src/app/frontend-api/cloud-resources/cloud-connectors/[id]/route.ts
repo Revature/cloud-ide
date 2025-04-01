@@ -23,7 +23,7 @@ export async function GET(
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       console.error(`Backend API error: ${response.status}`);
       throw new Error(`Backend API error: ${response.status}`);
