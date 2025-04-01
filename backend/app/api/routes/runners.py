@@ -11,6 +11,7 @@ from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
 from app.business.runner_management import terminate_runner as terminate_runner_function
 from app.business.runner_management import launch_runners
+from app.db import runner_repository
 import logging
 import asyncio
 
@@ -21,15 +22,17 @@ router = APIRouter()
 @router.get("/", response_model=list[Runner])
 def read_runners(session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
     """Retrieve a list of all Runners."""
-    runners = session.exec(select(Runner)).all()
+    runners = runner_repository.find_all_runners(session)
+    if not runners:
+        raise HTTPException(status_code=204, detail="No runners found")
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
 def read_runner(runner_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
     """Retrieve a single Runner by ID."""
-    runner = session.get(Runner, runner_id)
+    runner = runner_repository.find_runner_by_id(session, runner_id)
     if not runner:
-        raise HTTPException(status_code=404, detail="Runner not found")
+        raise HTTPException(status_code=400, detail="Runner not found")
     return runner
 
 @router.put("/extend_session", response_model=str)
@@ -39,7 +42,7 @@ def extend_runner_session(
     access_token: str = Header(..., alias="Access-Token")
     ):
     """Update a runner's session_end by adding extra time."""
-    runner = session.get(Runner, extend_req.runner_id)
+    runner = runner_repository.find_runner_by_id(session, extend_req.runner_id)
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -106,7 +109,7 @@ async def terminate_runner(
     If the image has a runner pool, a new runner will be launched to replace this one.
     """
     # Check if the runner exists
-    runner = session.get(Runner, runner_id)
+    runner = runner_repository.find_runner_by_id(session, runner_id)
     # Delete is idempotent, if no runner exists, just return.
     if not runner:
         return
@@ -114,7 +117,7 @@ async def terminate_runner(
     # Get the image to check if it has a runner pool
     image_id = runner.image_id
     image = session.get(Image, image_id)
-    needs_replenishing = image and image.runner_pool_size > 0
+    needs_replenishing = image and image.runner_pool_size > 0 and runner.state == "ready"
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py

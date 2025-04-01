@@ -68,7 +68,7 @@ async def get_ready_runner(
     existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
     if existing_runner :
         logger.info(f"User {db_user.id} requested runner, got existing runner: {existing_runner}")
-        url : str = runner_management.claim_runner(existing_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
+        url : str = await runner_management.claim_runner(existing_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
         return app_requests_dto(url, existing_runner)
 
     ready_runner : Runner = runner_management.get_runner_from_pool(db_image.id)
@@ -79,7 +79,7 @@ async def get_ready_runner(
         # Launch a new runner asynchronously to replenish the pool if the image definition specifies a pool.
         if db_image.runner_pool_size != 0:
             asyncio.create_task(runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
-        url : str = runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
+        url : str = await runner_management.claim_runner(ready_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
         return await awaiting_client_hook(ready_runner, url, env_vars)
     else:
         # Launch a new runner and wait for it to be ready.
@@ -89,7 +89,7 @@ async def get_ready_runner(
         fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready", 60)
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
-        url = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
+        url = await runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
         return await awaiting_client_hook(fresh_runner, url, env_vars)
 
 async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any]):
