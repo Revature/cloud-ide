@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { CloseIcon } from "../../../icons";
+// import { CloseIcon } from "../../../icons";
 
 interface CookieConsentProps {
   message: string;
@@ -31,7 +31,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({
         onClick={handleClose}
         aria-label="Close"
       >
-        <CloseIcon />
+        {/* <CloseIcon /> */}
       </button>
 
       {/* Message */}

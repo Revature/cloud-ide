@@ -2,6 +2,7 @@
 """Starting runner task to start an instance and update the runner state."""
 
 import asyncio
+import logging
 from datetime import datetime
 from app.celery_app import celery_app
 from app.db.database import engine
@@ -10,7 +11,10 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.factory import get_cloud_service
+from app.business import key_management, health_check
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
+
+logger = logging.getLogger(__name__)
 
 @celery_app.task(name="app.tasks.starting_runner.update_runner_state")
 def update_runner_state(runner_id: int, instance_id: str):
@@ -40,6 +44,7 @@ def update_runner_state(runner_id: int, instance_id: str):
             if not cloud_connector:
                 print(f"Cloud connector not found for image {image.id}.")
                 return
+            key = key_management.get_runner_key(runner.key_id)
 
             # Get the appropriate cloud service
             cloud_service = get_cloud_service(cloud_connector)
@@ -48,6 +53,7 @@ def update_runner_state(runner_id: int, instance_id: str):
         async def wait_and_get_ip():
             await cloud_service.wait_for_instance_running(instance_id)
             public_ip = await cloud_service.get_instance_ip(instance_id)
+            await health_check.wait_for_life(30, public_ip, key, cloud_service)
             return public_ip
 
         # Since these are async operations, run them synchronously
@@ -57,9 +63,9 @@ def update_runner_state(runner_id: int, instance_id: str):
         with Session(engine) as session:
             runner = session.get(Runner, runner_id)
             if runner:
-                runner.state = "ready"
                 runner.url = public_ip
-                session.add(runner)
+                session.commit()
+                runner.state = "ready"
                 session.commit()
 
                 # Create a new RunnerHistory record

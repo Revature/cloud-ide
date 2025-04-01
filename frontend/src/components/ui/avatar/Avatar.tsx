@@ -1,4 +1,4 @@
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import React from "react";
 
 interface AvatarProps {
@@ -41,7 +41,7 @@ const Avatar: React.FC<AvatarProps> = ({
   return (
     <div className={`relative  rounded-full ${sizeClasses[size]}`}>
       {/* Avatar Image */}
-      <Image
+      <ProxyImage
         width="0"
         height="0"
         sizes="100vw"

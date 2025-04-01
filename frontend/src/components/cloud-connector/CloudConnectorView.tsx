@@ -1,44 +1,69 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useCloudConnectors, CloudConnector } from '@/context/CloudConnectorsContext';
 import Button from "../../components/ui/button/Button";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import { EyeOpenIcon, EyeClosedIcon } from "@/icons";
+import { CloudConnector } from '@/types/cloudConnectors';
+import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
 
 const ViewConnector: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { connectors } = useCloudConnectors();
-  const connectorIndex = parseInt(params.id as string, 10);
+  const id = parseInt(params.id as string, 10);
   
   const [connector, setConnector] = useState<CloudConnector | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAccessKey, setShowAccessKey] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
 
   useEffect(() => {
-    if (!isNaN(connectorIndex) && connectors[connectorIndex]) {
-      setConnector(connectors[connectorIndex]);
-      setLoading(false);
+    const fetchConnector = async () => {
+      try {
+        setLoading(true);
+        
+        // Use the cloudConnectorsApi service instead of direct fetch
+        const data = await cloudConnectorsApi.getById(id);
+        setConnector(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching cloud connector:', err);
+        setError('Failed to load cloud connector details.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!isNaN(id)) {
+      fetchConnector();
     } else {
-      // Handle invalid index
-      router.push('/cloud-connectors');
+      setError('Invalid connector ID');
+      setLoading(false);
     }
-  }, [connectorIndex, connectors, router]);
+  }, [id]);
 
   const goBack = () => {
     router.push('/cloud-connectors');
   };
 
   const navigateToEdit = () => {
-    router.push(`/cloud-connectors/edit/${connectorIndex}`);
+    router.push(`/cloud-connectors/edit/${id}`);
   };
 
-  if (loading || !connector) {
+  if (loading) {
     return (
       <div className="flex justify-center">
         <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error || !connector) {
+    return (
+      <div className="flex flex-col items-center">
+        <p className="text-red-500 mb-4">{error || 'Cloud connector not found'}</p>
+        <Button variant="outline" onClick={goBack}>Return to List</Button>
       </div>
     );
   }
@@ -77,16 +102,16 @@ const ViewConnector: React.FC = () => {
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <Image
+              <ProxyImage
                 width={48}
                 height={48}
-                src={connector?.image || "/images/brand/default-logo.svg"}
-                alt={connector?.name || "Cloud Provider"}
+                src={connector.image || "/images/brand/default-logo.svg"}
+                alt={connector.name || "Cloud Provider"}
               />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{connector?.name}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Added on {connector?.added}</p>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{connector.name}</h3>
+              <p className="text-gray-500 dark:text-gray-400">Added on {connector.createdOn}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -129,20 +154,20 @@ const ViewConnector: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Status</span>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    connector?.active 
+                    connector.active 
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                   }`}>
-                    {connector?.active ? 'Active' : 'Inactive'}
+                    {connector.active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Region</span>
-                  <span className="text-gray-800 dark:text-white">{connector?.region}</span>
+                  <span className="text-gray-800 dark:text-white">{connector.region}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Service Type</span>
-                  <span className="text-gray-800 dark:text-white">{connector?.type}</span>
+                  <span className="text-gray-800 dark:text-white">{connector.type}</span>
                 </div>
               </div>
             </div>
@@ -155,8 +180,8 @@ const ViewConnector: React.FC = () => {
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white mr-2">
                       {showAccessKey 
-                        ? connector?.accessKey 
-                        : `••••••••••••${connector?.accessKey ? connector.accessKey.slice(-4) : ''}`
+                        ? connector.accessKey 
+                        : `••••••••••••${connector.accessKey ? connector.accessKey.slice(-4) : ''}`
                       }
                     </span>
                     <button
@@ -172,8 +197,8 @@ const ViewConnector: React.FC = () => {
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white mr-2">
                       {showSecretKey 
-                        ? connector?.secretKey 
-                        : `••••••••••••${connector?.secretKey ? connector.secretKey.slice(-4) : ''}`
+                        ? connector.secretKey 
+                        : `••••••••••••${connector.secretKey ? connector.secretKey.slice(-4) : ''}`
                       }
                     </span>
                     <button

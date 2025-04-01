@@ -1,6 +1,6 @@
 import GridShape from "@/components/common/GridShape";
 import { Metadata } from "next";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import Link from "next/link";
 import React from "react";
 
@@ -20,15 +20,15 @@ export default function page() {
           ERROR
         </h1>
 
-        <Image
-          src="./images/error/503.svg"
+        <ProxyImage
+          src="images/error/503.svg"
           alt="503"
           width={500}
           height={150}
           className="dark:hidden"
         />
-        <Image
-          src="./images/error/503-dark.svg"
+        <ProxyImage
+          src="images/error/503-dark.svg"
           alt="503"
           className="hidden dark:block"
           width={500}

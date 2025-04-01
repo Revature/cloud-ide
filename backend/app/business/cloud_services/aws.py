@@ -4,6 +4,7 @@
 import os
 import boto3
 import paramiko
+import re
 from io import StringIO
 from app.business.cloud_services.base import CloudService
 from typing import Any, Optional
@@ -124,6 +125,22 @@ class AWSCloudService(CloudService):
                 ]
             )
             return response['Instances'][0]['InstanceId']
+        except Exception as e:
+            return str(e)
+
+    async def add_instance_tag(self, instance_id: str, tag: str) -> str:
+        """Add a tag to an existing instance."""
+        try:
+            response = self.ec2_client.create_tags(
+                Resources=[instance_id],
+                Tags=[
+                    {
+                        'Key': 'User',
+                        'Value': tag
+                    }
+                ]
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
         except Exception as e:
             return str(e)
 
@@ -324,47 +341,31 @@ class AWSCloudService(CloudService):
         """
         Run the Script on the remote machine with the given IP address.
 
-        Returns the output and error as a dictionary of strings.
-        {'Output': value, 'Error': value}
+        Returns the output, error, and exit code as a dictionary.
+        {'stdout': value, 'stderr': value, 'exit_code': value}
         """
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         keyfile = StringIO(key)
         private_key = paramiko.RSAKey.from_private_key(keyfile)
 
-        print(f"[DEBUG] SSH_Script called with IP: {ip}, Username: {username}")
-        print(f"[DEBUG] Script to execute: {script}")
-
         output = ""
         error = ""
+        exit_code = 1  # Default to failure
+
         try:
-            print("[DEBUG] Connecting to SSH...")
             ssh.connect(hostname=ip, username=username, pkey=private_key, timeout=30)
-            print("[DEBUG] SSH connection established.")
-
-            # Execute a test echo command to verify connectivity.
-            test_cmd = "echo 'Test Echo: SSH Connection Successful'"
-            print(f"[DEBUG] Executing test command: {test_cmd}")
-            stdin, stdout, stderr = ssh.exec_command(test_cmd)
-            test_output = stdout.read().decode().strip()
-            test_error = stderr.read().decode().strip()
-            print(f"[DEBUG] Test command output: {test_output}")
-            if test_error:
-                print(f"[DEBUG] Test command error: {test_error}")
-
             # Execute the main script.
-            print("[DEBUG] Executing main script...")
             stdin, stdout, stderr = ssh.exec_command(script)
+            # Get the exit code directly from the channel
+            exit_code = stdout.channel.recv_exit_status()
+            # Then read the output and error
             output = stdout.read().decode()
             error = stderr.read().decode()
-            print(f"[DEBUG] Main script output: {output}")
-            if error:
-                print(f"[DEBUG] Main script error: {error}")
         except Exception as e:
-            print(f"[ERROR] Exception during SSH execution: {e}")
-            return {'Output': str(e), 'Error': error}
+            return {'stdout': output, 'stderr': str(e), 'exit_code': 1}  # Return failure for SSH exceptions
         finally:
-            print("[DEBUG] Closing SSH connection.")
             ssh.close()
 
-        return {'Output': output, 'Error': error}
+        # Return with the keys expected by parse_script_output
+        return {'stdout': output, 'stderr': error, 'exit_code': exit_code}

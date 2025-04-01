@@ -2,19 +2,19 @@
 import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay } from "swiper/modules";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 const carouselData = [
   {
-    thumbnail: "/images/carousel/carousel-01.png",
+    thumbnail: "images/carousel/carousel-01.png",
   },
   {
-    thumbnail: "/images/carousel/carousel-03.png",
+    thumbnail: "images/carousel/carousel-03.png",
   },
   {
-    thumbnail: "/images/carousel/carousel-02.png",
+    thumbnail: "images/carousel/carousel-02.png",
   },
   {
-    thumbnail: "/images/carousel/carousel-04.png",
+    thumbnail: "images/carousel/carousel-04.png",
   },
 ];
 export default function WithIndicators() {
@@ -36,7 +36,7 @@ export default function WithIndicators() {
         {carouselData.map((item, i) => (
           <SwiperSlide key={i + 1}>
             <div className="overflow-hidden rounded-lg">
-              <Image
+              <ProxyImage
                 width={487}
                 height={297}
                 src={item.thumbnail}
