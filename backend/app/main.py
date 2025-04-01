@@ -91,15 +91,14 @@ async def route_guard(request: Request, call_next):
     # Use pattern matching for runner state endpoints
     path = request.url.path
     path_parts = path.split('/')
-    
+
     runner_path_prefix = f"{API_ROOT_PATH}{API_VERSION}/runners/"
-    
+
     print(f"Checking if path {path} starts with {runner_path_prefix}")
-    
+
     # Check if the structure is correct and the runner ID is a digit
-    if (path.startswith(runner_path_prefix) and 
+    if (path.startswith(runner_path_prefix) and
         'state' in path_parts and
-        len(path_parts) >= 6 and
         path_parts[4].isdigit()):
         print("Matched runner state endpoint")
         return await call_next(request)
@@ -110,7 +109,7 @@ async def route_guard(request: Request, call_next):
     if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
         print(f"Matched unsecured route: {request.url.path}")
         return await call_next(request)
-    
+
     print(f"passed through route guard 2: {request.url.path}")
 
     access_token = request.headers.get("Access-Token")

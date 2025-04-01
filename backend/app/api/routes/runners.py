@@ -98,9 +98,9 @@ class RunnerStateUpdate(BaseModel):
     runner_id: int
     state: str
 
+#todo use runner_id in url
 @router.put("/{runner_id}/state", response_model=str)
 async def update_runner_state(
-    runner_id: int,
     update: RunnerStateUpdate = Body(...),
     session: Session = Depends(get_session),
     access_token: str = Header(..., alias="Access-Token"),
@@ -124,8 +124,7 @@ async def update_runner_state(
       - awaiting_client → on_awaiting_client script
       - active        → on_connect script
     """
-    
-    runner = runner_repository.find_runner_by_id(session, runner_id)
+    runner = runner_repository.find_runner_by_id(session, update.runner_id)
     if not runner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
 
