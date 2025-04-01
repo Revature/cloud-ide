@@ -5,13 +5,12 @@ from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
 from workos import exceptions
-import re
 
 # Import business modules
 from app.business.pkce import verify_token_exp
 from app.business.workos import get_workos_client
 from app.db.database import create_db_and_tables, engine
-from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION
+from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION, API_ROOT_PATH
 from app.business.resource_setup import setup_resources
 from app.business.runner_management import launch_runners, shutdown_all_runners
 from app.exceptions.no_matching_key import NoMatchingKeyException
@@ -89,14 +88,29 @@ async def route_guard(request: Request, call_next):
     """
     print(f'\n\nDEBUG PATH: {request.url.path}\n\n')
 
-    # Check exact matches
-    if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
+    # Use pattern matching for runner state endpoints
+    path = request.url.path
+    path_parts = path.split('/')
+
+    runner_path_prefix = f"{API_ROOT_PATH}{API_VERSION}/runners/"
+
+    print(f"Checking if path {path} starts with {runner_path_prefix}")
+
+    # Check if the structure is correct and the runner ID is a digit
+    if (path.startswith(runner_path_prefix) and
+        'state' in path_parts and
+        path_parts[4].isdigit()):
+        print("Matched runner state endpoint")
         return await call_next(request)
 
-    # Use pattern matching for runner state endpoints
-    runner_state_pattern = re.compile(f'^{API_VERSION}/runners/[0-9]+/state$')
-    if runner_state_pattern.match(request.url.path):
+    print(f"passed through route guard 1: {request.url.path}")
+
+    # Check exact matches
+    if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
+        print(f"Matched unsecured route: {request.url.path}")
         return await call_next(request)
+
+    print(f"passed through route guard 2: {request.url.path}")
 
     access_token = request.headers.get("Access-Token")
     if not access_token:

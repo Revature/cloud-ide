@@ -1,7 +1,7 @@
 """Runners API routes."""
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Body
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -39,6 +39,7 @@ def read_runner(runner_id: int, session: Session = Depends(get_session), access_
         raise HTTPException(status_code=400, detail="Runner not found")
     return runner
 
+# change this to use runner id in url
 @router.put("/extend_session", response_model=str)
 def extend_runner_session(
     extend_req: ExtendSessionRequest,
@@ -92,14 +93,15 @@ def extend_runner_session(
     return "Session extended successfully"
 
 class RunnerStateUpdate(BaseModel):
-    """Request model for the update_state endpoint."""
+    """Request model for updating the runner state."""
 
     runner_id: int
-    state: str  # e.g., "runner_starting", "ready", "awaiting_client", "active"
+    state: str
 
+#todo use runner_id in url
 @router.put("/{runner_id}/state", response_model=str)
 async def update_runner_state(
-    update: RunnerStateUpdate,
+    update: RunnerStateUpdate = Body(...),
     session: Session = Depends(get_session),
     access_token: str = Header(..., alias="Access-Token"),
     x_forwarded_for: Optional[str] = Header(None),
@@ -122,7 +124,9 @@ async def update_runner_state(
       - awaiting_client → on_awaiting_client script
       - active        → on_connect script
     """
-    logger.info(f"Received state update for runner {update.runner_id}: {update.state}")
+    runner = runner_repository.find_runner_by_id(session, update.runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
 
     # Check if the request is coming from a trusted service
     if access_token and access_token != os.getenv("JWT_SECRET"):
@@ -228,11 +232,6 @@ async def update_runner_state(
             logger.info(f"Continuing with runner state update despite script error for runner {runner.id}")
 
     return f"State for runner {runner.id} updated to {runner.state}"
-
-class TerminateRunnerRequest(BaseModel):
-    """Request model for the terminate_runner endpoint."""
-
-    runner_id: int
 
 @router.delete("/{runner_id}", response_model=dict[str, str])
 async def terminate_runner(
