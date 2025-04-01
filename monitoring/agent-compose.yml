@@ -6,11 +6,14 @@ services:
   promtail:
     container_name: promtail
     image: grafana/promtail:latest
+    env_file:
+      - /home/ec2-user/orchestration/.env
     volumes:
       - /var/log/:/var/log/
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
     networks:
       - monitor
+    command: "-config.expand-env=true -config.file=/etc/promtail/promtail-config.yml"
 
   cadvisor:
     container_name: cadvisor

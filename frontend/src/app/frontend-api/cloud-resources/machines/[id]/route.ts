@@ -27,7 +27,7 @@ export async function GET(
       console.error(`Backend API error: ${response.status}`);
       throw new Error(`Backend API error: ${response.status}`);
     }
-    
+
     // Get the raw response text first to debug
     const responseText = await response.text();
     console.log('Raw backend response:', responseText);
