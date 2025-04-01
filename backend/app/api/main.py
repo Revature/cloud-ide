@@ -5,13 +5,30 @@ from app.api.routes import auth, registration, users, runners, machines, cloud_c
 
 API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
+
+
 UNSECURE_ROUTES: tuple = (
-    f'{API_VERSION}/machine_auth/',
+    # Everything behind the proxy loses the api root path from the URI
+    '/docs',
+    '/docs/',
+    '/openapi.json',
+    '/openapi.json/',
+    f'{API_VERSION}/',
     f'{API_VERSION}/machine_auth',
-    f'/docs',
-    f'/docs/',
-    f'/openapi.json',
-    f'/openapi.json/',
+    f'{API_VERSION}/machine_auth/',
+    f'{API_VERSION}/registration',
+    f'{API_VERSION}/registration/email_invite',
+    f'{API_VERSION}/registration/email_invite/'
+    # Test keeps api root path
+    f'{API_ROOT_PATH}/docs',
+    f'{API_ROOT_PATH}/docs/',
+    f'{API_ROOT_PATH}/openapi.json', 
+    f'{API_ROOT_PATH}/openapi.json/',
+    f'{API_ROOT_PATH}{API_VERSION}/',
+    f'{API_ROOT_PATH}{API_VERSION}/machine_auth',
+    f'{API_ROOT_PATH}{API_VERSION}/machine_auth/',
+    f'{API_ROOT_PATH}{API_VERSION}/registration/email_invite',
+    f'{API_ROOT_PATH}{API_VERSION}/registration/email_invite/'
     )
 
 api_router = APIRouter()
