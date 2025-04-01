@@ -11,6 +11,7 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.models.cloud_connector import CloudConnector
+from app.business import key_management, health_check
 from app.business.cloud_services.cloud_service_factory import get_cloud_service
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ def update_runner_state(runner_id: int, instance_id: str):
             if not cloud_connector:
                 print(f"Cloud connector not found for image {image.id}.")
                 return
+            key = key_management.get_runner_key(runner.key_id)
 
             # Get the appropriate cloud service
             cloud_service = get_cloud_service(cloud_connector)
@@ -50,13 +52,8 @@ def update_runner_state(runner_id: int, instance_id: str):
         # Run the async operations to wait for the instance and get its IP
         async def wait_and_get_ip():
             await cloud_service.wait_for_instance_running(instance_id)
-
-            # Add artificial 30-second wait
-            logger.info(f"Instance {instance_id} is running. Adding 30s wait for SSH client to be ready.")
-            await asyncio.sleep(30)
-            logger.info(f"SSH wait complete for instance {instance_id}, now getting IP")
-
             public_ip = await cloud_service.get_instance_ip(instance_id)
+            await health_check.wait_for_life(30, public_ip, key, cloud_service)
             return public_ip
 
         # Since these are async operations, run them synchronously
@@ -66,9 +63,9 @@ def update_runner_state(runner_id: int, instance_id: str):
         with Session(engine) as session:
             runner = session.get(Runner, runner_id)
             if runner:
-                runner.state = "ready"
                 runner.url = public_ip
-                session.add(runner)
+                session.commit()
+                runner.state = "ready"
                 session.commit()
 
                 # Create a new RunnerHistory record
