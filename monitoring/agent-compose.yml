@@ -13,6 +13,7 @@ services:
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
     networks:
       - monitor
+    command: "-config.expand-env=true -config.file=/etc/promtail/promtail-config.yml"
 
   cadvisor:
     container_name: cadvisor
