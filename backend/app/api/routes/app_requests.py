@@ -86,7 +86,7 @@ async def get_ready_runner(
         fresh_runners : list[Runner] = await runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")
         fresh_runner : Runner = fresh_runners[0]
         logger.info(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
-        fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready", 60)
+        fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready", 120)
         if not fresh_runner or fresh_runner.state != "ready":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
         url = runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
@@ -104,7 +104,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
             [runner.identifier],
             initiated_by="app_requests_endpoint"
         )
-        return {"error": f"Error executing script for runner {runner.id}"}
+        raise HTTPException(status_code=400,  detail=f"Error executing script for runner {runner.id}") from e
     return app_requests_dto(url, runner)
 
 def app_requests_dto(url: str, runner: Runner):

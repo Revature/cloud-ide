@@ -333,49 +333,22 @@ class AWSCloudService(CloudService):
         keyfile = StringIO(key)
         private_key = paramiko.RSAKey.from_private_key(keyfile)
 
-        print(f"[DEBUG] SSH_Script called with IP: {ip}, Username: {username}")
-        print(f"[DEBUG] Script to execute: {script}")
-
         output = ""
         error = ""
         exit_code = 1  # Default to failure
 
         try:
-            print("[DEBUG] Connecting to SSH...")
             ssh.connect(hostname=ip, username=username, pkey=private_key, timeout=30)
-            print("[DEBUG] SSH connection established.")
-
-            # Execute a test echo command to verify connectivity.
-            test_cmd = "echo 'Test Echo: SSH Connection Successful'"
-            print(f"[DEBUG] Executing test command: {test_cmd}")
-            stdin, stdout, stderr = ssh.exec_command(test_cmd)
-            test_output = stdout.read().decode().strip()
-            test_error = stderr.read().decode().strip()
-            print(f"[DEBUG] Test command output: {test_output}")
-            if test_error:
-                print(f"[DEBUG] Test command error: {test_error}")
-
             # Execute the main script.
-            print("[DEBUG] Executing main script...")
             stdin, stdout, stderr = ssh.exec_command(script)
-
             # Get the exit code directly from the channel
             exit_code = stdout.channel.recv_exit_status()
-
             # Then read the output and error
             output = stdout.read().decode()
             error = stderr.read().decode()
-
-            print(f"[DEBUG] Main script output: {output}")
-            print(f"[DEBUG] Script exit code: {exit_code}")
-            if error:
-                print(f"[DEBUG] Main script error: {error}")
-
         except Exception as e:
-            print(f"[ERROR] Exception during SSH execution: {e}")
             return {'stdout': output, 'stderr': str(e), 'exit_code': 1}  # Return failure for SSH exceptions
         finally:
-            print("[DEBUG] Closing SSH connection.")
             ssh.close()
 
         # Return with the keys expected by parse_script_output
