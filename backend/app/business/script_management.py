@@ -1,17 +1,22 @@
 """Module for managing scripts and running them on runners via SSH."""
 
 from sqlmodel import Session, select
+from celery.utils.log import get_task_logger
 from app.db.database import engine
-from app.models.runner import Runner
-from app.models.image import Image
-from app.models.script import Script
+from app.models import Runner, RunnerHistory, Script, Image
 from app.models.cloud_connector import CloudConnector
-from app.business.cloud_services.cloud_service_factory import get_cloud_service
-from datetime import datetime
+from app.business.cloud_services import cloud_service_factory
+from app.business import key_management, encryption, runner_management
+from app.exceptions.runner_exceptions import RunnerExecException
+from app.db import script_repository, runner_repository, runner_history_repository, image_repository
+from datetime import datetime, timezone
+import time
 import jinja2
 import asyncio
 from typing import Any, Optional
 import re
+
+logger = get_task_logger(__name__)
 
 def render_script(template: str, context: dict) -> str:
     """
@@ -21,21 +26,6 @@ def render_script(template: str, context: dict) -> str:
     """
     jinja_template = jinja2.Template(template)
     return jinja_template.render(**context)
-
-def get_runner_key(runner_key_id: int) -> str:
-    """
-    Retrieve and decrypt the private key for the given runner's key record.
-
-    Assumes there is a function get_key_by_id in key_management and a decrypt_text function.
-    """
-    from app.business.key_management import get_key_by_id  # Local import to avoid circular imports
-    from app.business.encryption import decrypt_text
-
-    key_record = get_key_by_id(runner_key_id)
-    if not key_record:
-        raise Exception("Key record not found")
-    # Decrypt the key using the master encryption key.
-    return decrypt_text(key_record.encrypted_key)
 
 def parse_script_output(stdout: str, stderr: str, exit_code: int) -> dict:
     """
@@ -83,6 +73,7 @@ def parse_script_output(stdout: str, stderr: str, exit_code: int) -> dict:
     elif result["success"]:
         result["detailed_status"] = "success"
 
+    # TODO: Do we need this? This is use-case specific
     # Extract additional contextual information
     operations = []
     if "Cloning repository" in stdout:
@@ -94,18 +85,14 @@ def parse_script_output(stdout: str, stderr: str, exit_code: int) -> dict:
 
     return result
 
-async def run_script_for_runner(
+def get_script_for_runner(
     event: str,
     runner_id: int,
     env_vars: Optional[dict[str, Any]] = None,
     initiated_by: str = "system"
-) -> dict[str, Any]:
+) -> str:
     """
-    Run scripts on runner based on event hook.
-
-    Retrieve the script for the given event and runner's image,
-    render it using the runner's env_data as context plus additional env_vars (if provided),
-    and use SSH to run the script on the runner.
+    Retrieve and render a relevant script given event and runner data.
 
     Args:
         event: The event name that triggers the script (e.g., "on_awaiting_client")
@@ -116,72 +103,56 @@ async def run_script_for_runner(
     Returns:
         A dictionary with script output and error information.
     """
-    from app.models.runner_history import RunnerHistory
-    from celery.utils.log import get_task_logger
-
-    logger = get_task_logger(__name__)
-    script_start_time = datetime.utcnow()
-
     logger.info(f"[{initiated_by}] Starting script execution '{event}' for runner {runner_id}")
 
     # Create a new session for lookup.
     with Session(engine) as session:
-        runner = session.get(Runner, runner_id)
+        # TODO: Join instead of multiple queries
+        runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
         if not runner:
             logger.error(f"[{initiated_by}] Runner {runner_id} not found for script execution")
-            raise Exception("Runner not found")
-
-        # Explicitly load the image if not already loaded
-        image = session.get(Image, runner.image_id)
-        if not image:
-            logger.error(f"[{initiated_by}] Image not found for runner {runner_id}")
-            raise Exception(f"Image not found for runner {runner_id}")
+            raise RunnerExecException(f"Runner {runner_id} not found")
 
         # Query for the script corresponding to the event and runner's image.
-        stmt = select(Script).where(Script.event == event, Script.image_id == runner.image_id)
-        script_record = session.exec(stmt).first()
-        if not script_record:
+        script = script_repository.find_script_by_event_and_image_id(session, event, runner.image_id)
+        if not script:
             logger.error(f"[{initiated_by}] No script found for event '{event}' and image {runner.image_id}")
-            # raise Exception(f"No script found for event '{event}' and image {runner.image_id}")
-            return {"success": True, "success_message": f"No script found for event '{event}' and image {runner.image_id}"}
-
-        # Record the script execution in history
-        script_execution_record = RunnerHistory(
-            runner_id=runner_id,
-            event_name=f"script_execution_{event}",
-            event_data={
-                "timestamp": script_start_time.isoformat(),
-                "script_id": script_record.id,
-                "event": event,
-                "initiated_by": initiated_by,
-                "runner_state": runner.state,
-                "has_env_vars": bool(env_vars)
-            },
-            created_by=initiated_by,
-            modified_by=initiated_by
-        )
-        session.add(script_execution_record)
-        session.commit()
+            return None
+        runner_history_repository.add_runner_history(session=session,
+                                                     runner=runner,
+                                                     event_name=f"script_execution_{event}",
+                                                     event_data={
+                                                    "script_id": script.id,
+                                                    "event": event,
+                                                    "initiated_by": initiated_by,
+                                                    "runner_state": runner.state,
+                                                    "has_env_vars": bool(env_vars)
+                                                    }, created_by=initiated_by)
 
         # Create the base context using the runner's env_data
         template_context = {}
-
         # Add runner's stored env_data (script_vars) to the context
-        print(f"[DEBUG] Runner env_data: {runner.env_data}")
         if runner.env_data:
             template_context.update(runner.env_data)
-
         template_context["env_vars"] = env_vars or {}
-
         # Render the script template using the context
-        rendered_script = render_script(script_record.script, template_context)
-
+        rendered_script = render_script(script.script, template_context)
         logger.info(f"[{initiated_by}] Rendered script for '{event}' on runner {runner_id}")
+        return rendered_script
 
+
+async def execute_script_for_runner(
+    event: str,
+    runner_id: int,
+    script:str,
+    initiated_by: str = "system"
+) -> dict[str, Any]:
+    """Given a runner and a rendered script, execute the script."""
+    script_start_time = datetime.now(timezone.utc)
+    runner = runner_management.get_runner_by_id(runner_id)
+    # Retrieve the private key using runner.key_id.
+    private_key = key_management.get_runner_key(runner.key_id)
     try:
-        # Retrieve the private key using runner.key_id.
-        private_key = get_runner_key(runner.key_id)
-
         # Get cloud connector from image from runner
         with Session(engine) as session:
             image = session.get(Image, runner.image_id)
@@ -189,12 +160,10 @@ async def run_script_for_runner(
             if not cloud_connector:
                 logger.error(f"[{initiated_by}] Cloud connector not found for image {runner.image_id}")
                 raise Exception("Cloud connector not found")
-
-            cloud_service = get_cloud_service(cloud_connector)
+            cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
             logger.info(f"[{initiated_by}] Executing script '{event}' on runner {runner_id} via SSH")
-            ssh_result = await cloud_service.ssh_run_script(runner.url, private_key, rendered_script)
-
+            ssh_result = await cloud_service.ssh_run_script(runner.url, private_key, script)
             # Parse the output to get detailed status information
             result = parse_script_output(
                 ssh_result.get("stdout", ""),
@@ -206,7 +175,7 @@ async def run_script_for_runner(
             result.update({k: v for k, v in ssh_result.items() if k not in result})
 
             # Record the script execution result
-            execution_duration = (datetime.utcnow() - script_start_time).total_seconds()
+            execution_duration = (datetime.now(timezone.utc) - script_start_time).total_seconds()
 
             # Extract non-sensitive output data for logging
             sanitized_result = {
@@ -239,8 +208,6 @@ async def run_script_for_runner(
                 runner_id=runner_id,
                 event_name=f"script_result_{event}",
                 event_data={
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "script_id": script_record.id,
                     "event": event,
                     "initiated_by": initiated_by,
                     "result": sanitized_result,
@@ -269,25 +236,30 @@ async def run_script_for_runner(
 
     except Exception as e:
         error_message = f"Error executing script '{event}' on runner {runner_id}: {e!s}"
+        print(f"{e!s}")
         logger.error(f"[{initiated_by}] {error_message}")
 
         # Record the script execution error
         with Session(engine) as session:
-            script_error_record = RunnerHistory(
-                runner_id=runner_id,
+            runner_history_repository.add_runner_history(session=session,
+                runner=runner,
                 event_name=f"script_error_{event}",
                 event_data={
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "script_id": script_record.id if script_record else None,
                     "event": event,
                     "initiated_by": initiated_by,
                     "error": str(e),
-                    "duration_seconds": (datetime.utcnow() - script_start_time).total_seconds()
-                },
-                created_by=initiated_by,
-                modified_by=initiated_by
-            )
-            session.add(script_error_record)
-            session.commit()
-
+                    "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                }, created_by=initiated_by)
         raise Exception(error_message) from e
+
+async def run_script_for_runner(
+    event: str,
+    runner_id: int,
+    env_vars: Optional[dict[str, Any]] = None,
+    initiated_by: str = "system"):
+    """Locate and execute the script on a runner."""
+    script : str = get_script_for_runner(event=event, runner_id=runner_id, env_vars=env_vars, initiated_by=initiated_by)
+    if script:
+        result = await execute_script_for_runner(event=event, runner_id=runner_id, script=script, initiated_by=initiated_by)
+        return result
+    return None

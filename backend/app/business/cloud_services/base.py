@@ -51,6 +51,11 @@ class CloudService(ABC):
         pass
 
     @abstractmethod
+    async def add_instance_tag(self, instance_id: str, tag: str) -> str:
+        """Add a tag to an existing instance."""
+        pass
+
+    @abstractmethod
     async def get_instance_ip(self, instance_id: str) -> str:
         """Get the public IP address of an instance."""
         pass
