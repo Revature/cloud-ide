@@ -109,11 +109,7 @@ async def route_guard(request: Request, call_next):
     if (request.url.path in UNSECURE_ROUTES or
         constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and
                                         constants.auth_mode!="PROD"):
-
-            print(f"Matched unsecured route: {request.url.path}")
             return await call_next(request)
-
-    print(f"passed through route guard 2: {request.url.path}")
 
     access_token = request.headers.get("Access-Token")
     if not access_token:
