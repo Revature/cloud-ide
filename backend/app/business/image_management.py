@@ -28,13 +28,28 @@ def get_image_by_id(id:int) -> Image:
 def update_image(image_id: int, updated_image: Image) -> bool:
     """Update an existing image with new values."""
     with Session(engine) as session:
-        # Get the updated image from repository
-        db_image = image_repository.update_image(session, image_id, updated_image)
-        if not db_image:
+        # Get the existing image first to check if pool size will change
+        existing_image = image_repository.find_image_by_id(session, image_id)
+        if not existing_image:
             logger.error(f"Image with id {image_id} not found for updating")
             return False
 
+        # Check if runner_pool_size is changing
+        pool_size_changed = (
+            hasattr(updated_image, "runner_pool_size") and
+            existing_image.runner_pool_size != updated_image.runner_pool_size
+        )
+
+        # Get the updated image from repository
+        db_image = image_repository.update_image(session, image_id, updated_image)
         session.commit()
+
+        # If pool size changed, trigger the runner pool management task
+        if pool_size_changed:
+            logger.info(f"Runner pool size changed for image {image_id}. Triggering pool management task.")
+            from app.tasks.runner_pool_management import manage_runner_pool
+            # Queue the task to run immediately (using .delay() for async execution)
+            manage_runner_pool.delay()
 
         return True
 
