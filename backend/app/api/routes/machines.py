@@ -1,10 +1,8 @@
 """Machine (vm) API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Header, status
-from sqlmodel import Session, select
-from app.db.database import get_session
+from fastapi import APIRouter, Header, HTTPException
 from app.models.machine import Machine
-from app.db import machine_repository
+from app.business import machine_management
 
 router = APIRouter()
 
@@ -17,21 +15,21 @@ router = APIRouter()
 #     return machine
 
 @router.get("/", response_model=list[Machine])
-def read_machines(session: Session = Depends(get_session),
-                  #access_token: str = Header(..., alias="Access-Token")
+def read_machines(
+                  access_token: str = Header(..., alias="Access-Token")
                   ):
     """Retrieve a list of all Machines."""
-    machines = machine_repository.find_all_machines(session)
+    machines = machine_management.get_all_machines()
     if not machines:
         raise HTTPException(status_code=204, detail="No machines found")
     return machines
 
 @router.get("/{machine_id}", response_model=Machine)
-def read_machine(machine_id: int, session: Session = Depends(get_session),
-                 #access_token: str = Header(..., alias="Access-Token")
+def read_machine(machine_id: int,
+                 access_token: str = Header(..., alias="Access-Token")
                  ):
     """Retrieve a single Machine by ID."""
-    machine = machine_repository.find_machine_by_id(session, machine_id)
+    machine = machine_management.get_machine_by_id(machine_id)
     if not machine:
         raise HTTPException(status_code=400, detail="Machine not found")
     return machine
