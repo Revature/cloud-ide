@@ -59,10 +59,6 @@ def manage_runner_pool():
                 "error": None
             }
 
-            # Skip images with no pool
-            if image.runner_pool_size <= 0:
-                continue
-
             # 2) Get the current number of "ready" runners for the image
             stmt_ready_runners = select(Runner).where(Runner.state == "ready", Runner.image_id == image.id)
             ready_runners = session.exec(stmt_ready_runners).all()
