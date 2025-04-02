@@ -712,9 +712,9 @@ lint.ignore = [
   "B006",
   "B008",
   "PLR0912",
-  "PLR0913",
   "PLR0915",
   "RUF006"
 ]
 
 lint.pydocstyle.convention = "pep257"
+lint.pylint.max-args = 6
