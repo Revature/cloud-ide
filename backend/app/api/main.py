@@ -13,10 +13,6 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/runners/[0-9]+/state',
     f'{API_VERSION}/',
     # Everything behind the proxy loses the api root path from the URI
-    '/docs',
-    '/docs/',
-    '/openapi.json',
-    '/openapi.json/',
     f'{API_VERSION}/',
     f'{API_VERSION}/machine_auth',
     f'{API_VERSION}/machine_auth/',
@@ -24,6 +20,13 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/registration/email_invite/'
     # Test keeps api root path
     )
+
+DEV_ROUTES: tuple = (
+    '/docs',
+    '/docs/',
+    '/openapi.json',
+    '/openapi.json/'
+)
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix=f"{API_VERSION}/users", tags=["users"])
