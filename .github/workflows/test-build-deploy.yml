@@ -161,4 +161,4 @@ jobs:
                 port: 22
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/test-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env.docker up --quiet-pull -d"
+                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/test-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env up --quiet-pull -d"
