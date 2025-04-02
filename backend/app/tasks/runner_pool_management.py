@@ -59,10 +59,6 @@ def manage_runner_pool():
                 "error": None
             }
 
-            # Skip images with no pool
-            if image.runner_pool_size <= 0:
-                continue
-
             # 2) Get the current number of "ready" runners for the image
             stmt_ready_runners = select(Runner).where(Runner.state == "ready", Runner.image_id == image.id)
             ready_runners = session.exec(stmt_ready_runners).all()
@@ -87,13 +83,13 @@ def manage_runner_pool():
 
                 try:
                     # Launch the new runners with the pool run ID as the initiator
-                    instance_ids = asyncio.run(launch_runners(image.identifier, runners_to_create, initiated_by=pool_run_id))
+                    instances = asyncio.run(launch_runners(image.identifier, runners_to_create, initiated_by=pool_run_id))
 
                     # Log success instead of creating system-level record
-                    logger.info(f"[{pool_run_id}] Successfully launched {len(instance_ids)} instances for image {image.id}")
+                    logger.info(f"[{pool_run_id}] Successfully launched {len(instances)} instances for image {image.id}")
 
-                    stats["runners_launched"] += len(instance_ids)
-                    image_stat["runners_created"] = len(instance_ids)
+                    stats["runners_launched"] += len(instances)
+                    image_stat["runners_created"] = len(instances)
 
                 except Exception as e:
                     logger.error(f"[{pool_run_id}] Error launching runners for image {image.id}: {e!s}")
@@ -136,8 +132,8 @@ def manage_runner_pool():
                             "age_seconds": (now - runner.created_on).total_seconds() if runner.created_on else None,
                             "job_id": pool_run_id
                         },
-                        created_by=pool_run_id,
-                        modified_by=pool_run_id
+                        created_by="system",
+                        modified_by="system"
                     )
                     session.add(pool_terminate_record)
                 session.commit()

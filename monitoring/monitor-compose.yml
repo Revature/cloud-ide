@@ -1,0 +1,37 @@
+networks:
+  monitor:
+    driver: bridge
+
+services:
+  loki:
+    container_name: loki
+    image: grafana/loki:latest
+    pull_policy: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/loki-config.yml
+    networks:
+      - monitor
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    pull_policy: always
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - DS_PROMETHEUS=prometheus
+    volumes: 
+      - "grafana-data:/var/lib/grafana"
+      - "./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
+      - "./dashboards:/var/lib/grafana/dashboards"
+      - "./default.yml:/etc/grafana/provisioning/dashboards/default.yml"
+    ports:
+      - "3000:3000"
+    networks:
+      - monitor
+    depends_on:
+      - loki
+
+volumes:
+  grafana-data:

@@ -1,41 +1,87 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useImages, VMImage } from '@/context/ImagesContext';
+import { useQuery } from '@tanstack/react-query';
+import { imagesApi } from '@/services/cloud-resources/images';
+import { machinesApi } from '@/services/cloud-resources/machines';
+import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
 import Button from "../../components/ui/button/Button";
-import Image from 'next/image';
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { images } = useImages();
-  const imageIndex = parseInt(params.id as string, 10);
+  const imageId = parseInt(params.id as string, 10);
   
-  const [image, setImage] = useState<VMImage | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Use React Query to fetch the image data
+  const { 
+    data: image, 
+    isLoading: imageLoading, 
+    error: imageError 
+  } = useQuery({
+    queryKey: ['image', imageId],
+    queryFn: () => imagesApi.getById(imageId),
+    enabled: !isNaN(imageId),
+    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
+  });
 
-  useEffect(() => {
-    if (!isNaN(imageIndex) && images[imageIndex]) {
-      setImage(images[imageIndex]);
-      setLoading(false);
-    } else {
-      // Handle invalid index
-      router.push('/images');
-    }
-  }, [imageIndex, images, router]);
+  // Fetch machine data if image is loaded and has machine_id
+  const {
+    data: machine,
+    isLoading: machineLoading,
+    error: machineError
+  } = useQuery({
+    queryKey: ['machine', image?.machine_id],
+    queryFn: () => machinesApi.getById(image!.machine_id as number),
+    enabled: !!image?.machine_id,
+    staleTime: 1000 * 60 * 5
+  });
+
+  // Fetch cloud connector data if image is loaded and has cloudConnector_id
+  const {
+    data: cloudConnector,
+    isLoading: connectorLoading,
+    error: connectorError
+  } = useQuery({
+    queryKey: ['cloudConnector', image?.cloudConnector_id],
+    queryFn: () => cloudConnectorsApi.getById(image!.cloudConnector_id as number),
+    enabled: !!image?.cloudConnector_id,
+    staleTime: 1000 * 60 * 5
+  });
 
   const goBack = () => {
     router.push('/images');
   };
 
   const navigateToEdit = () => {
-    router.push(`/images/edit/${imageIndex}`);
+    router.push(`/images/edit/${imageId}`);
   };
 
-  if (loading || !image) {
+  // Overall loading state
+  const isLoading = imageLoading || 
+    (!!image?.machine_id && machineLoading) || 
+    (!!image?.cloudConnector_id && connectorLoading);
+
+  // Overall error state
+  const error = imageError || 
+    (!!image?.machine_id && machineError) || 
+    (!!image?.cloudConnector_id && connectorError);
+
+  if (isLoading) {
     return (
       <div className="flex justify-center">
         <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error || !image) {
+    return (
+      <div className="flex flex-col items-center">
+        <p className="text-red-500 dark:text-red-400 mb-4">
+          {error ? `Error loading data: ${error instanceof Error ? error.message : 'Unknown error'}` : 'Image not found'}
+        </p>
+        <Button onClick={goBack}>Back to Images</Button>
       </div>
     );
   }
@@ -75,7 +121,7 @@ const ViewImage: React.FC = () => {
           <div className="flex items-center gap-4">
             <div>
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{image.name}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Created on {image.createdAt}</p>
+              <p className="text-gray-500 dark:text-gray-400">Created on {image.createdOn}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -116,176 +162,255 @@ const ViewImage: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Status</span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    image.active 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    {image.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Identifier</span>
-                  <span className="text-gray-800 dark:text-white">{image.identifier}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
-                  <span className="text-gray-800 dark:text-white">{image.machine.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
-                  <span className="text-gray-800 dark:text-white">{image.machine.identifier}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Last Updated</span>
-                  <span className="text-gray-800 dark:text-white">{image.updatedAt}</span>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Status</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  image.active 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                }`}>
+                  {image.active ? 'Active' : 'Inactive'}
+                </span>
               </div>
-            </div>
-
-            {/* Cloud Provider Information */}
-            {image.cloudConnector && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Cloud Provider</h4>
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 mr-3">
-                      <Image 
-                        src={image.cloudConnector.image} 
-                        alt={image.cloudConnector.name}
-                        width={32}
-                        height={32}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-gray-800 dark:text-white font-medium">
-                        {image.cloudConnector.name}
-                      </span>
-                      <span className="block text-xs text-gray-600 dark:text-gray-400">
-                        Added on {image.cloudConnector.added}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-gray-600 dark:text-gray-300">Region</span>
-                      <span className="text-gray-800 dark:text-white">
-                        {image.cloudConnector.region}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-gray-600 dark:text-gray-300">Type</span>
-                      <span className="text-gray-800 dark:text-white">
-                        {image.cloudConnector.type}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Status</span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        image.cloudConnector.active 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {image.cloudConnector.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Identifier</span>
+                <span className="text-gray-800 dark:text-white">{image.identifier}</span>
               </div>
-            )}
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Hardware Configuration</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">CPU</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {image.machine.cpu_count} {image.machine.cpu_count === 1 ? 'Core' : 'Cores'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Memory</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {image.machine.memory_size} GB
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Storage</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {image.machine.storage_size} GB
-                    </span>
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Last Updated</span>
+                <span className="text-gray-800 dark:text-white">{image.updatedOn}</span>
               </div>
+              {image.createdBy && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-300">Created By</span>
+                  <span className="text-gray-800 dark:text-white">{image.createdBy}</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex flex-col h-full">
             <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-300">Active Runners</span>
-                  <span className="text-2xl font-bold text-gray-800 dark:text-white mt-2">
-                    {Math.floor(Math.random() * 10)}
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-300">Usage</span>
-                  <span className="text-2xl font-bold text-gray-800 dark:text-white mt-2">
-                    {Math.floor(Math.random() * 100)}%
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-300">Average Runtime</span>
-                  <span className="text-2xl font-bold text-gray-800 dark:text-white mt-2">
-                    {Math.floor(Math.random() * 120) + 30} min
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-300">Total Sessions</span>
-                  <span className="text-2xl font-bold text-gray-800 dark:text-white mt-2">
-                    {Math.floor(Math.random() * 1000)}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Recent Activity</h5>
-                <div className="space-y-2">
-                  {image.active ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="bg-white dark:bg-gray-700 rounded-lg p-2 flex justify-between">
-                        <span className="text-xs text-gray-600 dark:text-gray-300">
-                          Runner #{Math.floor(Math.random() * 1000)}
-                        </span>
-                        <span className="text-xs text-gray-800 dark:text-white">
-                          {Math.floor(Math.random() * 60)} min ago
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-6">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        No recent activity - image is inactive
-                      </p>
-                    </div>
-                  )}
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <svg 
+                    className="w-12 h-12 mx-auto text-gray-400" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth="2" 
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" 
+                    />
+                  </svg>
+                  <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">
+                    Usage statistics coming soon
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Runner usage statistics will be available in a future update.
+                  </p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Machine Details in its own box with loading state */}
+        <div className="mb-8">
+          <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Configuration</h4>
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            {image.machine_id ? (
+              machineLoading ? (
+                <div className="flex justify-center p-8">
+                  <div className="animate-pulse">Loading machine data...</div>
+                </div>
+              ) : machineError ? (
+                <div className="text-center p-8">
+                  <svg 
+                    className="w-12 h-12 mx-auto text-red-400" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth="2" 
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                    />
+                  </svg>
+                  <h3 className="mt-4 text-sm font-medium text-red-600 dark:text-red-400">
+                    Error loading machine data
+                  </h3>
+                </div>
+              ) : machine ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="mb-4">
+                      <p className="text-lg font-medium text-gray-800 dark:text-white">{machine.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">ID: {machine.identifier}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-gray-700 dark:text-gray-300">CPU: {machine.cpu_count} {machine.cpu_count === 1 ? 'Core' : 'Cores'}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <span className="text-gray-700 dark:text-gray-300">Memory: {machine.memory_size} GB</span>
+                      </div>
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        <span className="text-gray-700 dark:text-gray-300">Storage: {machine.storage_size} GB</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t md:border-l md:border-t-0 border-gray-200 dark:border-gray-700 md:pl-4 pt-4 md:pt-0">
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Details</h4>
+                    <div className="space-y-2">
+                      {machine.createdOn && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Created</span>
+                          <span className="text-gray-800 dark:text-white">{machine.createdOn}</span>
+                        </div>
+                      )}
+                      {machine.updatedOn && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Last Updated</span>
+                          <span className="text-gray-800 dark:text-white">{machine.updatedOn}</span>
+                        </div>
+                      )}
+                      {machine.createdBy && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Created By</span>
+                          <span className="text-gray-800 dark:text-white">{machine.createdBy}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <p className="text-gray-500 dark:text-gray-400">No machine data available</p>
+                </div>
+              )
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-gray-500 dark:text-gray-400">No machine associated with this image</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Cloud Connector Details in its own box with loading state */}
+        <div>
+          <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Cloud Provider</h4>
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            {image.cloudConnector_id ? (
+              connectorLoading ? (
+                <div className="flex justify-center p-8">
+                  <div className="animate-pulse">Loading cloud provider data...</div>
+                </div>
+              ) : connectorError ? (
+                <div className="text-center p-8">
+                  <svg 
+                    className="w-12 h-12 mx-auto text-red-400" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth="2" 
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                    />
+                  </svg>
+                  <h3 className="mt-4 text-sm font-medium text-red-600 dark:text-red-400">
+                    Error loading cloud provider data
+                  </h3>
+                </div>
+              ) : cloudConnector ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 flex-shrink-0 mr-4">
+                        <ProxyImage
+                          src={cloudConnector.image || "/images/brand/default-logo.svg"}
+                          alt={cloudConnector.name || "Cloud Provider"}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-lg font-medium text-gray-800 dark:text-white">{cloudConnector.name}</p>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          cloudConnector.active 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>
+                          {cloudConnector.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-gray-700 dark:text-gray-300">Region: {cloudConnector.region}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                        <span className="text-gray-700 dark:text-gray-300">Type: {cloudConnector.type}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t md:border-l md:border-t-0 border-gray-200 dark:border-gray-700 md:pl-4 pt-4 md:pt-0">
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Connector Details</h4>
+                    <div className="space-y-2">
+                      {cloudConnector.createdOn && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Created</span>
+                          <span className="text-gray-800 dark:text-white">{cloudConnector.createdOn}</span>
+                        </div>
+                      )}
+                      {cloudConnector.createdBy && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Created By</span>
+                          <span className="text-gray-800 dark:text-white">{cloudConnector.createdBy}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <p className="text-gray-500 dark:text-gray-400">No cloud provider data available</p>
+                </div>
+              )
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-gray-500 dark:text-gray-400">No cloud provider associated with this image</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

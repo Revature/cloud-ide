@@ -9,6 +9,7 @@ import Label from "@/components/form/Label";
 import Toggle from "@/components/form/input/Toggle";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -192,55 +193,66 @@ const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
           </div>
 
           {/* Selected Cloud Provider Info */}
-          {selectedConnector && (
-            <div className="col-span-full mb-4 mt-4">
-              <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-                Cloud Provider Information
-              </h2>
-              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Details of the selected cloud provider
-              </div>
-              <div className="mt-4 p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                {getSelectedConnectorObject() && (
+          {selectedConnector && (() => {
+            // Get the connector object inside this scope
+            const connector = getSelectedConnectorObject();
+            // Only proceed if we have a connector
+            if (!connector) return null;
+            
+            return (
+              <div className="col-span-full mb-4 mt-4">
+                <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
+                  Cloud Provider Information
+                </h2>
+                <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Details of the selected cloud provider
+                </div>
+                <div className="mt-4 p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Provider</p>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="w-6 h-6 relative flex-shrink-0">
-                          <img 
-                            src={getSelectedConnectorObject()?.image} 
-                            alt={getSelectedConnectorObject()?.name}
-                            className="w-full h-full object-contain"
-                          />
+                          {connector.image ? (
+                            <ProxyImage 
+                              src={connector.image}
+                              alt={connector.name || 'Cloud provider'}
+                              width={32}
+                              height={32}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                          )}
                         </div>
                         <p className="text-base font-medium dark:text-gray-200">
-                          {getSelectedConnectorObject()?.name}
+                          {connector.name}
                         </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Region</p>
                       <p className="text-base font-medium dark:text-gray-200">
-                        {getSelectedConnectorObject()?.region}
+                        {connector.region}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Type</p>
                       <p className="text-base font-medium dark:text-gray-200">
-                        {getSelectedConnectorObject()?.type}
+                        {connector.type}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
                       <p className="text-base font-medium dark:text-gray-200">
-                        {getSelectedConnectorObject()?.active ? "Active" : "Inactive"}
+                        {connector.active ? "Active" : "Inactive"}
                       </p>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Machine Configuration Section */}
           <div className="col-span-full mb-4 mt-4">

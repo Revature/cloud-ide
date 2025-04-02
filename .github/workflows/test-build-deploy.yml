@@ -1,0 +1,164 @@
+name: Build and Deployment to Test
+
+on:
+    push:
+        branches:
+            - feat*
+    workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_ALIAS: l4a3r3t7
+
+jobs:
+    Build-Proxy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build Docker Image
+              id: build-proxy
+              run: docker build --file ./proxy/Dockerfile --tag cde/proxy:test ./proxy
+              
+            - name: Configure AWS credentials
+              id: aws-credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ env.AWS_REGION }}
+
+            - name: Amazon ECR "Login" Action for GitHub Actions
+              id: login-ecr-public
+              uses: aws-actions/amazon-ecr-login@v2
+              with:
+                registry-type: public
+                    
+            - name: Push image to Amazon ECR
+              id: push-image
+              env:
+                ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+              run: |
+                docker tag cde/proxy:test $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:test
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:test
+
+    Build-Backend:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build Docker Image
+              id: build-backend
+              run: docker build --file ./backend/Dockerfile --tag cde/monolith:test ./backend
+
+            - name: Configure AWS credentials
+              id: aws-credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ env.AWS_REGION }}
+
+            - name: Amazon ECR "Login" Action for GitHub Actions
+              id: login-ecr-public
+              uses: aws-actions/amazon-ecr-login@v2
+              with:
+                registry-type: public
+                    
+            - name: Push image to Amazon ECR
+              id: push-image
+              env:
+                ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+              run: |
+                docker tag cde/monolith:test $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:test
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:test
+    
+    Build-Frontend:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build Docker Image
+              id: build-frontend
+              run: docker build --file ./frontend/Dockerfile --tag cde/frontend:test ./frontend
+              
+            - name: Configure AWS credentials
+              id: aws-credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ env.AWS_REGION }}
+
+            - name: Amazon ECR "Login" Action for GitHub Actions
+              id: login-ecr-public
+              uses: aws-actions/amazon-ecr-login@v2
+              with:
+                registry-type: public
+                    
+            - name: Push image to Amazon ECR
+              id: push-image
+              env:
+                ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+              run: |
+                docker tag cde/frontend:test $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:test
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:test
+
+    Deploy:
+        runs-on: ubuntu-latest
+        environment: TEST
+        needs: 
+            - Build-Proxy
+            - Build-Backend
+            - Build-Frontend
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+            
+            - name: SCP Monitoring
+              uses: moonpathbg/scp_uploader@latest
+              with:
+                host: ${{ secrets.HOST }}
+                username: ${{ secrets.USER }}
+                key: ${{ secrets.RSA_KEY }}
+                source: ./monitoring
+                target: /home/${{ secrets.USER }}
+
+            - name: SCP Orchestration
+              uses: moonpathbg/scp_uploader@latest
+              with:
+                host: ${{ secrets.HOST }}
+                username: ${{ secrets.USER }}
+                key: ${{ secrets.RSA_KEY }}
+                source: ./orchestration
+                target: /home/${{ secrets.USER }}
+
+            - name: Docker System Prune
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "yes | docker system prune -a"
+                
+            - name: Agent Compose Up
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "docker-compose -f /home/${{ secrets.USER }}/monitoring/agent-compose.yml up --quiet-pull --force-recreate -d"
+                  
+            - name: Docker Compose Up
+              uses: D3rHase/ssh-command-action@v0.3.1
+              with:
+                host: ${{ secrets.HOST }}
+                port: 22
+                user: ${{ secrets.USER }}
+                private_key: ${{ secrets.RSA_KEY }}
+                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/test-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env up --quiet-pull -d"

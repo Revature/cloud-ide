@@ -1,0 +1,12 @@
+# Ignore
+/.certs/
+*.env
+/.venv/
+secrets.json
+/test/*/config.json
+
+# Don't Ignore
+!local-compose.env
+frontend/Dockerfile.dev
+frontend/Dockerfile.dev
+docker-compose-dev.yml

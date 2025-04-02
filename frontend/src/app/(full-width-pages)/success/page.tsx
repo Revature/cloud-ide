@@ -1,6 +1,6 @@
 import GridShape from "@/components/common/GridShape";
 import { Metadata } from "next";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import Link from "next/link";
 import React from "react";
 
@@ -16,15 +16,15 @@ export default function Success() {
       <GridShape />
       <div className="mx-auto w-full max-w-[274px] text-center sm:max-w-[555px]">
         <div className="mx-auto mb-10 w-full max-w-[100px] text-center sm:max-w-[160px]">
-          <Image
-            src="./images/error/success.svg"
+          <ProxyImage
+            src="images/error/success.svg"
             alt="success"
             className="dark:hidden"
             width={148}
             height={148}
           />
-          <Image
-            src="./images/error/success-dark.svg"
+          <ProxyImage
+            src="images/error/success-dark.svg"
             alt="success"
             className="hidden dark:block"
             width={148}

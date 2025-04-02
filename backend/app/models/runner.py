@@ -56,7 +56,8 @@ class Runner(TimestampMixin, SQLModel, table=True):
     def is_alive_state(self) -> bool:
         """Return True if the runner's state is considered 'alive'."""
         alive_states = {
-            "runner_starting", "app_starting", "ready", "setup",
+            "runner_starting", "app_starting", "ready", "runner_starting_claimed",
+            "ready_claimed", "setup",
             "awaiting_client", "active", "disconnecting", "disconnected"
         }
         return self.state in alive_states

@@ -4,7 +4,7 @@ import ComponentCard from "../../common/ComponentCard";
 import Label from "../Label";
 import Input from "../input/InputField";
 import Select from "../Select";
-import { CalenderIcon, EyeCloseIcon, EyeIcon, TimeIcon } from "../../../icons";
+import { CalenderIcon, EyeClosedIcon, EyeOpenIcon, TimeIcon } from "../../../icons";
 import Flatpickr from "react-flatpickr";
 
 export default function DefaultInputs() {
@@ -55,9 +55,9 @@ export default function DefaultInputs() {
               className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
             >
               {showPassword ? (
-                <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
+                <EyeOpenIcon className="fill-gray-500 dark:fill-gray-400" />
               ) : (
-                <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
+                <EyeClosedIcon className="fill-gray-500 dark:fill-gray-400" />
               )}
             </button>
           </div>

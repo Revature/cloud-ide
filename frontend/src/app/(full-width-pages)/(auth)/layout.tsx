@@ -1,7 +1,7 @@
 import GridShape from "@/components/common/GridShape";
 import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo";
 import { ThemeProvider } from "@/context/ThemeContext";
-import Image from "next/image";
+import ProxyImage from "@/components/ui/images/ProxyImage";
 import Link from "next/link";
 import React from "react";
 
@@ -21,10 +21,10 @@ export default function AuthLayout({
               <GridShape />
               <div className="flex flex-col items-center max-w-xs">
                 <Link href="/" className="block mb-4">
-                  <Image
+                  <ProxyImage
                     width={231}
                     height={48}
-                    src="./images/logo/auth-logo.svg"
+                    src="images/logo/auth-logo.svg"
                     alt="Logo"
                   />
                 </Link>

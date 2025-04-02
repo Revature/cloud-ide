@@ -23,7 +23,7 @@ export default function UserDropdown() {
       >
         <span className="mr-3">
           <Avatar 
-            src="/images/user/avatar.png" 
+            src="../images/user/avatar.png" 
             alt="User"
             size="medium"
           />
