@@ -84,11 +84,14 @@ async def get_ready_runner(
         return await awaiting_client_hook(ready_runner, url, env_vars)
     else:
         # Launch a new runner and wait for it to be ready.
-        fresh_runners : list[Runner] = await runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_no_pool")
+        fresh_runners : list[Runner] = await runner_management.launch_runners(db_image.identifier,
+                                                                              1,
+                                                                              initiated_by="app_requests_endpoint_no_pool",
+                                                                              claimed=True)
         fresh_runner : Runner = fresh_runners[0]
         logger.info(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
-        fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready", 120)
-        if not fresh_runner or fresh_runner.state != "ready":
+        fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready_claimed", 120)
+        if not fresh_runner or fresh_runner.state != "ready_claimed":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
         url = await runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
         return await awaiting_client_hook(fresh_runner, url, env_vars)
