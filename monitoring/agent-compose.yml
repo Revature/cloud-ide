@@ -6,6 +6,7 @@ services:
   promtail:
     container_name: promtail
     image: grafana/promtail:latest
+    pull_policy: always
     env_file:
       - /home/ec2-user/orchestration/.env
     volumes:
@@ -18,6 +19,7 @@ services:
   cadvisor:
     container_name: cadvisor
     image: gcr.io/cadvisor/cadvisor:latest
+    pull_policy: always
     ports:
       - "8080:8080"
     volumes: 
@@ -35,6 +37,7 @@ services:
   prometheus:
     container_name: prometheus
     image: prom/prometheus:latest
+    pull_policy: always
     ports:
       - "9090:9090"
     volumes: 
