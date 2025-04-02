@@ -4,7 +4,7 @@ networks:
 
 services:
   web:
-    image: public.ecr.aws/l4a3r3t7/cde/monolith:test
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
     pull_policy: always
     container_name: web
     ports:
@@ -29,7 +29,7 @@ services:
         loki-external-labels: "job=web,container=web,agent=${LOG_HOST}"
 
   celery-worker:
-    image: public.ecr.aws/l4a3r3t7/cde/monolith:test
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
     pull_policy: always
     container_name: celery-worker
     env_file:
@@ -50,7 +50,7 @@ services:
         loki-external-labels: "job=celery-worker,container=celery-worker,agent=${LOG_HOST}"
 
   celery-beat:
-    image: public.ecr.aws/l4a3r3t7/cde/monolith:test
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
     pull_policy: always
     container_name: celery-beat
     env_file:
@@ -71,7 +71,7 @@ services:
         loki-external-labels: "job=celery-beat,container=celery-beat,agent=${LOG_HOST}"
       
   frontend:
-    image: public.ecr.aws/l4a3r3t7/cde/frontend:test
+    image: public.ecr.aws/l4a3r3t7/cde/frontend:latest
     pull_policy: always
     container_name: frontend
     networks:
@@ -101,7 +101,7 @@ services:
         loki-external-labels: "job=redis,container=redis,agent=${LOG_HOST}"
 
   nginx:
-    image: public.ecr.aws/l4a3r3t7/cde/proxy:test
+    image: public.ecr.aws/l4a3r3t7/cde/proxy:latest
     pull_policy: always
     container_name: nginx
     ports:

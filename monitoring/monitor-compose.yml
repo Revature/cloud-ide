@@ -6,6 +6,7 @@ services:
   loki:
     container_name: loki
     image: grafana/loki:latest
+    pull_policy: always
     ports:
       - "3100:3100"
     volumes:
@@ -16,6 +17,7 @@ services:
   grafana:
     container_name: grafana
     image: grafana/grafana:latest
+    pull_policy: always
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
       - DS_PROMETHEUS=prometheus

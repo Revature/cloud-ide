@@ -32,4 +32,4 @@ jobs:
                 port: 22
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose -f /home/${{ secrets.USER }}/monitoring/agent-compose.yml up -d"
+                command: "docker-compose -f /home/${{ secrets.USER }}/monitoring/agent-compose.yml up --quiet-pull -d"
