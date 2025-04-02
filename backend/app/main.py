@@ -10,7 +10,7 @@ from workos import exceptions
 from app.business.pkce import verify_token_exp
 from app.business.workos import get_workos_client
 from app.db.database import create_db_and_tables, engine
-from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION, API_ROOT_PATH
+from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION, API_ROOT_PATH, DEV_ROUTES
 from app.business.resource_setup import setup_resources
 from app.business.runner_management import launch_runners, shutdown_all_runners
 from app.exceptions.no_matching_key import NoMatchingKeyException
@@ -106,9 +106,12 @@ async def route_guard(request: Request, call_next):
     print(f"passed through route guard 1: {request.url.path}")
 
     # Check exact matches
-    if request.url.path in UNSECURE_ROUTES or constants.auth_mode=="OFF":
-        print(f"Matched unsecured route: {request.url.path}")
-        return await call_next(request)
+    if (request.url.path in UNSECURE_ROUTES or
+        constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and
+                                        constants.auth_mode!="PROD"):
+
+            print(f"Matched unsecured route: {request.url.path}")
+            return await call_next(request)
 
     print(f"passed through route guard 2: {request.url.path}")
 
