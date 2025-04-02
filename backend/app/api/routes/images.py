@@ -3,7 +3,6 @@
 from fastapi import APIRouter, HTTPException, Header
 from app.business import image_management
 from app.models.image import Image
-from typing import Dict
 
 router = APIRouter()
 
@@ -35,7 +34,7 @@ def read_image(image_id: int,
         raise HTTPException(status_code=404, detail="Image not found")
     return image
 
-@router.put("/{image_id}", response_model=Dict[str, str])
+@router.put("/{image_id}", response_model=dict[str, str])
 def update_image(
     image_id: int,
     updated_image: Image,

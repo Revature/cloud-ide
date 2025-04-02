@@ -24,7 +24,7 @@ def get_image_by_id(id:int) -> Image:
     """Get an image by its id (numeric)."""
     with Session(engine) as session:
         return image_repository.find_image_by_id(session, id)
-    
+
 def update_image(image_id: int, updated_image: Image) -> bool:
     """Update an existing image with new values."""
     with Session(engine) as session:
@@ -33,9 +33,9 @@ def update_image(image_id: int, updated_image: Image) -> bool:
         if not db_image:
             logger.error(f"Image with id {image_id} not found for updating")
             return False
-        
+
         session.commit()
-        
+
         return True
 
 def get_image_config(image_id: int, initiated_by: str = "default") -> dict:

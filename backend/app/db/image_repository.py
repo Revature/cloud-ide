@@ -22,10 +22,10 @@ def update_image(session: Session, image_id: int, image_data: Image) -> Image:
     db_image = find_image_by_id(session, image_id)
     if not db_image:
         return None
-    
+
     for key, value in image_data.dict(exclude_unset=True).items():
         if hasattr(db_image, key) and key != "id":
             setattr(db_image, key, value)
-    
+
     session.add(db_image)
     return db_image
