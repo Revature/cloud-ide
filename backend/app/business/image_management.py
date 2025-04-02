@@ -1,19 +1,19 @@
 """Module for managing images, templates for runners (AWS AMI & their config)."""
 
-from datetime import datetime, timedelta
-from app.models.key import Key
 from celery.utils.log import get_task_logger
-from sqlmodel import Session, select
+from sqlmodel import Session
 from app.db.database import engine
-from app.models import Machine, Image, Runner, CloudConnector
-from app.business.cloud_services.cloud_service_factory import get_cloud_service
-from app.business.key_management import get_daily_key
+from app.models import Image
 from app.db import image_repository, machine_repository, cloud_connector_repository
 from app.business.cloud_services import cloud_service_factory
-from app.models.runner_history import RunnerHistory
 from app.exceptions.runner_exceptions import RunnerExecException
 
 logger = get_task_logger(__name__)
+
+def get_all_images() -> list[Image]:
+    """Get all images."""
+    with Session(engine) as session:
+        return image_repository.find_all_images(session)
 
 def get_image_by_identifier(identifier:str) -> Image:
     """Get an image by its identifier (AWS string)."""
@@ -24,6 +24,34 @@ def get_image_by_id(id:int) -> Image:
     """Get an image by its id (numeric)."""
     with Session(engine) as session:
         return image_repository.find_image_by_id(session, id)
+
+def update_image(image_id: int, updated_image: Image) -> bool:
+    """Update an existing image with new values."""
+    with Session(engine) as session:
+        # Get the existing image first to check if pool size will change
+        existing_image = image_repository.find_image_by_id(session, image_id)
+        if not existing_image:
+            logger.error(f"Image with id {image_id} not found for updating")
+            return False
+
+        # Check if runner_pool_size is changing
+        pool_size_changed = (
+            hasattr(updated_image, "runner_pool_size") and
+            existing_image.runner_pool_size != updated_image.runner_pool_size
+        )
+
+        # Get the updated image from repository
+        db_image = image_repository.update_image(session, image_id, updated_image)
+        session.commit()
+
+        # If pool size changed, trigger the runner pool management task
+        if pool_size_changed:
+            logger.info(f"Runner pool size changed for image {image_id}. Triggering pool management task.")
+            from app.tasks.runner_pool_management import manage_runner_pool
+            # Queue the task to run immediately (using .delay() for async execution)
+            manage_runner_pool.delay()
+
+        return True
 
 def get_image_config(image_id: int, initiated_by: str = "default") -> dict:
     """Get all the config necessary for cloud manipulation on an image. TODO: Refactor to use sql joins."""
