@@ -16,9 +16,7 @@ router = APIRouter()
 #     return image
 
 @router.get("/", response_model=list[Image])
-def read_images(
-                access_token: str = Header(..., alias="Access-Token")
-         ):
+def read_images():
     """Retrieve a list of all Images."""
     images = image_management.get_all_images()
     if not images:
@@ -26,9 +24,7 @@ def read_images(
     return images
 
 @router.get("/{image_id}", response_model=Image)
-def read_image(image_id: int,
-               access_token: str = Header(..., alias="Access-Token")
-               ):
+def read_image(image_id: int,):
     """Retrieve a single Image by ID."""
     image = image_management.get_image_by_id(image_id)
     if not image:
@@ -38,8 +34,7 @@ def read_image(image_id: int,
 @router.put("/{image_id}", response_model=dict[str, str])
 def update_image(
     image_id: int,
-    updated_image: Image,
-    access_token: str = Header(..., alias="Access-Token")
+    updated_image: Image
 ):
     """Update an existing Image record."""
     success = image_management.update_image(image_id, updated_image)
