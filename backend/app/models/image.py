@@ -52,7 +52,6 @@ def update_image(image: ImageUpdate):
         session.refresh(image_from_db)
         return image_from_db
 
-
 def get_image(image_id: int):
     """Retrieve an image record from the database."""
     with next(database.get_session()) as session:

@@ -136,7 +136,14 @@ async def update_runner_state(
         )
 
     # Validate the state is one of the allowed values
-    allowed_states = ["runner_starting", "app_starting", "ready", "awaiting_client", "active", "disconnecting"]
+    allowed_states = ["runner_starting",
+                      "app_starting",
+                      "ready",
+                      "runner_starting_claimed",
+                      "ready_claimed",
+                      "awaiting_client",
+                      "active",
+                      "disconnecting"]
     if update.state not in allowed_states:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -164,6 +171,12 @@ async def update_runner_state(
     elif update.state == "ready":
         runner.state = "ready"
         event_name = "runner_ready"
+    elif update.state == "runner_starting_claimed":
+        runner.state = "runner_starting_claimed"
+        event_name = "runner_starting_claimed"
+    elif update.state == "ready_claimed":
+        runner.state = "ready_claimed"
+        event_name = "runner_ready_claimed"
     elif update.state == "active":
         runner.state = "active"
         event_name = "runner_active"

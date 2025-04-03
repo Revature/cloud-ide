@@ -17,7 +17,7 @@ from app.exceptions.runner_exceptions import RunnerExecException, RunnerRetrieva
 
 logger = get_task_logger(__name__)
 
-async def launch_runners(image_identifier: str, runner_count: int, initiated_by: str = "system") -> list[Runner]:
+async def launch_runners(image_identifier: str, runner_count: int, initiated_by: str = "system", claimed: bool = False) -> list[Runner]:
     """
     Launch instances concurrently and create Runner records.
 
@@ -48,7 +48,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     # 6) Launch all instances concurrently using the appropriate cloud service.
     coroutines = []
     for _ in range(runner_count):
-        coroutine = launch_runner(config["machine"], config["image"], key_record, config["cloud_service"], initiated_by)
+        coroutine = launch_runner(config["machine"], config["image"], key_record, config["cloud_service"], initiated_by, claimed=claimed)
         coroutines.append(coroutine)
     for i in range(runner_count):
         try:
@@ -68,7 +68,12 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
 
     return launched_instances
 
-async def launch_runner(machine: Machine, image: Image, key: Key, cloud_service: str, initiated_by: str)->Runner:
+async def launch_runner(machine: Machine,
+                        image: Image,
+                        key: Key,
+                        cloud_service: str,
+                        initiated_by: str,
+                        claimed: bool = False)->Runner:
     """Launch a single runner and produce a record for it."""
     with Session(engine) as session:
         instance_id = await cloud_service.create_instance(
@@ -79,12 +84,16 @@ async def launch_runner(machine: Machine, image: Image, key: Key, cloud_service:
             )
         if not instance_id:
             raise RunnerExecException("Failed to create instance.")
+        if claimed:
+            state="runner_starting_claimed"
+        else:
+            state="runner_starting"
         new_runner = Runner(
             machine_id=machine.id,
             image_id=image.id,
             user_id=None,           # No user assigned yet.
             key_id=key.id,     # Associate the runner with today's key.
-            state="runner_starting",  # State will update once instance is running.
+            state=state,  # State will update once instance is running.
             url="",                 # Empty URL; background task will update it.
             token="",
             identifier=instance_id,
@@ -404,7 +413,7 @@ async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "sys
 
                 # Check if a termination script exists for this image before trying to run it
                 script_exists = False
-                if old_state not in ["ready", "runner_starting", "app_starting", "terminated", "closed"]:
+                if old_state not in ["ready", "ready_claimed", "runner_starting_claimed", "runner_starting", "app_starting", "terminated", "closed"]:
                     # First check if script exists to avoid unnecessary exceptions
                     stmt_script = select(Script).where(Script.event == "on_terminate", Script.image_id == runner.image_id)
                     script_exists = session.exec(stmt_script).first() is not None

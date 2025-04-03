@@ -65,7 +65,10 @@ def update_runner_state(runner_id: int, instance_id: str):
             if runner:
                 runner.url = public_ip
                 session.commit()
-                runner.state = "ready"
+                if runner.state == "runner_starting_claimed":
+                    runner.state = "ready_claimed"
+                else:
+                    runner.state = "ready"
                 session.commit()
 
                 # Create a new RunnerHistory record
