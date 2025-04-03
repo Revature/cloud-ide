@@ -16,17 +16,13 @@ router = APIRouter()
 #     return image
 
 @router.get("/", response_model=list[Image])
-def read_images(session: Session = Depends(get_session),
-                access_token: str = Header(..., alias="Access-Token")
-         ):
+def read_images(session: Session = Depends(get_session)):
     """Retrieve a list of all Images."""
     images = session.exec(select(Image)).all()
     return images
 
 @router.get("/{image_id}", response_model=Image)
-def read_image(image_id: int, session: Session = Depends(get_session),
-               access_token: str = Header(..., alias="Access-Token")
-               ):
+def read_image(image_id: int, session: Session = Depends(get_session)):
     """Retrieve a single Image by ID."""
     image = session.get(Image, image_id)
     if not image:
