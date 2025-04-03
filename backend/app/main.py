@@ -1,5 +1,6 @@
 """Main module to start the FastAPI application."""
 
+from http import HTTPStatus
 from fastapi import FastAPI, Request, Response
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
@@ -129,8 +130,12 @@ async def route_guard(request: Request, call_next):
         error_message = "Invalid workos session" if isinstance(e, exceptions.BadRequestException) else "Bad Token Header"
         return Response(status_code=400, content=error_message)
     except Exception as e:
-        print(e)
-        return Response(status_code=500, content="Something went wrong when verifying the access token")
+        import logging
+        logging.getLogger(__name__).exception(f'Exception raised in the backend middleware: {e.message}')
+        return Response(
+            status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
+            content = '{"response":"Internal Server Error: ' + e.message + '"}'
+        )
 
 app.include_router(api_router)
 

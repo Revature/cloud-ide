@@ -18,7 +18,7 @@ router = APIRouter()
 
 @router.get("/", response_model=list[Machine])
 def read_machines(session: Session = Depends(get_session),
-                  #access_token: str = Header(..., alias="Access-Token")
+                  access_token: str = Header(..., alias="Access-Token")
                   ):
     """Retrieve a list of all Machines."""
     machines = machine_repository.find_all_machines(session)
@@ -28,7 +28,7 @@ def read_machines(session: Session = Depends(get_session),
 
 @router.get("/{machine_id}", response_model=Machine)
 def read_machine(machine_id: int, session: Session = Depends(get_session),
-                 #access_token: str = Header(..., alias="Access-Token")
+                 access_token: str = Header(..., alias="Access-Token")
                  ):
     """Retrieve a single Machine by ID."""
     machine = machine_repository.find_machine_by_id(session, machine_id)

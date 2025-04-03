@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Optional
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Session
 from sqlalchemy.orm import Mapped
 from app.models.mixins import TimestampMixin
 from app.db.database import get_session
@@ -20,16 +20,3 @@ class UserRole(TimestampMixin, SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
     role_id: int = Field(foreign_key="role.id")
-
-def assign_role(user: user.User, role_id: int):
-    """Assign a role to a user."""
-    user_role: UserRole = UserRole(user_id = user.id, role_id = role_id)
-    with next(get_session()) as session:
-        session.add(user_role)
-        session.commit()
-
-def remove_role(role_id: int):
-    """Remove a role from the database."""
-    with next(get_session()) as session:
-        session.delete(role_id)
-

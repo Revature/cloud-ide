@@ -17,7 +17,7 @@ router = APIRouter()
 
 @router.get("/", response_model=list[Image])
 def read_images(session: Session = Depends(get_session),
-                #access_token: str = Header(..., alias="Access-Token")
+                access_token: str = Header(..., alias="Access-Token")
          ):
     """Retrieve a list of all Images."""
     images = session.exec(select(Image)).all()
@@ -25,7 +25,7 @@ def read_images(session: Session = Depends(get_session),
 
 @router.get("/{image_id}", response_model=Image)
 def read_image(image_id: int, session: Session = Depends(get_session),
-               #access_token: str = Header(..., alias="Access-Token")
+               access_token: str = Header(..., alias="Access-Token")
                ):
     """Retrieve a single Image by ID."""
     image = session.get(Image, image_id)
