@@ -22,6 +22,16 @@ services:
       - "9091:9091"
     networks:
       - monitor
+    
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    pull_policy: always
+    ports:
+      - "9090:9090"
+    volumes: 
+      - "./monitor-prometheus.yml:/etc/prometheus/prometheus.yml"
+
 
   grafana:
     container_name: grafana
@@ -45,3 +55,4 @@ services:
 
 volumes:
   grafana-data:
+  pushgateway-data:
