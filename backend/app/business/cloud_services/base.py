@@ -176,3 +176,4 @@ class CloudService(ABC):
         Returns the success or failure as a string.
         """
         pass
+    
