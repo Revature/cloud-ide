@@ -160,7 +160,7 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
         session.commit()
 
         # Update session_end and other attributes
-        runner.session_end = runner.session_start + timedelta(minutes=requested_session_time)
+        runner.session_end = datetime.now(timezone.utc) + timedelta(minutes=requested_session_time)
         runner.user_id = user.id
         runner.env_data = script_vars
         if user_ip:
