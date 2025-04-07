@@ -86,7 +86,7 @@ class CloudService(ABC):
         pass
 
     @abstractmethod
-    async def create_runner_image(self, instance_id:str, image_name: str, image_tags: list = None) -> str:
+    async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """
         Create an AMI from the given instance_id with the given tags.
 

@@ -222,7 +222,7 @@ class AWSCloudService(CloudService):
         waiter = self.ec2_client.get_waiter("instance_running")
         waiter.wait(InstanceIds=[instance_id])
 
-    async def create_runner_image(self, instance_id:str, image_name: str, image_tags: list = None) -> str:
+    async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """
         Create an AMI from the given instance_id with the given tags.
 
