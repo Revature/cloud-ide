@@ -222,6 +222,33 @@ class AWSCloudService(CloudService):
         waiter = self.ec2_client.get_waiter("instance_running")
         waiter.wait(InstanceIds=[instance_id])
 
+    async def create_runner_image(self, instance_id:str, image_name: str, image_tags: list = None) -> str:
+        """
+        Create an AMI from the given instance_id with the given tags.
+
+        image_tags is a list of dictionaries with the tags to be added to the AMI.
+        Example: tags = [ {'Key': 'key_name', 'Value': 'example_value'}, {'Key': 'key_name2', 'Value': 'example_value2'} ]
+        Returns the AMI ID as a string.
+        """
+        if  image_tags is None:
+            image_tags = [{'Key': 'Instance', 'Value': instance_id}]
+
+        try:
+            response = self.ec2_client.create_image(
+                TagSpecifications=[
+                    {
+                        'ResourceType': 'image',
+                        'Tags': image_tags
+                    },
+                ],
+                InstanceId = instance_id,
+                Name = image_name,
+                NoReboot = True
+            )
+            return response['ImageId']
+        except Exception as e:
+            return str(e)
+
     ###################
     # S3 Functionality
     ###################
@@ -369,3 +396,65 @@ class AWSCloudService(CloudService):
 
         # Return with the keys expected by parse_script_output
         return {'stdout': output, 'stderr': error, 'exit_code': exit_code}
+
+    ##############################
+    # Security Group Functionality
+    ##############################
+
+    async def create_security_group(self, grp_name: str, desc: str) -> str:
+        """
+        Create a new security group using the provided Description and GroupName.
+
+        Returns the GroupId of the created security group as a string
+        """
+        try:
+            response = self.ec2_client.create_security_group(
+                Description = desc,
+                GroupName = grp_name
+            )
+            return response['GroupId']
+        except Exception as e:
+            return {"error": str(e)}
+
+    async def delete_security_group(self, group_id: str) -> str:
+        """
+        Delete the security group with the given GroupId.
+
+        Returns the HTTP status code as a string.
+        """
+        try:
+            response = self.ec2_client.delete_security_group(
+                GroupId = group_id
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
+        except Exception as e:
+            return str(e)
+
+    async def authorize_security_group_ingress(self, group_id: str, ip: str, port: int = 22) -> str:
+        """
+        Autorize ingress for a security group on a given port, by a given IP, to a given group.
+
+        IP is in CIDR notation, follwing the format <ip>/<mask>. ie 203.0.113.0/24
+        Port is the port to open, default is 22 (SSH).
+        Returns the success or failure as a string.
+        """
+        try:
+            response = self.ec2_client.authorize_security_group_ingress(
+                GroupId = group_id,
+                IpPermissions = [
+                    {
+                        'FromPort': port,
+                        'IpProtocol': 'tcp',
+                        'IpRanges': [
+                            {
+                                'CidrIp': ip,
+                                'Description': f'Port {port} access from {ip}',
+                            },
+                        ],
+                        'ToPort': port,
+                    },
+                ],
+            )
+            return response['Return']
+        except Exception as e:
+            return str(e)
