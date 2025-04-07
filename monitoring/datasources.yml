@@ -22,7 +22,12 @@ datasources:
     url: http://52.26.101.232:9090
     access: proxy
     isDefault: false
-    
+
+  - name: runners
+    type: prometheus
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: false
     
   - name: loki
     type: loki
