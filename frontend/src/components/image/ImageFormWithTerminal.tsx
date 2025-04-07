@@ -16,7 +16,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useImages, machineTypes, Machine } from "@/context/ImagesContext";
-import { useCloudConnectors, CloudConnector } from "@/context/CloudConnectorsContext";
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -26,6 +25,8 @@ import Select from "@/components/form/Select";
 import InteractiveTerminal from '@/components/terminal/InteractiveTerminal';
 import FallbackTerminal from '@/components/terminal/FallbackTerminal';
 import ProxyImage from "@/components/ui/images/ProxyImage";
+import { CloudConnector } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -50,7 +51,6 @@ interface TerminalComponentProps {
 
 const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit, onCancel }) => {
   const { addImage } = useImages();
-  const { connectors } = useCloudConnectors();
   const router = useRouter();
   const [active, setActive] = useState(true);
 
@@ -65,6 +65,11 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
   const [simulationComplete, setSimulationComplete] = useState(false);
   const [customizationsApplied, setCustomizationsApplied] = useState(false);
 
+  // Obtain connectors from CloudConnectorsTable ReactQuery
+  const { data:connectors = [] } = useQuery<CloudConnector[]>({
+    queryKey: ['cloudConnectors'],
+  })
+
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({
     value: machine.identifier,
@@ -74,10 +79,18 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
   // Create options for cloud connectors dropdown
   const cloudConnectorOptions = connectors
     .filter(connector => connector.active)
-    .map(connector => ({
-      value: connector.name,
-      label: `${connector.name} (${connector.region})`
-    }));
+    .map(connector => { 
+      if(connector.name)  
+      return {
+          value: connector.name,
+          label: `${connector.name} (${connector.region})`
+      }
+      else 
+      return {
+        value: 'aws',
+        label: `${connector.provider} (${connector.region})`
+      }
+    });
 
   // State for form data with default values
   const [selectedMachine, setSelectedMachine] = useState(machineTypes[1].identifier); // Default to Medium
@@ -122,7 +135,7 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
 
   // Get the selected cloud connector object
   const getSelectedConnectorObject = (): CloudConnector | undefined => {
-    return connectors.find(c => c.name === selectedConnector);
+    return connectors.find((c => c.name === selectedConnector));
   };
 
   // Handle terminal commands when in interactive mode

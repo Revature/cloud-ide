@@ -2,8 +2,8 @@
 import { useRouter } from "next/navigation";
 import CloudConnectorForm from "@/components/cloud-connector/CloudConnectorForm";
 import Button from "@/components/ui/button/Button";
-import { NewCloudConnector } from "@/context/CloudConnectorsContext";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
+import { NewCloudConnector } from "@/types";
 
 export default function AddCloudConnectorPage() {
   const router = useRouter();

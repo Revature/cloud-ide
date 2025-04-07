@@ -36,6 +36,7 @@ export async function GET(
     // Transform the backend data using proper types
     const transformedData: CloudConnector = {
       id: backendData.id,
+      provider: backendData.provider,
       name: `${backendData.provider} ${backendData.region}`, // Generated name
       type: backendData.provider,
       region: backendData.region,

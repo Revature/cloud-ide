@@ -1,6 +1,7 @@
 "use client";
+import { CloudConnector } from "@/types";
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { CloudConnector } from "./CloudConnectorsContext";
+
 
 // Define machine configurations
 export interface Machine {
@@ -87,9 +88,11 @@ const initialImages: VMImage[] = [
     createdAt: "Jan 15, 2025",
     updatedAt: "Feb 20, 2025",
     cloudConnector: {
+      id: 1,
       image: "/images/brand/aws-logo.svg", 
+      provider: "AWS",
       name: "AWS",
-      added: "Jan 15, 2025", 
+      createdOn: "Jan 15, 2025", 
       region: "us-west-2",
       type: "EC2",
       active: true,
@@ -106,9 +109,11 @@ const initialImages: VMImage[] = [
     createdAt: "Jan 20, 2025",
     updatedAt: "Feb 25, 2025",
     cloudConnector: {
+      id: 2,
       image: "/images/brand/azure-logo.svg",
       name: "Azure", 
-      added: "Feb 02, 2025", 
+      provider: "Azure", 
+      createdOn: "Feb 02, 2025", 
       region: "West US 2",
       type: "VM",
       active: true,
@@ -125,9 +130,11 @@ const initialImages: VMImage[] = [
     createdAt: "Feb 01, 2025",
     updatedAt: "Feb 28, 2025",
     cloudConnector: {
+      id: 3,
       image: "/images/brand/gcp-logo.svg",
       name: "GCP", 
-      added: "Jan 28, 2025", 
+      provider: "GCP", 
+      createdOn: "Jan 28, 2025", 
       region: "us-central1",
       type: "Compute Engine",
       active: true,
@@ -144,9 +151,11 @@ const initialImages: VMImage[] = [
     createdAt: "Jan 10, 2025",
     updatedAt: "Feb 10, 2025",
     cloudConnector: {
+      id: 4,
       image: "/images/brand/aws-logo.svg", 
       name: "AWS",
-      added: "Jan 15, 2025", 
+      provider: "AWS",
+      createdOn: "Jan 15, 2025", 
       region: "us-west-2",
       type: "EC2",
       active: true,
@@ -163,9 +172,11 @@ const initialImages: VMImage[] = [
     createdAt: "Feb 15, 2025",
     updatedAt: "Mar 01, 2025",
     cloudConnector: {
+      id: 5,
       image: "/images/brand/digitalocean-logo.svg",
       name: "DigitalOcean", 
-      added: "Mar 05, 2025", 
+      provider: "DigitalOcean", 
+      createdOn: "Mar 05, 2025", 
       region: "NYC1",
       type: "Droplet",
       active: false,
@@ -182,9 +193,11 @@ const initialImages: VMImage[] = [
     createdAt: "Feb 20, 2025",
     updatedAt: "Mar 05, 2025",
     cloudConnector: {
+      id:6,
       image: "/images/brand/aws-logo.svg", 
       name: "AWS",
-      added: "Jan 15, 2025", 
+      provider:"AWS",
+      createdOn: "Jan 15, 2025", 
       region: "us-west-2",
       type: "EC2",
       active: true,

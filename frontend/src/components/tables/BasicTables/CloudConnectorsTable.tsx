@@ -62,11 +62,13 @@ export default function CloudConnectorsTable() {
     } else {
       const lowercasedSearch = searchTerm.toLowerCase();
       const results = connectorsData.filter(
-        (connector) =>
-          connector.name.toLowerCase().includes(lowercasedSearch) ||
-          (connector.region?.toLowerCase() || '').includes(lowercasedSearch) ||
-          (connector.type?.toLowerCase() || '').includes(lowercasedSearch)
-      );
+        (connector) => {
+          if(connector.name){
+            return connector.name.toLowerCase().includes(lowercasedSearch) ||
+                  (connector.region?.toLowerCase() || '').includes(lowercasedSearch) ||
+                  (connector.type?.toLowerCase() || '').includes(lowercasedSearch)
+          }
+    });
       setFilteredConnectors(results);
     }
   }, [searchTerm, connectorsData, dataInitialized]);
@@ -217,7 +219,7 @@ export default function CloudConnectorsTable() {
                               width={32}
                               height={32}
                               src={item.image}
-                              alt={item.name}
+                              alt={item.name ? item.name : "default text"}
                             />
                           ) : (
                             <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">

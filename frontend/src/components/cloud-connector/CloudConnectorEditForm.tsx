@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useCloudConnectors } from '@/context/CloudConnectorsContext';
 import Form from "../form/Form";
 import Input from "../form/input/InputField";
 import {
@@ -16,6 +15,8 @@ import Toggle from "../form/input/Toggle";
 import Label from "../form/Label";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
+import { CloudConnector } from '@/types';
+import { useQuery } from '@tanstack/react-query';
 
 type CloudProvider = 'aws' | 'azure' | 'gcp' | 'digitalocean';
 
@@ -69,8 +70,12 @@ const displayNameToProvider: Record<string, CloudProvider> = {
 const ConnectorEditForm: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { connectors, updateConnector } = useCloudConnectors();
-  const connectorIndex = parseInt(params.id as string, 10);
+  const connectorIndex = parseInt(params.id as string, 10) - 1;
+
+   // Obtain connectors from CloudConnectorsTable ReactQuery
+   const { data:connectors = [] } = useQuery<CloudConnector[]>({
+    queryKey: ['cloudConnectors'],
+  })
   
   // State for form data
   const [providerName, setProviderName] = useState('');
@@ -90,17 +95,19 @@ const ConnectorEditForm: React.FC = () => {
   useEffect(() => {
     if (!isNaN(connectorIndex) && connectors[connectorIndex]) {
       const connector = connectors[connectorIndex];
-      const providerKey = displayNameToProvider[connector.name] || 'aws';
-      
-      setProviderName(connector.name);
-      setFormData({
-        provider: providerKey,
-        region: connector.region,
-        type: connector.type,
-        accessKey: connector.accessKey, // Load actual credential data
-        secretKey: connector.secretKey, // Load actual credential data
-        active: connector.active
-      });
+      if (connector.active && connector.type) {
+        const providerKey = displayNameToProvider[connector.type] || 'aws';
+        
+        setProviderName(connector.type);
+        setFormData({
+          provider: providerKey,
+          region: connector.region,
+          type: connector.type,
+          accessKey: connector.accessKey, // Load actual credential data
+          secretKey: connector.secretKey, // Load actual credential data
+          active: connector.active
+        });
+      }
     } else {
       // Handle invalid index
       router.push('/cloud-connectors');
@@ -110,15 +117,7 @@ const ConnectorEditForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // Update the connector with the form data
-    updateConnector(connectorIndex, {
-      name: providerName,
-      region: formData.region,
-      type: formData.type,
-      active: formData.active,
-      accessKey: formData.accessKey,
-      secretKey: formData.secretKey
-    });
+    // TODO: Implement Update to Backend
     
     router.push('/cloud-connectors');
   };

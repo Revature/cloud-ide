@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useImages, machineTypes } from "@/context/ImagesContext";
-import { CloudConnector } from "@/context/CloudConnectorsContext";
+import { CloudConnector } from "@/types/cloudConnectors"
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
 import Select from "@/components/form/Select";
@@ -164,7 +164,7 @@ const EditImageForm: React.FC = () => {
                 <div className="flex items-center gap-2 h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
                   <div className="w-6 h-6 relative flex-shrink-0">
                   <ProxyImage
-                    src={formData.cloudConnector.image} 
+                    src={formData.cloudConnector.image ? formData.cloudConnector.image : ""} 
                     alt={formData.cloudConnector.name || "Cloud provider"}
                     width={32}
                     height={32}
@@ -236,7 +236,7 @@ const EditImageForm: React.FC = () => {
                       <div className="flex items-center gap-2 mt-1">
                         <div className="w-6 h-6 relative flex-shrink-0">
                           <ProxyImage
-                            src={formData.cloudConnector.image} 
+                            src={formData.cloudConnector.image ? formData.cloudConnector.image : ""} 
                             alt={formData.cloudConnector.name || "Cloud provider"}
                             width={32}
                             height={32}

@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useImages, machineTypes, Machine } from "@/context/ImagesContext";
-import { useCloudConnectors, CloudConnector } from "@/context/CloudConnectorsContext";
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -10,6 +9,8 @@ import Toggle from "@/components/form/input/Toggle";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import ProxyImage from "@/components/ui/images/ProxyImage";
+import { CloudConnector } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -27,9 +28,13 @@ interface ImageFormProps {
 
 const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
   const { addImage } = useImages();
-  const { connectors } = useCloudConnectors();
   const router = useRouter();
   const [active, setActive] = useState(true);
+  
+  // Obtain connectors from CloudConnectorsTable ReactQuery
+  const { data:connectors = [] } = useQuery<CloudConnector[]>({
+    queryKey: ['cloudConnectors'],
+  })
 
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({
@@ -39,11 +44,19 @@ const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
 
   // Create options for cloud connectors dropdown
   const cloudConnectorOptions = connectors
-    .filter(connector => connector.active) // Only show active connectors
-    .map(connector => ({
-      value: connector.name,
-      label: `${connector.name} (${connector.region})`
-    }));
+    .filter(connector => connector.active)
+    .map(connector => { 
+      if(connector.name)  
+      return {
+          value: connector.name,
+          label: `${connector.name} (${connector.region})`
+      }
+      else 
+      return {
+        value: 'aws',
+        label: `${connector.provider} (${connector.region})`
+      }
+    });
 
   // State for form data with default values
   const [selectedMachine, setSelectedMachine] = useState(machineTypes[1].identifier); // Default to Medium
