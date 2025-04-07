@@ -56,4 +56,3 @@ services:
 
 volumes:
   grafana-data:
-  pushgateway-data:
