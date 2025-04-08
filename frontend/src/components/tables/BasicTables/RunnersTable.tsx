@@ -1,8 +1,13 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useRunners, Runner, RunnerState } from "@/context/RunnersContext";
 import Button from "@/components/ui/button/Button";
+import { Runner, RunnerState } from "@/types/runner";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { runnersApi } from "@/services/cloud-resources/runners";
+import { Machine, VMImage } from "@/types";
+import { machinesApi } from "@/services/cloud-resources/machines";
+import { imagesApi } from "@/services/cloud-resources/images";
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -38,33 +43,127 @@ const getStateLabel = (state: RunnerState) => {
 };
 
 const RunnersTable: React.FC = () => {
-  const { runners, terminateRunner } = useRunners();
   const router = useRouter();
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
+  const queryClient = useQueryClient();
+  
+  // React Query for data fetching
+  const { 
+    data: runners = [],
+    isLoading: runnersLoading,
+    error: runnersError 
+  } = useQuery({
+    queryKey: ['runners'],
+    queryFn: runnersApi.getAll,
+  });
   
   // Search functionality
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [filteredRunners, setFilteredRunners] = useState<Runner[]>(runners);
+  
+  // Extract unique IDs for related resources
+  const uniqueImageIds = useMemo(() => 
+    [...new Set(runners
+      .map(rnr => rnr.imageId)
+      .filter((id): id is number => id !== undefined && id !== null)
+    )],
+    [runners]
+  );
 
-  // Update filtered runners when search term changes or runners change
-  useEffect(() => {
+  // TODO: Check for why this infomration seems to be missing
+  const uniqueMachineIds = useMemo(() => 
+    [...new Set(runners
+      .map(rnr => rnr.machineId)
+      .filter((id): id is number => id !== undefined && id !== null)
+    )],
+    [runners]
+  );
+
+  // Fetch all  in parallel
+  const imageQueries = useQueries({
+    queries: uniqueImageIds.map(id => ({
+      queryKey: ['images', id],
+      queryFn: () => imagesApi.getById(id),
+      // enabled: id !== undefined && id !== null
+    }))
+  });
+
+  // Fetch all machines in parallel
+  const machineQueries = useQueries({
+    queries: uniqueMachineIds.map(id => ({
+      queryKey: ['machine', id],
+      queryFn: () => machinesApi.getById(id),
+      // enabled: id !== undefined && id !== null
+    }))
+  });
+  
+  // Create lookup maps for faster access
+  const imagesMap = useMemo(() => {
+    const map: Record<number, VMImage> = {};
+    imageQueries
+      .filter(q => q.data)
+      .forEach(q => { 
+        if (q.data && q.data.id) map[q.data.id] = q.data as VMImage; 
+      });
+    return map;
+  }, [imageQueries]);
+
+  const machinesMap = useMemo(() => {
+    const map: Record<number, Machine> = {};
+    machineQueries
+      .filter(q => q.data)
+      .forEach(q => { 
+        if (q.data && q.data.id) map[q.data.id] = q.data as Machine; 
+      });
+    return map;
+  }, [machineQueries]);
+
+  // Join the data
+  const enrichedRunners = useMemo(() => 
+    runners.map(runner => ({
+      ...runner,
+      image: runner.imageId && imagesMap[runner.imageId] 
+        ? imagesMap[runner.imageId] 
+        : undefined,
+      machine: runner.machineId && machinesMap[runner.machineId] 
+        ? machinesMap[runner.machineId] 
+        : undefined
+    })),
+    [runners, imagesMap, machinesMap]
+  );
+  
+  // Loading state for all data
+  const isLoading = runnersLoading || 
+    imageQueries.some(q => q.isLoading) || 
+    machineQueries.some(q => q.isLoading);
+  
+  // Error state for any query
+  const error = runnersError || 
+    imageQueries.some(q => q.error) || 
+    machineQueries.some(q => q.error);
+
+  // Use useMemo to filter runners based on search term
+  const filteredRunners = useMemo(() => {
     if (searchTerm.trim() === "") {
-      setFilteredRunners(runners);
+      return enrichedRunners;
     } else {
       const lowercasedSearch = searchTerm.toLowerCase();
-      const results = runners.filter(
+      return enrichedRunners.filter(
         (runner) =>
-          runner.id.toLowerCase().includes(lowercasedSearch) ||
-          runner.image.name.toLowerCase().includes(lowercasedSearch) ||
-          (runner.user && runner.user.toLowerCase().includes(lowercasedSearch)) ||
-          getStateLabel(runner.state).toLowerCase().includes(lowercasedSearch)
+          runner.identifier.toLowerCase().includes(lowercasedSearch) ||
+          (runner.machine?.name && runner.machine.name.toLowerCase().includes(lowercasedSearch)) ||
+          (runner.machine?.identifier && runner.machine.identifier.toLowerCase().includes(lowercasedSearch)) ||
+          runner.state.toLowerCase().includes(lowercasedSearch) ||
+          (runner.image?.name && runner.image.name.toLowerCase().includes(lowercasedSearch))
       );
-      setFilteredRunners(results);
     }
-    // Reset to first page when search results change
+  }, [searchTerm, enrichedRunners]);
+
+  // Reset to first page when search results change
+  useEffect(() => {
     setPage(1);
-  }, [searchTerm, runners]);
+  }, [searchTerm]);
+
 
   const totalPages = Math.max(1, Math.ceil(filteredRunners.length / itemsPerPage));
   const startIndex = (page - 1) * itemsPerPage;
@@ -112,6 +211,43 @@ const RunnersTable: React.FC = () => {
     const runner = visibleRunners[index];
     return runners.findIndex(r => r.id === runner.id);
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading runners and related data...</p>
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800/30 dark:bg-red-900/20">
+        <p className="text-red-700 dark:text-red-400">
+          Error loading data: {(error as Error).message}
+        </p>
+        <Button
+          variant="primary"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['runners'] });
+            uniqueImageIds.forEach(id => {
+              queryClient.invalidateQueries({ queryKey: ['images', id] });
+            });
+            uniqueMachineIds.forEach(id => {
+              queryClient.invalidateQueries({ queryKey: ['machine', id] });
+            });
+          }}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -211,15 +347,15 @@ const RunnersTable: React.FC = () => {
                     <td className="px-4 py-4 text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">
                         <div>
-                          <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400">{runner.image.name}</p>
+                          <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400">{runner.image ? runner.image.name : "NO NAME"}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-500">
-                            {runner.image.machine!.name} ({runner.image.machine!.cpuCount} CPU, {runner.image.machine!.memorySize} GB)
+                            {runner.machine ? runner.machine.name : "N/A"} ({runner.machine ? runner.machine.cpuCount : 0} CPU, {runner.machine ? runner.machine.memorySize : 0} GB)
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400">
-                      {runner.user || "In pool (no user assigned)"}
+                      {runner.userId || "In pool (no user assigned)"}
                     </td>
                     <td className="px-4 py-4 text-sm">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStateColor(runner.state)}`}>
@@ -248,7 +384,7 @@ const RunnersTable: React.FC = () => {
                           Connect
                         </Button>
                         <Button
-                          onClick={(e) => handleTerminate(runner.id, e)}
+                          onClick={(e) => handleTerminate(runner.id.toString(), e)}
                           size="sm"
                           variant="destructive"
                           disabled={!canTerminate(runner)}
@@ -344,3 +480,7 @@ const RunnersTable: React.FC = () => {
 };
 
 export default RunnersTable;
+
+function terminateRunner(id: string) {
+    throw new Error("Function not implemented." + id);
+}

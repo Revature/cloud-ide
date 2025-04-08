@@ -6,8 +6,8 @@ export interface NewVMImage {
   name: string;
   description: string;
   identifier: string;
-  machine_id: number;
-  cloud_connector_id: number;
+  machineId: number;
+  cloudConnectorId: number;
   active?: boolean;
 }
 
@@ -15,8 +15,8 @@ export interface UpdateVMImage {
   name?: string;
   description?: string;
   identifier?: string;
-  machine_id?: number;
-  cloud_connector_id?: number;
+  machineId?: number;
+  cloudConnectorId?: number;
   active?: boolean;
 }
 

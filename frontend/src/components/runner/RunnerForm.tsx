@@ -1,13 +1,13 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRunners, NewRunner } from "@/context/RunnersContext";
 import Form from "@/components/form/Form";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import { VMImage } from "@/types";
 import { useQuery } from "@tanstack/react-query";
+import { NewRunner } from "@/types/runner";
 
 // Define the shape of the form data
 export interface RunnerFormData {
@@ -21,7 +21,6 @@ interface RunnerFormProps {
 }
 
 const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
-  const { addRunner } = useRunners();
   const router = useRouter();
 
   // Obtain images from ImagesTable ReactQuery
@@ -102,8 +101,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
     
     console.log("Submitting new runner:", newRunner);
     
-    // Add the runner using context
-    addRunner(newRunner);
+    // TODO: Implement the creation of a new Runner
     
     // Call optional onSubmit prop
     if (onSubmit) {

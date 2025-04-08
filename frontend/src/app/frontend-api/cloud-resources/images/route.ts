@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
           
           // Only include IDs for related resources
           cloudConnectorId: item.cloud_connector_id,
-          machine_id: item.machine_id,
+          machineId: item.machine_id,
           runnerPoolSize:1 //TODO: edit default runnerPoolSize
         }))
       : [];

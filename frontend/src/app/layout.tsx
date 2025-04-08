@@ -7,7 +7,6 @@ import "simplebar-react/dist/simplebar.min.css";
 import "flatpickr/dist/flatpickr.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { RunnersProvider } from "@/context/RunnersContext";
 import { QueryProvider } from "@/context/QueryContext";
 
 const outfit = Outfit({
@@ -26,9 +25,7 @@ export default function RootLayout({
         <QueryProvider>
           <ThemeProvider>
             <SidebarProvider>
-                  <RunnersProvider>
                     {children}
-                  </RunnersProvider>
             </SidebarProvider>
           </ThemeProvider>
         </QueryProvider>

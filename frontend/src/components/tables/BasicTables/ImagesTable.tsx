@@ -81,7 +81,7 @@ export default function ImagesTable() {
     connectorQueries
       .filter(q => q.data)
       .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data; 
+        if (q.data && q.data.id) map[q.data.id] = q.data as CloudConnector; 
       });
     return map;
   }, [connectorQueries]);
@@ -91,7 +91,7 @@ export default function ImagesTable() {
     machineQueries
       .filter(q => q.data)
       .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data; 
+        if (q.data && q.data.id) map[q.data.id] = q.data as Machine; 
       });
     return map;
   }, [machineQueries]);
