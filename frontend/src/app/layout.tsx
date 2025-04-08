@@ -7,7 +7,6 @@ import "simplebar-react/dist/simplebar.min.css";
 import "flatpickr/dist/flatpickr.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { ImagesProvider } from "@/context/ImagesContext";
 import { RunnersProvider } from "@/context/RunnersContext";
 import { QueryProvider } from "@/context/QueryContext";
 
@@ -27,11 +26,9 @@ export default function RootLayout({
         <QueryProvider>
           <ThemeProvider>
             <SidebarProvider>
-                <ImagesProvider>
                   <RunnersProvider>
                     {children}
                   </RunnersProvider>
-                </ImagesProvider>
             </SidebarProvider>
           </ThemeProvider>
         </QueryProvider>

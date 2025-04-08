@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useImages, machineTypes, Machine } from "@/context/ImagesContext";
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -9,7 +8,7 @@ import Toggle from "@/components/form/input/Toggle";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { CloudConnector } from "@/types";
+import { CloudConnector, Machine, machineTypes } from "@/types";
 import { useQuery } from "@tanstack/react-query";
 
 // Define the shape of the data being submitted
@@ -27,7 +26,6 @@ interface ImageFormProps {
 }
 
 const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
-  const { addImage } = useImages();
   const router = useRouter();
   const [active, setActive] = useState(true);
   
@@ -39,7 +37,7 @@ const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({
     value: machine.identifier,
-    label: `${machine.name} (${machine.cpu_count} CPU, ${machine.memory_size} GB RAM, ${machine.storage_size} GB Storage)`
+    label: `${machine.name} (${machine.cpuCount} CPU, ${machine.memorySize} GB RAM, ${machine.storageSize} GB Storage)`
   }));
 
   // Create options for cloud connectors dropdown
@@ -101,8 +99,7 @@ const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
     
     console.log("Submitting new image:", newImage);
     
-    // Add the image using context
-    addImage(newImage);
+    // TODO: Implement Adding new image to DB
     
     // Call optional onSubmit prop
     if (onSubmit) {
@@ -282,15 +279,15 @@ const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
-                <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpu_count} {currentMachine.cpu_count === 1 ? "Core" : "Cores"}</p>
+                <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpuCount} {currentMachine.cpuCount === 1 ? "Core" : "Cores"}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
-                <p className="text-base font-medium dark:text-gray-200">{currentMachine.memory_size} GB</p>
+                <p className="text-base font-medium dark:text-gray-200">{currentMachine.memorySize} GB</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
-                <p className="text-base font-medium dark:text-gray-200">{currentMachine.storage_size} GB</p>
+                <p className="text-base font-medium dark:text-gray-200">{currentMachine.storageSize} GB</p>
               </div>
             </div>
             <div className="mt-3">

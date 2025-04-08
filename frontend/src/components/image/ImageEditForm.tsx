@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useImages, machineTypes } from "@/context/ImagesContext";
 import { CloudConnector } from "@/types/cloudConnectors"
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
@@ -10,18 +9,25 @@ import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import Toggle from "@/components/form/input/Toggle";
 import ProxyImage from "@/components/ui/images/ProxyImage";
+import { machineTypes, VMImage } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 // Convert machine types for select dropdown
 const machineOptions = machineTypes.map(machine => ({
   value: machine.identifier,
-  label: `${machine.name} (${machine.cpu_count} CPU, ${machine.memory_size} GB RAM, ${machine.storage_size} GB Storage)`
+  label: `${machine.name} (${machine.cpuCount} CPU, ${machine.memorySize} GB RAM, ${machine.storageSize} GB Storage)`
 }));
 
 const EditImageForm: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { images, updateImage } = useImages();
   const imageIndex = parseInt(params.id as string, 10);
+
+  // Obtain images from ImagesTable ReactQuery
+  const { data:images = [] } = useQuery<VMImage[]>({
+    queryKey: ['images'],
+  })
+
   
   // State for form data
   const [formData, setFormData] = useState<{
@@ -50,14 +56,15 @@ const EditImageForm: React.FC = () => {
   useEffect(() => {
     if (!isNaN(imageIndex) && images[imageIndex]) {
       const image = images[imageIndex];
-      
-      setFormData({
-        name: image.name,
-        description: image.description || "",
-        machineIdentifier: image.machine.identifier,
-        active: image.active,
-        cloudConnector: image.cloudConnector
-      });
+      if (image.machine){
+        setFormData({
+          name: image.name,
+          description: image.description || "",
+          machineIdentifier: image.machine.identifier,
+          active: image.active,
+          cloudConnector: image.cloudConnector
+        });
+      }
       
       setLoading(false);
     } else {
@@ -69,14 +76,7 @@ const EditImageForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // Update the image with the form data
-    updateImage(imageIndex, {
-      name: formData.name,
-      description: formData.description,
-      machine: getSelectedMachine(),
-      active: formData.active
-      // Note: We don't update cloudConnector as it should remain the same
-    });
+    // TODO: Implement Update Image Request to Backend
     
     router.push('/images');
   };
@@ -290,15 +290,15 @@ const EditImageForm: React.FC = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpu_count} {currentMachine.cpu_count === 1 ? "Core" : "Cores"}</p>
+                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpuCount} {currentMachine.cpuCount === 1 ? "Core" : "Cores"}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.memory_size} GB</p>
+                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.memorySize} GB</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.storage_size} GB</p>
+                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.storageSize} GB</p>
                 </div>
               </div>
               <div className="mt-3">

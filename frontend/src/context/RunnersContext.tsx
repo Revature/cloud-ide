@@ -1,6 +1,7 @@
 "use client";
+import { VMImage } from "@/types";
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { VMImage } from "./ImagesContext";
+
 
 // Define runner states
 export type RunnerState = "starting" | "ready" | "awaiting_client" | "active" | "terminated";
@@ -64,13 +65,16 @@ const initialRunners: Runner[] = [
       machine: {
         name: "Medium",
         identifier: "t2.medium",
-        cpu_count: 2,
-        memory_size: 4,
-        storage_size: 50
+        cpuCount: 2,
+        memorySize: 4,
+        storageSize: 50,
+        id: 1
       },
       active: true,
-      createdAt: "Jan 15, 2025",
-      updatedAt: "Feb 20, 2025"
+      createdOn: "Jan 15, 2025",
+      updatedOn: "Feb 20, 2025",
+      id: 1,
+      runnerPoolSize: 1
     },
     keyPairName: "KeyPair-2025-03-13",
     state: "active",
@@ -89,13 +93,16 @@ const initialRunners: Runner[] = [
       machine: {
         name: "XLarge",
         identifier: "t2.xlarge",
-        cpu_count: 4,
-        memory_size: 16,
-        storage_size: 200
+        cpuCount: 4,
+        memorySize: 16,
+        storageSize: 200,
+        id: 2
       },
       active: true,
-      createdAt: "Jan 20, 2025",
-      updatedAt: "Feb 25, 2025"
+      createdOn: "Jan 20, 2025",
+      updatedOn: "Feb 25, 2025",
+      id: 2,
+      runnerPoolSize: 1
     },
     keyPairName: "KeyPair-2025-03-13",
     state: "ready",
@@ -113,13 +120,16 @@ const initialRunners: Runner[] = [
       machine: {
         name: "Large",
         identifier: "t2.large",
-        cpu_count: 2,
-        memory_size: 8,
-        storage_size: 100
+        cpuCount: 2,
+        memorySize: 8,
+        storageSize: 100,
+        id: 3
       },
       active: true,
-      createdAt: "Feb 20, 2025",
-      updatedAt: "Mar 05, 2025"
+      createdOn: "Feb 20, 2025",
+      updatedOn: "Mar 05, 2025",
+      id: 3,
+      runnerPoolSize: 1
     },
     keyPairName: "KeyPair-2025-03-13",
     state: "awaiting_client",
@@ -138,13 +148,16 @@ const initialRunners: Runner[] = [
       machine: {
         name: "Medium",
         identifier: "t2.medium",
-        cpu_count: 2,
-        memory_size: 4,
-        storage_size: 50
+        cpuCount: 2,
+        memorySize: 4,
+        storageSize: 50,
+        id: 4
       },
       active: true,
-      createdAt: "Feb 15, 2025",
-      updatedAt: "Mar 01, 2025"
+      createdOn: "Feb 15, 2025",
+      updatedOn: "Mar 01, 2025",
+      id: 4,
+      runnerPoolSize: 1
     },
     keyPairName: "KeyPair-2025-03-12",
     state: "starting",
@@ -159,13 +172,16 @@ const initialRunners: Runner[] = [
       machine: {
         name: "Medium",
         identifier: "t2.medium",
-        cpu_count: 2,
-        memory_size: 4,
-        storage_size: 50
+        cpuCount: 2,
+        memorySize: 4,
+        storageSize: 50,
+        id: 5
       },
       active: true,
-      createdAt: "Jan 15, 2025",
-      updatedAt: "Feb 20, 2025"
+      createdOn: "Jan 15, 2025",
+      updatedOn: "Feb 20, 2025",
+      id: 5,
+      runnerPoolSize: 1
     },
     keyPairName: "KeyPair-2025-03-12",
     state: "terminated",

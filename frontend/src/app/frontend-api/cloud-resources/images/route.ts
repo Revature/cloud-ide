@@ -75,8 +75,9 @@ export async function GET(request: NextRequest) {
           modifiedBy: item.modified_by,
           
           // Only include IDs for related resources
-          cloudConnector_id: item.cloud_connector_id,
-          machine_id: item.machine_id
+          cloudConnectorId: item.cloud_connector_id,
+          machine_id: item.machine_id,
+          runnerPoolSize:1 //TODO: edit default runnerPoolSize
         }))
       : [];
     

@@ -7,7 +7,7 @@ import { useRunners } from "@/context/RunnersContext";
 export default function ViewRunnerPage() {
   const { runners } = useRunners();
   const params = useParams();
-  const runnerIndex = parseInt(params.id as string, 10);
+  const runnerIndex = parseInt(params.id as string, 10) - 1;
   
   // Get runner ID for the breadcrumb if available
   const runnerId = !isNaN(runnerIndex) && runners[runnerIndex] 

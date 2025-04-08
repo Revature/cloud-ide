@@ -213,7 +213,7 @@ const RunnersTable: React.FC = () => {
                         <div>
                           <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400">{runner.image.name}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-500">
-                            {runner.image.machine.name} ({runner.image.machine.cpu_count} CPU, {runner.image.machine.memory_size} GB)
+                            {runner.image.machine!.name} ({runner.image.machine!.cpuCount} CPU, {runner.image.machine!.memorySize} GB)
                           </p>
                         </div>
                       </div>

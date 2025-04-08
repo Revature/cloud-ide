@@ -15,7 +15,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useImages, machineTypes, Machine } from "@/context/ImagesContext";
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -25,7 +24,7 @@ import Select from "@/components/form/Select";
 import InteractiveTerminal from '@/components/terminal/InteractiveTerminal';
 import FallbackTerminal from '@/components/terminal/FallbackTerminal';
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { CloudConnector } from "@/types";
+import { CloudConnector, Machine, machineTypes } from "@/types";
 import { useQuery } from "@tanstack/react-query";
 
 // Define the shape of the data being submitted
@@ -50,7 +49,6 @@ interface TerminalComponentProps {
 }
 
 const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit, onCancel }) => {
-  const { addImage } = useImages();
   const router = useRouter();
   const [active, setActive] = useState(true);
 
@@ -73,7 +71,7 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({
     value: machine.identifier,
-    label: `${machine.name} (${machine.cpu_count} CPU, ${machine.memory_size} GB RAM, ${machine.storage_size} GB Storage)`
+    label: `${machine.name} (${machine.cpuCount} CPU, ${machine.memorySize} GB RAM, ${machine.storageSize} GB Storage)`
   }));
 
   // Create options for cloud connectors dropdown
@@ -183,13 +181,13 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
     await new Promise(resolve => setTimeout(resolve, 600));
     
     // Resource validation
-    setTerminalLogs(prev => [...prev, `$ ./validate-resources.sh --cpu=${machine.cpu_count} --memory=${machine.memory_size} --storage=${machine.storage_size}`]);
+    setTerminalLogs(prev => [...prev, `$ ./validate-resources.sh --cpu=${machine.cpuCount} --memory=${machine.memorySize} --storage=${machine.storageSize}`]);
     await new Promise(resolve => setTimeout(resolve, 1200));
-    setTerminalLogs(prev => [...prev, `[INFO] CPU: ${machine.cpu_count} core${machine.cpu_count > 1 ? 's' : ''} - VALIDATED`]);
+    setTerminalLogs(prev => [...prev, `[INFO] CPU: ${machine.cpuCount} core${machine.cpuCount > 1 ? 's' : ''} - VALIDATED`]);
     await new Promise(resolve => setTimeout(resolve, 500));
-    setTerminalLogs(prev => [...prev, `[INFO] Memory: ${machine.memory_size}GB - VALIDATED`]);
+    setTerminalLogs(prev => [...prev, `[INFO] Memory: ${machine.memorySize}GB - VALIDATED`]);
     await new Promise(resolve => setTimeout(resolve, 500));
-    setTerminalLogs(prev => [...prev, `[INFO] Storage: ${machine.storage_size}GB - VALIDATED`]);
+    setTerminalLogs(prev => [...prev, `[INFO] Storage: ${machine.storageSize}GB - VALIDATED`]);
     await new Promise(resolve => setTimeout(resolve, 500));
     setTerminalLogs(prev => [...prev, `[INFO] Resource validation complete. Proceeding with image creation.`]);
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -294,8 +292,7 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
     
     console.log("Submitting new image:", newImage);
     
-    // Add the image using context
-    addImage(newImage);
+    // TODO: Implement Creating Image with Backend Request
     
     // Call optional onSubmit prop
     if (onSubmit) {
@@ -473,15 +470,15 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpu_count} {currentMachine.cpu_count === 1 ? "Core" : "Cores"}</p>
+                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpuCount} {currentMachine.cpuCount === 1 ? "Core" : "Cores"}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.memory_size} GB</p>
+                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.memorySize} GB</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.storage_size} GB</p>
+                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.storageSize} GB</p>
                 </div>
               </div>
               <div className="mt-3">

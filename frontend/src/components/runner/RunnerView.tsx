@@ -236,11 +236,11 @@ const RunnerView: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image.machine.name}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.image.machine ? runner.image.machine.name : "No Name"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image.machine.identifier}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.image.machine ? runner.image.machine.identifier : "No AMI ID"}</span>
                 </div>
               </div>
             </div>
@@ -252,7 +252,7 @@ const RunnerView: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">CPU</span>
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white">
-                      {runner.image.machine.cpu_count} {runner.image.machine.cpu_count === 1 ? 'Core' : 'Cores'}
+                      {runner.image.machine ? runner.image.machine.cpuCount : 0} {runner.image.machine ? runner.image.machine.cpuCount === 1 ? 'Core' : 'Cores' : 'Core'}
                     </span>
                   </div>
                 </div>
@@ -260,7 +260,7 @@ const RunnerView: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">Memory</span>
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white">
-                      {runner.image.machine.memory_size} GB
+                      {runner.image.machine ? runner.image.machine.memorySize : 0} GB
                     </span>
                   </div>
                 </div>
@@ -268,7 +268,7 @@ const RunnerView: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">Storage</span>
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white">
-                      {runner.image.machine.storage_size} GB
+                      {runner.image.machine ? runner.image.machine.storageSize : 0} GB
                     </span>
                   </div>
                 </div>
