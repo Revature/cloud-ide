@@ -140,7 +140,6 @@ def get_script_for_runner(
         logger.info(f"[{initiated_by}] Rendered script for '{event}' on runner {runner_id}")
         return rendered_script
 
-
 async def execute_script_for_runner(
     event: str,
     runner_id: int,
@@ -163,7 +162,23 @@ async def execute_script_for_runner(
             cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
             logger.info(f"[{initiated_by}] Executing script '{event}' on runner {runner_id} via SSH")
-            ssh_result = await cloud_service.ssh_run_script(runner.url, private_key, script)
+            
+            # Create a temporary script file with the script content, ensuring functions
+            # are available by wrapping the entire script in a subshell execution
+            temp_script = f"""#!/bin/bash
+cat > /tmp/runner_script.sh << 'EOFSCRIPT'
+{script}
+EOFSCRIPT
+chmod +x /tmp/runner_script.sh
+sudo /tmp/runner_script.sh
+"""
+            # Execute the script
+            ssh_result = await cloud_service.ssh_run_script(
+                runner.url, 
+                private_key, 
+                temp_script
+            )
+            
             # Parse the output to get detailed status information
             result = parse_script_output(
                 ssh_result.get("stdout", ""),

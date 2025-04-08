@@ -180,6 +180,7 @@ def setup_resources():
         try:
             on_awaiting_client_content = load_script_from_file("on_awaiting_client.sh")
             on_terminate_content = load_script_from_file("on_terminate.sh")
+            on_startup_content = load_script_from_file("node_exporter.sh")
         except (FileNotFoundError, PermissionError) as e:
             print(f"Warning: Could not load script files: {e}")
             print("Creating scripts with embedded content")
@@ -187,6 +188,7 @@ def setup_resources():
             # Fallback to embedded script content
             on_awaiting_client_content = """#!/bin/bash"""
             on_terminate_content = """#!/bin/bash"""
+            on_startup_content = """#!/bin/bash"""
 
         # Create or update the scripts
         if not awaiting_client_script:
@@ -281,6 +283,29 @@ def setup_resources():
                 arm_termination_script.modified_by = "system"
                 session.add(arm_termination_script)
                 session.commit()
+                
+        # Add on startup script for ARM image
+        stmt_arm_startup_script = select(Script).where(Script.event == "on_startup", Script.image_id == arm_image.id)
+        arm_startup_script = session.exec(stmt_arm_startup_script).first()
+        if not arm_startup_script:
+            arm_startup_script = Script(
+                name="Node Exporter Script (ARM)",
+                description="Installs Node Exporter on startup for ARM instances",
+                event="on_startup",
+                image_id=arm_image.id,
+                script=on_startup_content,
+                created_by="system",
+                modified_by="system"
+            )
+            session.add(arm_startup_script)
+            session.commit()
+            session.refresh(arm_startup_script)
+        else:
+            # Update existing script with new content
+            arm_startup_script.script = on_startup_content
+            arm_startup_script.modified_by = "system"
+            session.add(arm_startup_script)
+            session.commit()
 
         return Resources(
             system_user_email=system_user.email,

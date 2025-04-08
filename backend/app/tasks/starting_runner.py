@@ -89,8 +89,28 @@ def update_runner_state(runner_id: int, instance_id: str):
                 session.commit()
 
                 print(f"Runner {runner_id} updated to 'ready' and history record created.")
+                
+                from app.business import script_management
+                # on_startup script execution
+                script_result = asyncio.run(script_management.run_script_for_runner(
+                    "on_startup",
+                    runner.id,
+                    env_vars={},
+                    initiated_by="system",
+                ))
+                if script_result:
+                    print(f"Script executed for runner {runner.id}")
+                    logger.info(f"Script executed for runner {runner.id}")
+                    print(f"Script result: {script_result}")
+                    logger.info(f"Script result: {script_result}")
+                else:
+                    print(f"No script executed for runner {runner.id}")
+                    logger.info(f"No script executed for runner {runner.id}")
+
+                logger.info(f"Runner {runner.id} launched with instance ID {instance_id}")
             else:
                 print(f"Runner {runner_id} not found in the database.")
+
     except Exception as e:
         print(f"Error in update_runner_state: {e}")
         raise
