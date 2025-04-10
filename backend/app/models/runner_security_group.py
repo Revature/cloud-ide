@@ -3,8 +3,9 @@ from sqlmodel import SQLModel, Field, Column, JSON
 from app.models.mixins import TimestampMixin
 
 class RunnerSecurityGroup(TimestampMixin, SQLModel, table=True):
-    __tablename__ = "runner_security_group"
     """Association table linking runners to security groups."""
+
+    __tablename__ = "runner_security_group"
 
     runner_id: int = Field(
         foreign_key="runner.id",

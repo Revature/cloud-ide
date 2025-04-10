@@ -222,6 +222,36 @@ class AWSCloudService(CloudService):
         waiter = self.ec2_client.get_waiter("instance_running")
         waiter.wait(InstanceIds=[instance_id])
 
+    async def wait_for_instance_terminated(self, instance_id: str):
+        """Wait for the EC2 instance with the given instance_id to be in the terminated state."""
+        # First check current state - if already terminated, return immediately
+        response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
+        if response and 'Reservations' in response and response['Reservations']:
+            instance = response['Reservations'][0]['Instances'][0]
+            state = instance.get('State', {}).get('Name', 'unknown')
+
+            # Already terminated
+            if state == 'terminated':
+                return True
+
+            # Stuck in stopping - special handling
+            if state == 'stopping':
+                # Configure wait parameters for stopping → terminated transition
+                waiter = self.ec2_client.get_waiter("instance_terminated")
+                waiter.config.delay = 5 # 5 seconds between checks
+                waiter.config.max_attempts = 20  # Max 20 attempts (100 seconds)
+                try:
+                    waiter.wait(InstanceIds=[instance_id])
+                    return True
+                except Exception:
+                    # Return false if it doesn't transition in that time
+                    return False
+
+        # Standard case - use the normal waiter
+        waiter = self.ec2_client.get_waiter("instance_terminated")
+        waiter.wait(InstanceIds=[instance_id])
+        return True
+
     async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """
         Create an AMI from the given instance_id with the given tags.

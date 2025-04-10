@@ -15,4 +15,3 @@ def add_runner_history(session: Session, runner: Runner, event_name:str, event_d
     session.flush()
     session.refresh(record)
     return record
-

@@ -13,7 +13,7 @@ from app.exceptions.runner_exceptions import RunnerExecException
 logger = logging.getLogger(__name__)
 
 async def create_security_group(
-    cloud_connector_id: int, 
+    cloud_connector_id: int,
     open_ssh: bool = True
 ) -> str:
     """
@@ -47,7 +47,7 @@ async def create_security_group(
 
             # Create the security group in the cloud provider
             cloud_group_id = await cloud_service.create_security_group(
-                group_name, 
+                group_name,
                 f"Security group for runner {unique_id}"
             )
 
@@ -159,7 +159,7 @@ async def authorize_user_access(runner_id: int, user_ip: str, user_email: str, c
             )
 
             if not security_groups:
-                print(f"No security groups found for runner {runner_id}")
+                # print(f"No security groups found for runner {runner_id}")
                 logger.error(f"No security groups found for runner {runner_id}")
                 return False
 
@@ -194,18 +194,18 @@ async def authorize_user_access(runner_id: int, user_ip: str, user_email: str, c
                 # Consider the operation failed if any SG update fails
                 if result != "True" and not result:
                     success = False
-                    
+
                 try:
-                    print(f"Adding tag to security group for user {user_ip}")
+                    # print(f"Adding tag to security group for user {user_ip}")
                     logger.info(f"Adding tag to security group for user {user_ip}")
                     tag_result = await cloud_service.add_instance_tag(
                         sg.cloud_group_id,
                         user_email
                     )
-                    print(f"Tag addition result: {tag_result}")
+                    # print(f"Tag addition result: {tag_result}")
                     logger.info(f"Tag addition result: {tag_result}")
                 except Exception as e:
-                    print(f"Failed to add instance tag: {e!s}")
+                    # print(f"Failed to add instance tag: {e!s}")
                     logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
 
             session.commit()
@@ -253,9 +253,10 @@ async def delete_security_group(cloud_group_id: str, cloud_service) -> bool:
     """
     try:
         # Delete from cloud provider
-        print(f"Deleting security group {cloud_group_id} from cloud provider")
+        # print(f"Deleting security group {cloud_group_id} from cloud provider")
         result = await cloud_service.delete_security_group(cloud_group_id)
-        print(f"Delete result: {result}")
+        # print(f"Delete result: {result}")
+        success_status_code = 200
         # Update database status
         with Session(engine) as session:
             security_group = security_group_repository.find_security_group_by_cloud_group_id(
@@ -265,8 +266,9 @@ async def delete_security_group(cloud_group_id: str, cloud_service) -> bool:
 
             if security_group:
                 # If successful deletion or group doesn't exist anymore, remove from DB
-                if result == "200" or "does not exist" in str(result):
-                    security_group_repository.delete_security_group(session, security_group.id)
+                if result == success_status_code:
+                    security_group.status = "deleted"
+                    security_group_repository.update_security_group(session, security_group)
                 else:
                     # Otherwise, mark as pending deletion for retry
                     security_group.status = "pending_deletion"
@@ -274,7 +276,7 @@ async def delete_security_group(cloud_group_id: str, cloud_service) -> bool:
 
                 session.commit()
 
-            return result == "200" or "does not exist" in str(result)
+            return result == success_status_code
 
     except Exception as e:
         logger.error(f"Error deleting security group {cloud_group_id}: {e!s}")
@@ -291,7 +293,7 @@ async def handle_runner_termination(runner_id: int, cloud_service) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    print(f"Handling termination of runner {runner_id}")
+    # print(f"Handling termination of runner {runner_id}")
     logger.info(f"Handling termination of runner {runner_id}")
     try:
         success = True
@@ -301,47 +303,25 @@ async def handle_runner_termination(runner_id: int, cloud_service) -> bool:
                 session,
                 runner_id
             )
-            print(f"Found {len(security_groups)} security groups for runner {runner_id}")
+            # print(f"Found {len(security_groups)} security groups for runner {runner_id}")
             logger.info(f"Found {len(security_groups)} security groups for runner {runner_id}")
 
             for sg in security_groups:
-                # First, remove the association for this runner
-                runner_security_group_repository.delete_runner_security_group(
-                    session,
-                    runner_id,
-                    sg.id
-                )
-                print(f"Removed association for runner {runner_id} and security group {sg.id}")
-                logger.info(f"Removed association for runner {runner_id} and security group {sg.id}")
-
                 # Check if any other runners are using this security group
                 other_runners = runner_security_group_repository.find_runners_by_security_group_id(
                     session,
                     sg.id
                 )
-                
-                print(f"Found {len(other_runners)} other runners using security group {sg.id}")
+
+                # remove the current runner from the list
+                other_runners = [r for r in other_runners if r != runner_id]
+
+                # print(f"Found {len(other_runners)} other runners using security group {sg.id}")
                 logger.info(f"Found {len(other_runners)} other runners using security group {sg.id}")
 
                 # Only delete the security group if no other runners are using it
                 if not other_runners:
-                    logger.info(f"No other runners using security group {sg.id}, proceeding with deletion")
-                    # Delete from cloud provider
-                    result = await cloud_service.delete_security_group(sg.cloud_group_id)
-                    print(f"Delete result: {result}")
-                    logger.info(f"Delete result: {result}")
-
-                    # Check result
-                    if result == "200" or "does not exist" in str(result):
-                        # Delete from database
-                        security_group_repository.delete_security_group(session, sg.id)
-                        logger.info(f"Security group {sg.id} successfully deleted")
-                    else:
-                        # Mark for future deletion
-                        sg.status = "pending_deletion"
-                        security_group_repository.update_security_group(session, sg)
-                        logger.warning(f"Security group {sg.id} marked for pending deletion")
-                        success = False
+                    success = await delete_security_group(sg.cloud_group_id, cloud_service)
                 else:
                     logger.info(f"Security group {sg.id} still in use by {len(other_runners)} other runners, not deleting")
 

@@ -19,6 +19,11 @@ def find_runner_by_id(session: Session, id: int) -> Runner:
     statement = select(Runner).where(Runner.id == id)
     return session.exec(statement).first()
 
+def find_runner_by_instance_id(session: Session, instance_id: str) -> Runner:
+    """Retrieve the runner by its instance ID."""
+    statement = select(Runner).where(Runner.identifier == instance_id)
+    return session.exec(statement).first()
+
 def find_runner_by_user_id_and_image_id_and_states(session: Session, user_id: int, image_id: int, states: list[str]):
     """Retrieve the runner by its user id, image id, and state. Query used to find the user's already existing runner."""
     stmt_runner = select(Runner).where(
@@ -41,3 +46,10 @@ def find_runner_by_image_id_and_states(session: Session, image_id: int, states: 
         Runner.image_id == image_id
     )
     return session.exec(stmt_runner).first()
+
+def update_runner(session: Session, runner: Runner) -> Runner:
+    """Update a runner."""
+    session.add(runner)
+    session.commit()
+    session.refresh(runner)
+    return runner

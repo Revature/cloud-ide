@@ -4,8 +4,9 @@ from sqlmodel import SQLModel, Field, Column, JSON
 from app.models.mixins import TimestampMixin
 
 class SecurityGroup(TimestampMixin, SQLModel, table=True):
-    __tablename__ = "security_group"
     """Security group model for runner network access control."""
+
+    __tablename__ = "security_group"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)

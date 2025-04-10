@@ -20,6 +20,7 @@ try:
     from app.tasks import starting_runner
     from app.tasks import cleanup_runners
     from app.tasks import runner_pool_management
+    from app.tasks import shutdown_runner
 except ImportError as e:
     print("Error importing tasks:", e)
 

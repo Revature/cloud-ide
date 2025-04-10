@@ -10,7 +10,7 @@ from app.db.database import engine
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
 from app.util import constants
 from app.business.cloud_services import cloud_service_factory
-from app.tasks.starting_runner import update_runner_state
+from app.tasks import starting_runner, shutdown_runner
 from app.business import image_management, jwt_creation, key_management, script_management, security_group_management
 from app.db import cloud_connector_repository, machine_repository, runner_repository, runner_history_repository, image_repository
 from app.exceptions.runner_exceptions import RunnerExecException, RunnerRetrievalException, RunnerDefinitionException
@@ -140,7 +140,7 @@ async def launch_runner(machine: Machine,
             )
 
             # Queue a Celery task to update runner state when instance is ready
-            update_runner_state.delay(new_runner.id, instance_id)
+            starting_runner.update_runner_state.delay(new_runner.id, instance_id)
 
             return new_runner
 
@@ -213,8 +213,8 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
 
         # Get cloud service for security group and tagging operations
         try:
-            image = session.query(Image).get(runner.image_id)
-            print(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
+            image = image_repository.find_image_by_id(session, runner.image_id)
+            # print(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
             logger.info(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
 
             if image and image.cloud_connector_id:
@@ -231,7 +231,7 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
 
                         # Update security group rules to allow user IP access
                         try:
-                            print(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
+                            # print(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
                             logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
                             security_group_result = await security_group_management.authorize_user_access(
                                 runner.id,
@@ -239,37 +239,37 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
                                 user.email,
                                 cloud_service
                             )
-                            print(f"Security group result: {security_group_result}")
+                            # print(f"Security group result: {security_group_result}")
                             logger.info(f"Security group update result: {security_group_result}")
                         except Exception as e:
-                            print(f"Failed to update security groups: {e!s}")
+                            # print(f"Failed to update security groups: {e!s}")
                             logger.error(f"Failed to update security groups: {e!s}", exc_info=True)
                             # Continue execution even if security group update fails
 
                         # Add instance tag for the user
                         try:
-                            print(f"Adding tag to instance {runner.identifier} for user {user.email}")
+                            # print(f"Adding tag to instance {runner.identifier} for user {user.email}")
                             logger.info(f"Adding tag to instance {runner.identifier} for user {user.email}")
                             tag_result = await cloud_service.add_instance_tag(
                                 runner.identifier,
                                 user.email
                             )
-                            print(f"Tag addition result: {tag_result}")
+                            # print(f"Tag addition result: {tag_result}")
                             logger.info(f"Tag addition result: {tag_result}")
                         except Exception as e:
-                            print(f"Failed to add instance tag: {e!s}")
+                            # print(f"Failed to add instance tag: {e!s}")
                             logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
                     except Exception as e:
-                        print(f"Failed to create cloud service: {e!s}")
+                        # print(f"Failed to create cloud service: {e!s}")
                         logger.error(f"Failed to create cloud service: {e!s}", exc_info=True)
                 else:
-                    print(f"Cloud connector not found for image {image.id}")
+                    # print(f"Cloud connector not found for image {image.id}")
                     logger.error(f"Cloud connector not found for image {image.id}")
             else:
-                print(f"Image not found or has no cloud connector for runner {runner.id}")
+                # print(f"Image not found or has no cloud connector for runner {runner.id}")
                 logger.error(f"Image not found or has no cloud connector for runner {runner.id}")
         except Exception as e:
-            print(f"Error in cloud operations: {e!s}")
+            # print(f"Error in cloud operations: {e!s}")
             logger.error(f"Error in cloud operations: {e!s}", exc_info=True)
             # Continue execution even if cloud operations fail
 
@@ -360,19 +360,19 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
 
         result = results[0]  # Get first (and only) result
 
-        if result["status"] == "success":
-            logger.info(f"[{initiated_by}] Successfully terminated runner {runner_id}")
+        if result["status"] == "queued":
+            logger.info(f"[{initiated_by}] Successfully queued terminated runner {runner_id}")
             return {
                 "status": "success",
-                "message": "Runner terminated successfully",
+                "message": "Runner termination queued",
                 "details": result,
                 "initiated_by": initiated_by
             }
         else:
-            logger.error(f"[{initiated_by}] Failed to terminate runner {runner_id}")
+            logger.error(f"[{initiated_by}] Failed to queue terminate runner {runner_id}")
             return {
                 "status": "error",
-                "message": "Failed to terminate runner",
+                "message": "Failed to queue terminate runner",
                 "details": result,
                 "initiated_by": initiated_by
             }
@@ -385,318 +385,354 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             "initiated_by": initiated_by
         }
 
-async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "system"):
-    """Stop and then terminate all instances given in launched_instance_ids."""
-    logger.info(f"[{initiated_by}] Starting shutdown for {len(launched_instance_ids)} instances")
+async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> list:
+    """
+    Queue up runner shutdown tasks for Celery to process.
+
+    This is a lightweight method that just validates and queues tasks.
+    """
     results = []
-
-    for instance_id in launched_instance_ids:
-        result = {"instance_id": instance_id, "status": "success", "details": [], "initiated_by": initiated_by}
-
-        # Variables to store across sessions
-        runner_id = None
-        image_id = None
-        cloud_connector_id = None
-
-        # STEP 1: Find runner and prepare for termination
-        try:
-            with Session(engine) as session:
-                # Find runner record
-                stmt = select(Runner).where(Runner.identifier == instance_id)
-                runner = session.exec(stmt).first()
-
-                if not runner:
-                    message = f"Runner with instance identifier {instance_id} not found."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["status"] = "error"
-                    result["details"].append({"step": "find_runner", "status": "error", "message": message})
-                    results.append(result)
-                    continue
-
-                # Store IDs for later use
-                runner_id = runner.id
-                image_id = runner.image_id
-
-                # Get required resources for termination
-                image = session.get(Image, runner.image_id)
-                if not image:
-                    message = f"Image for runner {runner.id} not found."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["status"] = "error"
-                    result["details"].append({"step": "find_image", "status": "error", "message": message})
-                    results.append(result)
-                    continue
-
-                cloud_connector_id = image.cloud_connector_id
-
-                cloud_connector = session.get(CloudConnector, image.cloud_connector_id)
-                if not cloud_connector:
-                    message = f"Cloud connector for image {image.id} not found."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["status"] = "error"
-                    result["details"].append({"step": "find_cloud_connector", "status": "error", "message": message})
-                    results.append(result)
-                    continue
-
-                # Update runner state to "terminating" before running scripts
-                old_state = runner.state
-                runner.state = "terminating"
-                session.add(runner)
-
-                # Create history record for state change
-                terminating_history = RunnerHistory(
-                    runner_id=runner.id,
-                    event_name="runner_terminating",
-                    event_data={
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "old_state": old_state,
-                        "new_state": "terminating",
-                        "initiated_by": initiated_by
-                    },
-                    created_by="system",
-                    modified_by="system"
-                )
-                session.add(terminating_history)
-                session.commit()
-
-                result["runner_id"] = runner.id
-                result["details"].append({"step": "update_state", "status": "success", "message": "Updated state to terminating"})
-
-                logger.info(f"[{initiated_by}] Runner {runner.id} state updated from {old_state} to terminating")
-
-                # Check if a termination script exists for this image before trying to run it
-                script_exists = False
-                if old_state not in ["ready", "ready_claimed", "runner_starting_claimed", "runner_starting", "app_starting", "terminated", "closed"]:
-                    # First check if script exists to avoid unnecessary exceptions
-                    stmt_script = select(Script).where(Script.event == "on_terminate", Script.image_id == runner.image_id)
-                    script_exists = session.exec(stmt_script).first() is not None
-
-                    if script_exists:
-                        logger.info(f"[{initiated_by}] Found on_terminate script for runner {runner.id}, will attempt to run it")
-                    else:
-                        # Log that we're skipping script execution because no script exists
-                        logger.info(f"[{initiated_by}] No on_terminate script found for image {runner.image_id}, skipping script execution")
-                        result["details"].append({
-                            "step": "script_execution",
-                            "status": "skipped",
-                            "message": f"No on_terminate script found for image {runner.image_id}"
-                        })
-        except Exception as e:
-            error_detail = str(e)
-            tb_string = traceback.format_exc()
-            logger.error(f"[{initiated_by}] Error during runner preparation: {error_detail}")
-            logger.error(f"[{initiated_by}] Traceback: {tb_string}")
-            result["status"] = "error"
-            result["details"].append({"step": "prepare", "status": "error", "message": f"Error during preparation: {error_detail}"})
-            results.append(result)
-            continue
-
-        # STEP 2: Execute script if it exists
-        if script_exists:
-            try:
-                logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner_id}...")
-                # Run the script with empty env_vars since credentials should be retrieved from the environment
-                script_result = await script_management.run_script_for_runner(
-                    "on_terminate",
-                    runner_id,
-                    env_vars={},
-                    initiated_by=initiated_by
-                )
-                if script_result:
-                    logger.info(f"[{initiated_by}] Script executed for runner {runner_id}")
-                    logger.info(f"[{initiated_by}] Script result: {script_result}")
-
-                result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
-            except Exception as e:
-                error_detail = str(e)
-                tb_string = traceback.format_exc()
-                logger.error(f"[{initiated_by}] Error executing on_terminate script for runner {runner_id}: {error_detail}")
-                logger.error(f"[{initiated_by}] Traceback: {tb_string}")
-
-                # We'll record the error but CONTINUE with termination
-                with Session(engine) as session:
-                    # Create detailed history record for the script error
-                    error_history = RunnerHistory(
-                        runner_id=runner_id,
-                        event_name="script_error_on_terminate",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "error": error_detail,
-                            "traceback": tb_string,
-                            "initiated_by": initiated_by
-                        },
-                        created_by="system",
-                        modified_by="system"
-                    )
-                    session.add(error_history)
-                    session.commit()
-
-                # Add error information to result details
-                result["details"].append({
-                    "step": "script_execution",
+    for instance_id in instance_ids:
+        with Session(engine) as session:
+            runner = runner_repository.find_runner_by_instance_id(session, instance_id)
+            if not runner:
+                results.append({
+                    "runner_instance_id": instance_id,
                     "status": "error",
-                    "message": f"Error executing on_terminate script: {error_detail}"
+                    "message": "Runner not found"
                 })
+                continue
 
-                # Log that we're continuing despite the error
-                logger.info(f"[{initiated_by}] CHECKPOINT: Continuing with termination despite script error for runner {runner_id}")
+            # Queue the task
+            task = shutdown_runner.process_runner_shutdown.delay(
+                runner_id=runner.id,
+                instance_id=runner.identifier,
+                initiated_by=initiated_by
+            )
 
-        # STEP 3: Stop instance and update history - CRITICAL CHECKPOINT
-        logger.info(f"[{initiated_by}] CHECKPOINT: Proceeding with instance termination for runner {runner_id} regardless of script outcome")
-        try:
-            # Get a fresh cloud service in this scope
-            with Session(engine) as session:
-                # Get cloud connector again to create a fresh cloud service
-                cloud_connector = session.get(CloudConnector, cloud_connector_id)
-                if not cloud_connector:
-                    message = f"Cloud connector {cloud_connector_id} not found for stopping instance."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["details"].append({"step": "stop_instance", "status": "error", "message": message})
-                    continue
+            results.append({
+                "runner_id": runner.id,
+                "status": "queued",
+                "task_id": task.id,
+                "message": "Shutdown process queued"
+            })
 
-                cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
-
-                # Now use the fresh cloud service
-                logger.info(f"[{initiated_by}] Stopping instance {instance_id} for runner {runner_id}")
-                stop_state = await cloud_service.stop_instance(instance_id)
-                logger.info(f"[{initiated_by}] Stop result for instance {instance_id}: {stop_state}")
-
-            # Update runner state in a separate session
-            with Session(engine) as session:
-                # Get runner again
-                stmt = select(Runner).where(Runner.identifier == instance_id)
-                runner = session.exec(stmt).first()
-
-                if runner:
-                    logger.info(f"[{initiated_by}] Updating runner {runner.id} state to 'closed'")
-                    runner.state = "closed"
-                    runner.ended_on = datetime.utcnow()
-                    session.add(runner)
-
-                    # Create history record for stopping the instance
-                    stopping_history = RunnerHistory(
-                        runner_id=runner.id,
-                        event_name="runner_closed",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "old_state": "terminating",
-                            "new_state": "closed",
-                            "stop_result": stop_state,
-                            "initiated_by": initiated_by
-                        },
-                        created_by="system",
-                        modified_by="system"
-                    )
-                    session.add(stopping_history)
-                    session.commit()
-
-                    logger.info(f"[{initiated_by}] Runner {runner.id} updated to 'closed'")
-                    result["details"].append({"step": "stop_instance", "status": "success", "message": "Instance stopped"})
-                else:
-                    message = f"Runner with instance identifier {instance_id} not found (stop update)."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["details"].append({"step": "stop_instance", "status": "error", "message": message})
-        except Exception as e:
-            error_message = f"Error stopping instance {instance_id}: {e!s}"
-            tb_string = traceback.format_exc()
-            logger.error(f"[{initiated_by}] {error_message}")
-            logger.error(f"[{initiated_by}] Traceback: {tb_string}")
-            result["details"].append({"step": "stop_instance", "status": "error", "message": error_message})
-            # Continue with termination even if stopping fails
-
-        # STEP 4: Terminate the instance and update state to terminated
-        logger.info(f"[{initiated_by}] CHECKPOINT: Proceeding to terminate instance {instance_id} for runner {runner_id}")
-        try:
-            # Get a fresh cloud service for termination
-            with Session(engine) as session:
-                cloud_connector = session.get(CloudConnector, cloud_connector_id)
-                if not cloud_connector:
-                    message = f"Cloud connector {cloud_connector_id} not found for terminating instance."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["details"].append({"step": "terminate_instance", "status": "error", "message": message})
-                    continue
-
-                cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
-
-                logger.info(f"[{initiated_by}] Terminating instance {instance_id} for runner {runner_id}")
-                terminate_state = await cloud_service.terminate_instance(instance_id)
-                logger.info(f"[{initiated_by}] Terminate result for instance {instance_id}: {terminate_state}")
-
-            # STEP 4.5: Clean up security groups associated with the runner
-            try:
-                logger.info(f"[{initiated_by}] Cleaning up security groups for runner {runner_id}")
-                security_group_result = await security_group_management.handle_runner_termination(runner_id, cloud_service)
-
-                if security_group_result:
-                    logger.info(f"[{initiated_by}] Successfully cleaned up security groups for runner {runner_id}")
-                    result["details"].append({
-                        "step": "security_group_cleanup",
-                        "status": "success",
-                        "message": "Security groups cleaned up"
-                    })
-                else:
-                    logger.warning(f"[{initiated_by}] Some security groups may not have been fully cleaned up for runner {runner_id}")
-                    result["details"].append({
-                        "step": "security_group_cleanup",
-                        "status": "warning",
-                        "message": "Some security groups may require manual cleanup"
-                    })
-            except Exception as e:
-                error_message = f"Error cleaning up security groups for runner {runner_id}: {e!s}"
-                tb_string = traceback.format_exc()
-                logger.error(f"[{initiated_by}] {error_message}")
-                logger.error(f"[{initiated_by}] Traceback: {tb_string}")
-                result["details"].append({
-                    "step": "security_group_cleanup",
-                    "status": "error",
-                    "message": error_message
-                })
-
-            # Update runner state in a separate session
-            with Session(engine) as session:
-                stmt = select(Runner).where(Runner.identifier == instance_id)
-                runner = session.exec(stmt).first()
-
-                if runner:
-                    logger.info(f"[{initiated_by}] Updating runner {runner.id} state to 'terminated'")
-                    runner.state = "terminated"
-                    session.add(runner)
-
-                    # Create history record for terminating the instance
-                    termination_history = RunnerHistory(
-                        runner_id=runner.id,
-                        event_name="runner_terminated",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "old_state": "closed",
-                            "new_state": "terminated",
-                            "terminate_result": terminate_state,
-                            "initiated_by": initiated_by
-                        },
-                        created_by="system",
-                        modified_by="system"
-                    )
-                    session.add(termination_history)
-                    session.commit()
-
-                    logger.info(f"[{initiated_by}] Runner {runner.id} updated to 'terminated'")
-                    result["details"].append({"step": "terminate_instance", "status": "success", "message": "Instance terminated"})
-                else:
-                    message = f"Runner with instance identifier {instance_id} not found (terminate update)."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["details"].append({"step": "terminate_instance", "status": "error", "message": message})
-        except Exception as e:
-            error_message = f"Error terminating instance {instance_id}: {e!s}"
-            tb_string = traceback.format_exc()
-            logger.error(f"[{initiated_by}] {error_message}")
-            logger.error(f"[{initiated_by}] Traceback: {tb_string}")
-            result["details"].append({"step": "terminate_instance", "status": "error", "message": error_message})
-
-        logger.info(f"[{initiated_by}] Completed processing for instance {instance_id}, result: {result['status']}")
-        results.append(result)
-
-    logger.info(f"[{initiated_by}] Completed shutdown for all instances, processed: {len(results)}")
     return results
+
+# async def shutdown_runners(launched_instance_ids: list, initiated_by: str = "system"):
+#     """Stop and then terminate all instances given in launched_instance_ids."""
+#     logger.info(f"[{initiated_by}] Starting shutdown for {len(launched_instance_ids)} instances")
+#     results = []
+
+#     for instance_id in launched_instance_ids:
+#         result = {"instance_id": instance_id, "status": "success", "details": [], "initiated_by": initiated_by}
+
+#         # Variables to store across sessions
+#         runner_id = None
+#         image_id = None
+#         cloud_connector_id = None
+
+#         # STEP 1: Find runner and prepare for termination
+#         try:
+#             with Session(engine) as session:
+#                 # Find runner record
+#                 runner = runner_repository.find_runner_by_instance_id(session, instance_id)
+
+#                 if not runner:
+#                     message = f"Runner with instance identifier {instance_id} not found."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["status"] = "error"
+#                     result["details"].append({"step": "find_runner", "status": "error", "message": message})
+#                     results.append(result)
+#                     continue
+
+#                 # Store IDs for later use
+#                 runner_id = runner.id
+#                 image_id = runner.image_id
+
+#                 # Get required resources for termination
+#                 image = image_repository.find_image_by_id(session, image_id)
+#                 if not image:
+#                     message = f"Image for runner {runner.id} not found."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["status"] = "error"
+#                     result["details"].append({"step": "find_image", "status": "error", "message": message})
+#                     results.append(result)
+#                     continue
+
+#                 cloud_connector_id = image.cloud_connector_id
+#                 cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+#                     session, cloud_connector_id
+#                 )
+
+#                 if not cloud_connector:
+#                     message = f"Cloud connector for image {image.id} not found."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["status"] = "error"
+#                     result["details"].append({"step": "find_cloud_connector", "status": "error", "message": message})
+#                     results.append(result)
+#                     continue
+
+#                 # Update runner state to "terminating" before running scripts
+#                 old_state = runner.state
+#                 runner.state = "terminating"
+#                 session.add(runner)
+
+#                 # Create history record for state change
+#                 terminating_history = RunnerHistory(
+#                     runner_id=runner.id,
+#                     event_name="runner_terminating",
+#                     event_data={
+#                         "timestamp": datetime.utcnow().isoformat(),
+#                         "old_state": old_state,
+#                         "new_state": "terminating",
+#                         "initiated_by": initiated_by
+#                     },
+#                     created_by="system",
+#                     modified_by="system"
+#                 )
+#                 session.add(terminating_history)
+#                 session.commit()
+
+#                 result["runner_id"] = runner.id
+#                 result["details"].append({"step": "update_state", "status": "success", "message": "Updated state to terminating"})
+
+#                 logger.info(f"[{initiated_by}] Runner {runner.id} state updated from {old_state} to terminating")
+
+#                 # Check if a termination script exists for this image before trying to run it
+#                 script_exists = False
+#                 if old_state not in ["ready", "ready_claimed", "runner_starting_claimed",
+#                       "runner_starting", "app_starting", "terminated", "closed"]:
+#                     # First check if script exists to avoid unnecessary exceptions
+#                     stmt_script = select(Script).where(Script.event == "on_terminate", Script.image_id == runner.image_id)
+#                     script_exists = session.exec(stmt_script).first() is not None
+
+#                     if script_exists:
+#                         logger.info(f"[{initiated_by}] Found on_terminate script for runner {runner.id}, will attempt to run it")
+#                     else:
+#                         # Log that we're skipping script execution because no script exists
+#                         logger.info(f"[{initiated_by}] No on_terminate script found for image {runner.image_id}, skipping script execution")
+#                         result["details"].append({
+#                             "step": "script_execution",
+#                             "status": "skipped",
+#                             "message": f"No on_terminate script found for image {runner.image_id}"
+#                         })
+#         except Exception as e:
+#             error_detail = str(e)
+#             tb_string = traceback.format_exc()
+#             logger.error(f"[{initiated_by}] Error during runner preparation: {error_detail}")
+#             logger.error(f"[{initiated_by}] Traceback: {tb_string}")
+#             result["status"] = "error"
+#             result["details"].append({"step": "prepare", "status": "error", "message": f"Error during preparation: {error_detail}"})
+#             results.append(result)
+#             continue
+
+#         # STEP 2: Execute script if it exists
+#         if script_exists:
+#             try:
+#                 logger.info(f"[{initiated_by}] Running on_terminate script for runner {runner_id}...")
+#                 # Run the script with empty env_vars since credentials should be retrieved from the environment
+#                 script_result = await script_management.run_script_for_runner(
+#                     "on_terminate",
+#                     runner_id,
+#                     env_vars={},
+#                     initiated_by=initiated_by
+#                 )
+#                 if script_result:
+#                     logger.info(f"[{initiated_by}] Script executed for runner {runner_id}")
+#                     logger.info(f"[{initiated_by}] Script result: {script_result}")
+
+#                 result["details"].append({"step": "script_execution", "status": "success", "message": "on_terminate script executed"})
+#             except Exception as e:
+#                 error_detail = str(e)
+#                 tb_string = traceback.format_exc()
+#                 logger.error(f"[{initiated_by}] Error executing on_terminate script for runner {runner_id}: {error_detail}")
+#                 logger.error(f"[{initiated_by}] Traceback: {tb_string}")
+
+#                 # We'll record the error but CONTINUE with termination
+#                 with Session(engine) as session:
+#                     # Create detailed history record for the script error
+#                     error_history = RunnerHistory(
+#                         runner_id=runner_id,
+#                         event_name="script_error_on_terminate",
+#                         event_data={
+#                             "timestamp": datetime.utcnow().isoformat(),
+#                             "error": error_detail,
+#                             "traceback": tb_string,
+#                             "initiated_by": initiated_by
+#                         },
+#                         created_by="system",
+#                         modified_by="system"
+#                     )
+#                     session.add(error_history)
+#                     session.commit()
+
+#                 # Add error information to result details
+#                 result["details"].append({
+#                     "step": "script_execution",
+#                     "status": "error",
+#                     "message": f"Error executing on_terminate script: {error_detail}"
+#                 })
+
+#                 # Log that we're continuing despite the error
+#                 logger.info(f"[{initiated_by}] CHECKPOINT: Continuing with termination despite script error for runner {runner_id}")
+
+#         # STEP 3: Stop instance and update history
+#         logger.info(f"[{initiated_by}] CHECKPOINT: Proceeding with instance termination for runner {runner_id} regardless of script outcome")
+#         try:
+#             # Get a fresh cloud service in this scope
+#             with Session(engine) as session:
+#                 # Get cloud connector again to create a fresh cloud service
+#                 cloud_connector = session.get(CloudConnector, cloud_connector_id)
+#                 if not cloud_connector:
+#                     message = f"Cloud connector {cloud_connector_id} not found for stopping instance."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["details"].append({"step": "stop_instance", "status": "error", "message": message})
+#                     continue
+
+#                 cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+
+#                 # Now use the fresh cloud service
+#                 logger.info(f"[{initiated_by}] Stopping instance {instance_id} for runner {runner_id}")
+#                 stop_state = await cloud_service.stop_instance(instance_id)
+#                 logger.info(f"[{initiated_by}] Stop result for instance {instance_id}: {stop_state}")
+
+#             # Update runner state in a separate session
+#             with Session(engine) as session:
+#                 # Get runner again
+#                 stmt = select(Runner).where(Runner.identifier == instance_id)
+#                 runner = session.exec(stmt).first()
+
+#                 if runner:
+#                     logger.info(f"[{initiated_by}] Updating runner {runner.id} state to 'closed'")
+#                     runner.state = "closed"
+#                     runner.ended_on = datetime.utcnow()
+#                     session.add(runner)
+
+#                     # Create history record for stopping the instance
+#                     stopping_history = RunnerHistory(
+#                         runner_id=runner.id,
+#                         event_name="runner_closed",
+#                         event_data={
+#                             "timestamp": datetime.utcnow().isoformat(),
+#                             "old_state": "terminating",
+#                             "new_state": "closed",
+#                             "stop_result": stop_state,
+#                             "initiated_by": initiated_by
+#                         },
+#                         created_by="system",
+#                         modified_by="system"
+#                     )
+#                     session.add(stopping_history)
+#                     session.commit()
+
+#                     logger.info(f"[{initiated_by}] Runner {runner.id} updated to 'closed'")
+#                     result["details"].append({"step": "stop_instance", "status": "success", "message": "Instance stopped"})
+#                 else:
+#                     message = f"Runner with instance identifier {instance_id} not found (stop update)."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["details"].append({"step": "stop_instance", "status": "error", "message": message})
+#         except Exception as e:
+#             error_message = f"Error stopping instance {instance_id}: {e!s}"
+#             tb_string = traceback.format_exc()
+#             logger.error(f"[{initiated_by}] {error_message}")
+#             logger.error(f"[{initiated_by}] Traceback: {tb_string}")
+#             result["details"].append({"step": "stop_instance", "status": "error", "message": error_message})
+#             # Continue with termination even if stopping fails
+
+#         # STEP 4: Terminate the instance and update state to terminated
+#         logger.info(f"[{initiated_by}] CHECKPOINT: Proceeding to terminate instance {instance_id} for runner {runner_id}")
+#         try:
+#             # Get a fresh cloud service for termination
+#             with Session(engine) as session:
+#                 cloud_connector = session.get(CloudConnector, cloud_connector_id)
+#                 if not cloud_connector:
+#                     message = f"Cloud connector {cloud_connector_id} not found for terminating instance."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["details"].append({"step": "terminate_instance", "status": "error", "message": message})
+#                     continue
+
+#                 cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+
+#                 logger.info(f"[{initiated_by}] Terminating instance {instance_id} for runner {runner_id}")
+#                 terminate_state = await cloud_service.terminate_instance(instance_id)
+#                 logger.info(f"[{initiated_by}] Terminate result for instance {instance_id}: {terminate_state}")
+
+#             # STEP 4.5: Clean up security groups associated with the runner
+#             try:
+#                 logger.info(f"[{initiated_by}] Cleaning up security groups for runner {runner_id}")
+#                 security_group_result = await security_group_management.handle_runner_termination(runner_id, cloud_service)
+
+#                 if security_group_result:
+#                     logger.info(f"[{initiated_by}] Successfully cleaned up security groups for runner {runner_id}")
+#                     result["details"].append({
+#                         "step": "security_group_cleanup",
+#                         "status": "success",
+#                         "message": "Security groups cleaned up"
+#                     })
+#                 else:
+#                     logger.warning(f"[{initiated_by}] Some security groups may not have been fully cleaned up for runner {runner_id}")
+#                     result["details"].append({
+#                         "step": "security_group_cleanup",
+#                         "status": "warning",
+#                         "message": "Some security groups may require manual cleanup"
+#                     })
+#             except Exception as e:
+#                 error_message = f"Error cleaning up security groups for runner {runner_id}: {e!s}"
+#                 tb_string = traceback.format_exc()
+#                 logger.error(f"[{initiated_by}] {error_message}")
+#                 logger.error(f"[{initiated_by}] Traceback: {tb_string}")
+#                 result["details"].append({
+#                     "step": "security_group_cleanup",
+#                     "status": "error",
+#                     "message": error_message
+#                 })
+
+#             # Update runner state in a separate session
+#             with Session(engine) as session:
+#                 stmt = select(Runner).where(Runner.identifier == instance_id)
+#                 runner = session.exec(stmt).first()
+
+#                 if runner:
+#                     logger.info(f"[{initiated_by}] Updating runner {runner.id} state to 'terminated'")
+#                     runner.state = "terminated"
+#                     session.add(runner)
+
+#                     # Create history record for terminating the instance
+#                     termination_history = RunnerHistory(
+#                         runner_id=runner.id,
+#                         event_name="runner_terminated",
+#                         event_data={
+#                             "timestamp": datetime.utcnow().isoformat(),
+#                             "old_state": "closed",
+#                             "new_state": "terminated",
+#                             "terminate_result": terminate_state,
+#                             "initiated_by": initiated_by
+#                         },
+#                         created_by="system",
+#                         modified_by="system"
+#                     )
+#                     session.add(termination_history)
+#                     session.commit()
+
+#                     logger.info(f"[{initiated_by}] Runner {runner.id} updated to 'terminated'")
+#                     result["details"].append({"step": "terminate_instance", "status": "success", "message": "Instance terminated"})
+#                 else:
+#                     message = f"Runner with instance identifier {instance_id} not found (terminate update)."
+#                     logger.error(f"[{initiated_by}] {message}")
+#                     result["details"].append({"step": "terminate_instance", "status": "error", "message": message})
+#         except Exception as e:
+#             error_message = f"Error terminating instance {instance_id}: {e!s}"
+#             tb_string = traceback.format_exc()
+#             logger.error(f"[{initiated_by}] {error_message}")
+#             logger.error(f"[{initiated_by}] Traceback: {tb_string}")
+#             result["details"].append({"step": "terminate_instance", "status": "error", "message": error_message})
+
+#         logger.info(f"[{initiated_by}] Completed processing for instance {instance_id}, result: {result['status']}")
+#         results.append(result)
+
+#     logger.info(f"[{initiated_by}] Completed shutdown for all instances, processed: {len(results)}")
+#     return results
 
 async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system"):
     """

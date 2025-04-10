@@ -21,79 +21,88 @@ set -o pipefail  # Ensures pipeline failures are caught
 
 echo "Starting Node Exporter installation and setup..."
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    report_error "Please run this script with sudo"
+# Create log directory for debugging
+mkdir -p /var/log/node_exporter
+
+EXPORTER_ARCH="arm64"
+
+echo "Using Node Exporter architecture: $EXPORTER_ARCH"
+
+# Check if Node Exporter is already running
+if pgrep node_exporter >/dev/null; then
+    echo "Node Exporter is already running, stopping it first..."
+    pkill node_exporter || true
+    sleep 2
 fi
 
 # Install Node Exporter
 NODE_EXPORTER_VERSION="1.7.0"
-echo "Downloading Node Exporter version ${NODE_EXPORTER_VERSION}..."
+DOWNLOAD_URL="https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}.tar.gz"
+ARCHIVE_NAME="node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}.tar.gz"
+EXTRACTED_DIR="node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}"
+
+echo "Downloading Node Exporter from: $DOWNLOAD_URL"
 cd /tmp || report_error "Failed to change directory to /tmp"
-if ! wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz; then
-    report_error "Failed to download Node Exporter"
+if ! wget "$DOWNLOAD_URL"; then
+    report_error "Failed to download Node Exporter for $EXPORTER_ARCH architecture"
 fi
 
 echo "Extracting Node Exporter..."
-if ! tar -xzf node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz; then
+if ! tar -xzf "$ARCHIVE_NAME"; then
     report_error "Failed to extract Node Exporter archive"
 fi
 
 echo "Installing Node Exporter to /usr/local/bin..."
-if ! mv node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /usr/local/bin/; then
-    report_error "Failed to move Node Exporter executable to /usr/local/bin"
+if ! cp "$EXTRACTED_DIR/node_exporter" /usr/local/bin/; then
+    report_error "Failed to copy Node Exporter executable to /usr/local/bin"
 fi
 
 if ! chmod +x /usr/local/bin/node_exporter; then
     report_error "Failed to make Node Exporter executable"
 fi
 
-# Create a system service for Node Exporter
-echo "Creating Node Exporter systemd service..."
-cat > /etc/systemd/system/node_exporter.service << EOF
-[Unit]
-Description=Node Exporter
-After=network.target
-
-[Service]
-User=nobody
-Group=nogroup
-Type=simple
-ExecStart=/usr/local/bin/node_exporter
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Enable and start Node Exporter service
-echo "Configuring Node Exporter service..."
-if ! systemctl daemon-reload; then
-    report_error "Failed to reload systemd manager configuration"
+echo "Testing Node Exporter executable..."
+if ! /usr/local/bin/node_exporter --version; then
+    report_error "Node Exporter executable test failed"
 fi
 
-if ! systemctl enable node_exporter; then
-    report_error "Failed to enable Node Exporter service"
-fi
+# Start Node Exporter directly
+echo "Starting Node Exporter directly..."
+nohup /usr/local/bin/node_exporter > /var/log/node_exporter/node_exporter.log 2>&1 &
+NODE_EXPORTER_PID=$!
+echo "Node Exporter started with PID: $NODE_EXPORTER_PID"
 
-if ! systemctl start node_exporter; then
-    report_error "Failed to start Node Exporter service"
-fi
+# Wait for Node Exporter to start
+echo "Waiting for Node Exporter to start..."
+for i in {1..10}; do
+    if curl -s http://localhost:9100/metrics >/dev/null; then
+        echo "Node Exporter is running and responding"
+        break
+    fi
+    if [ $i -eq 10 ]; then
+        # Check if process is still running
+        if ! ps -p $NODE_EXPORTER_PID >/dev/null; then
+            echo "Node Exporter process died. Last log entries:"
+            tail -n 20 /var/log/node_exporter/node_exporter.log
+            report_error "Node Exporter failed to start properly"
+        fi
+        report_error "Node Exporter started but is not responding on port 9100"
+    fi
+    echo "Waiting for Node Exporter to start (attempt $i/10)..."
+    sleep 1
+done
 
-# Create a separate script for the metrics push loop
+# Create metrics push script
 echo "Creating metrics push script..."
 cat > /usr/local/bin/push_metrics.sh << EOF
 #!/bin/bash
-# Function to report errors in a format that script_management.py can understand
-report_error() {
-    local error_message="\$1"
-    echo "ERROR: \$error_message" >&2
-    exit 1
-}
+# Script to push metrics to Pushgateway
 
 # Get runner IP address
 RUNNER_IP=\$(curl -s icanhazip.com)
 if [ -z "\$RUNNER_IP" ]; then
-    report_error "Failed to get runner IP address"
+    echo "ERROR: Failed to get runner IP address" >&2
+    exit 1
 fi
 
 MONITOR_VM="54.188.253.144"
@@ -102,50 +111,52 @@ PUSHGATEWAY_URL="http://\$MONITOR_VM:9091/metrics/job/\$RUNNER_IP"
 echo "Starting metrics push loop to \$PUSHGATEWAY_URL..."
 while true; do
     # Push to Pushgateway
-    if ! curl -s localhost:9100/metrics | curl --data-binary @- "\$PUSHGATEWAY_URL"; then
-        echo "Warning: Failed to push metrics, will retry in 10 seconds"
-    fi
+    curl -s localhost:9100/metrics | curl --data-binary @- "\$PUSHGATEWAY_URL" || true
     # Push every 10 seconds
     sleep 10
 done
 EOF
 
-# Make the push script executable
-echo "Setting permissions on metrics push script..."
-if ! chmod +x /usr/local/bin/push_metrics.sh; then
-    report_error "Failed to make push metrics script executable"
-fi
+# Make the script executable
+chmod +x /usr/local/bin/push_metrics.sh
 
-# Create a service for the push metrics script
-echo "Creating metrics push systemd service..."
-cat > /etc/systemd/system/push_metrics.service << EOF
-[Unit]
-Description=Push Node Exporter Metrics
-After=node_exporter.service
+# Start metrics push in background
+echo "Starting metrics push script..."
+nohup /usr/local/bin/push_metrics.sh > /var/log/node_exporter/push_metrics.log 2>&1 &
+PUSH_METRICS_PID=$!
+echo "Metrics push script started with PID: $PUSH_METRICS_PID"
 
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/push_metrics.sh
-Restart=always
-RestartSec=10
+# Save process information for troubleshooting
+echo "NODE_EXPORTER_PID=$NODE_EXPORTER_PID" > /var/log/node_exporter/process_info.txt
+echo "PUSH_METRICS_PID=$PUSH_METRICS_PID" >> /var/log/node_exporter/process_info.txt
+echo "ARCH=$ARCH" >> /var/log/node_exporter/process_info.txt
+echo "EXPORTER_ARCH=$EXPORTER_ARCH" >> /var/log/node_exporter/process_info.txt
 
-[Install]
-WantedBy=multi-user.target
+# Write a reboot persistence script
+echo "Creating service for persistence across reboots..."
+cat > /etc/cron.d/node_exporter << EOF
+@reboot root /usr/local/bin/node_exporter > /var/log/node_exporter/node_exporter.log 2>&1 &
+@reboot root /usr/local/bin/push_metrics.sh > /var/log/node_exporter/push_metrics.log 2>&1 &
 EOF
 
-# Enable and start the push metrics service
-echo "Configuring metrics push service..."
-if ! systemctl daemon-reload; then
-    report_error "Failed to reload systemd manager configuration"
+chmod 644 /etc/cron.d/node_exporter
+
+# Verify Node Exporter is responding
+echo "Verifying Node Exporter is responding..."
+if ! curl -s localhost:9100/metrics >/dev/null; then
+    cat /var/log/node_exporter/node_exporter.log
+    report_error "Node Exporter is not responding on port 9100"
 fi
 
-if ! systemctl enable push_metrics; then
-    report_error "Failed to enable push metrics service"
+# Test push connection to Pushgateway
+echo "Testing connection to Pushgateway..."
+RUNNER_IP=$(curl -s icanhazip.com)
+MONITOR_VM="54.188.253.144"
+PUSHGATEWAY_URL="http://$MONITOR_VM:9091/metrics/job/$RUNNER_IP"
+
+if ! curl -s -m 5 "$PUSHGATEWAY_URL" >/dev/null; then
+    echo "Warning: Could not connect to Pushgateway at $PUSHGATEWAY_URL (continuing anyway)"
 fi
 
-if ! systemctl start push_metrics; then
-    report_error "Failed to start push metrics service"
-fi
-
-echo "Node Exporter installation and metric pushing setup completed successfully."
-report_success "Node Exporter installed and configured to push metrics to $MONITOR_VM:9091"
+echo "Node Exporter installation and metrics pushing setup completed successfully"
+report_success "Node Exporter and metrics push processes started (PIDs: $NODE_EXPORTER_PID, $PUSH_METRICS_PID)"

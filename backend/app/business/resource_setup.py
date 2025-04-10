@@ -283,8 +283,9 @@ def setup_resources():
                 arm_termination_script.modified_by = "system"
                 session.add(arm_termination_script)
                 session.commit()
-                
+
         # Add on startup script for ARM image
+
         stmt_arm_startup_script = select(Script).where(Script.event == "on_startup", Script.image_id == arm_image.id)
         arm_startup_script = session.exec(stmt_arm_startup_script).first()
         if not arm_startup_script:
