@@ -130,10 +130,10 @@ async def route_guard(request: Request, call_next):
         return Response(status_code=400, content=error_message)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).exception(f'Exception raised in the backend middleware: {e.message}')
+        logging.getLogger(__name__).exception(f'Exception raised in the backend middleware.')
         return Response(
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
-            content = '{"response":"Internal Server Error: ' + e.message + '"}'
+            content = '{"response":"Internal Server Error: ' + str(e) + '"}'
         )
 
 app.include_router(api_router)
