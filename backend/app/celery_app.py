@@ -17,9 +17,10 @@ celery_app.autodiscover_tasks(["app.tasks"])
 
 try:
     # Imports here because of circular imports
-    import app.tasks.starting_runner
-    import app.tasks.cleanup_runners
-    import app.tasks.runner_pool_management
+    from app.tasks import starting_runner
+    from app.tasks import cleanup_runners
+    from app.tasks import runner_pool_management
+    from app.tasks import shutdown_runner
 except ImportError as e:
     print("Error importing tasks:", e)
 
@@ -32,7 +33,7 @@ celery_app.conf.beat_schedule = {
     },
     "manage_runner_pool_task": {
         "task": "app.tasks.runner_pool_management.manage_runner_pool",
-        "schedule": 900  # Every 5 minutes
+        "schedule": 900  # Every 15 minutes
     },
 }
 

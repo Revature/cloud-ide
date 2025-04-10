@@ -30,19 +30,22 @@ def update_runner_state(runner_id: int, instance_id: str):
         with Session(engine) as session:
             runner = session.get(Runner, runner_id)
             if not runner:
-                print(f"Runner {runner_id} not found in the database.")
+                # print(f"Runner {runner_id} not found in the database.")
+                logger.error(f"Runner {runner_id} not found in the database.")
                 return
 
             # Get the image to find the cloud connector
             image = session.get(Image, runner.image_id)
             if not image:
-                print(f"Image not found for runner {runner_id}.")
+                # print(f"Image not found for runner {runner_id}.")
+                logger.error(f"Image not found for runner {runner_id}.")
                 return
 
             # Get the cloud connector
             cloud_connector = session.get(CloudConnector, image.cloud_connector_id)
             if not cloud_connector:
-                print(f"Cloud connector not found for image {image.id}.")
+                # print(f"Cloud connector not found for image {image.id}.")
+                logger.error(f"Cloud connector not found for image {image.id}.")
                 return
             key = key_management.get_runner_key(runner.key_id)
 
@@ -88,9 +91,35 @@ def update_runner_state(runner_id: int, instance_id: str):
                 session.add(new_history)
                 session.commit()
 
-                print(f"Runner {runner_id} updated to 'ready' and history record created.")
+                # print(f"Runner {runner_id} updated to 'ready' and history record created.")
+                logger.info(f"Runner {runner_id} updated to 'ready' and history record created.")
+
+                from app.business import script_management
+                # on_startup script execution
+                script_result = asyncio.run(script_management.run_script_for_runner(
+                    "on_startup",
+                    runner.id,
+                    env_vars={},
+                    initiated_by="system",
+                ))
+                if script_result:
+                    # print(f"Script executed for runner {runner.id}")
+                    logger.info(f"Script executed for runner {runner.id}")
+                    logger.info(f"Script executed for runner {runner.id}")
+                    # print(f"Script result: {script_result}")
+                    logger.info(f"Script result: {script_result}")
+                    logger.info(f"Script result: {script_result}")
+                else:
+                    # print(f"No script executed for runner {runner.id}")
+                    logger.info(f"No script executed for runner {runner.id}")
+                    logger.info(f"No script executed for runner {runner.id}")
+
+                logger.info(f"Runner {runner.id} launched with instance ID {instance_id}")
             else:
-                print(f"Runner {runner_id} not found in the database.")
+                # print(f"Runner {runner_id} not found in the database.")
+                logger.error(f"Runner {runner_id} not found in the database.")
+
     except Exception as e:
-        print(f"Error in update_runner_state: {e}")
+        # print(f"Error in update_runner_state: {e}")
+        logger.error(f"Error in update_runner_state: {e}")
         raise
