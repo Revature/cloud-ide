@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useRunners, Runner, RunnerState } from '@/context/RunnersContext';
 import Button from "@/components/ui/button/Button";
+import { Runner, RunnerState } from '@/types/runner';
+import { useQuery } from '@tanstack/react-query';
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -40,9 +41,13 @@ const getStateLabel = (state: RunnerState) => {
 const RunnerView: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { runners, terminateRunner } = useRunners();
   const runnerIndex = parseInt(params.id as string, 10);
   
+    // Obtain images from RunnersTable ReactQuery
+    const { data:runners = [] } = useQuery<Runner[]>({
+      queryKey: ['runners'],
+    })
+
   const [runner, setRunner] = useState<Runner | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmTerminate, setConfirmTerminate] = useState(false);
@@ -68,7 +73,7 @@ const RunnerView: React.FC = () => {
 
   const handleTerminate = () => {
     if (confirmTerminate && runner) {
-      terminateRunner(runner.id);
+      // TODO: IMPLEMENT TERMINATE RUNNER
       setConfirmTerminate(false);
     } else {
       setConfirmTerminate(true);
@@ -172,7 +177,7 @@ const RunnerView: React.FC = () => {
           <div className="flex items-center gap-4">
             <div>
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">Runner {runner.id}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Created on {runner.createdAt}</p>
+              <p className="text-gray-500 dark:text-gray-400">Created on {runner.createdOn}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -187,10 +192,10 @@ const RunnerView: React.FC = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                {runner.user ? (
+                {runner.userId ? (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">User</span>
-                    <span className="text-gray-800 dark:text-white">{runner.user}</span>
+                    <span className="text-gray-800 dark:text-white">{runner.userId}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between">
@@ -200,7 +205,7 @@ const RunnerView: React.FC = () => {
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Key Pair</span>
-                  <span className="text-gray-800 dark:text-white">{runner.keyPairName}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.keyId}</span>
                 </div>
                 {runner.url && (
                   <div className="flex justify-between">
@@ -228,19 +233,19 @@ const RunnerView: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Image Name</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image.name}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.image!.name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Image ID</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image.identifier}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.image!.identifier}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image.machine.name}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.image!.machine ? runner.image!.machine.name : "No Name"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image.machine.identifier}</span>
+                  <span className="text-gray-800 dark:text-white">{runner.image!.machine ? runner.image!.machine.identifier : "No AMI ID"}</span>
                 </div>
               </div>
             </div>
@@ -252,7 +257,7 @@ const RunnerView: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">CPU</span>
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white">
-                      {runner.image.machine.cpu_count} {runner.image.machine.cpu_count === 1 ? 'Core' : 'Cores'}
+                      {runner.image!.machine ? runner.image!.machine.cpuCount : 0} {runner.image!.machine ? runner.image!.machine.cpuCount === 1 ? 'Core' : 'Cores' : 'Core'}
                     </span>
                   </div>
                 </div>
@@ -260,7 +265,7 @@ const RunnerView: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">Memory</span>
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white">
-                      {runner.image.machine.memory_size} GB
+                      {runner.image!.machine ? runner.image!.machine.memorySize : 0} GB
                     </span>
                   </div>
                 </div>
@@ -268,7 +273,7 @@ const RunnerView: React.FC = () => {
                   <span className="text-gray-600 dark:text-gray-300">Storage</span>
                   <div className="flex items-center">
                     <span className="text-gray-800 dark:text-white">
-                      {runner.image.machine.storage_size} GB
+                      {runner.image!.machine ? runner.image!.machine.storageSize : 0} GB
                     </span>
                   </div>
                 </div>

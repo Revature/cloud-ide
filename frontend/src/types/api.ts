@@ -1,5 +1,7 @@
 // src/types/api.ts
 
+import { RunnerState } from "./runner";
+
 export interface APIResponse<T> {
   data: T;
   error?: string;
@@ -48,4 +50,25 @@ export interface BackendCloudConnector {
   updated_on: string;
   modified_by: string;
   created_by: string;
+}
+
+export interface BackendRunner{
+  id: number,
+  machine_id: number;
+  image_id: number,
+  user_id: number,
+  key_id: number,
+  state: RunnerState,
+  url: string,
+  user_ip: string,
+  identifier: string,
+  external_hash: string,
+  env_data: JSON,
+  session_start: string,
+  session_end: string,
+  ended_on: string,
+  created_on: string,
+  updated_on: string,
+  modified_by: string,
+  created_by: string,
 }

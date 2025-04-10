@@ -68,7 +68,7 @@ export async function GET(
       active: typeof imageData.active === 'number' ? Boolean(imageData.active) : !!imageData.active,
       createdOn: new Date(imageData.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
-        month: 'short', 
+        month: 'short',
         day: 'numeric'
       }),
       updatedOn: new Date(imageData.updated_on).toLocaleDateString('en-US', {
@@ -78,10 +78,11 @@ export async function GET(
       }),
       createdBy: imageData.created_by,
       modifiedBy: imageData.modified_by,
-      
+
       // Only include IDs for related resources
-      cloudConnector_id: imageData.cloud_connector_id,
-      machine_id: imageData.machine_id
+      cloudConnectorId: imageData.cloud_connector_id,
+      machineId: imageData.machine_id,
+      runnerPoolSize: 1 //TODO: edit default runnerPoolSize
     };
     
     console.log('Transformed data for frontend:', transformedData);

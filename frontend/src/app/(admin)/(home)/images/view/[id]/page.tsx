@@ -2,15 +2,21 @@
 import { useParams } from "next/navigation";
 import ViewImage from "@/components/image/ImageView";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
-import { useImages } from "@/context/ImagesContext";
+import { VMImage } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 export default function ViewImagePage() {
-  const { images } = useImages();
   const params = useParams();
-  const imageIndex = parseInt(params.id as string, 10);
-  
+  const imageIndex = parseInt(params.id as string, 10) - 1;
+
+  // Obtain images from ImagesTable ReactQuery
+  const { data:images = [] } = useQuery<VMImage[]>({
+    queryKey: ['images'],
+  })
+
+
   // Get image name for the breadcrumb if available
-  const imageName = !isNaN(imageIndex) && images[imageIndex] 
+  const imageName = !isNaN(imageIndex) && images[imageIndex] && images[imageIndex].name
     ? images[imageIndex].name 
     : "Image Details";
     
