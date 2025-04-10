@@ -62,6 +62,15 @@ class Runner(TimestampMixin, SQLModel, table=True):
         }
         return self.state in alive_states
 
+    @property
+    def should_run_terminate_script(self) -> bool:
+        """Return True if the runner's state is considered 'in use'."""
+        do_not_run = {
+            "ready", "ready_claimed", "runner_starting_claimed",
+            "runner_starting", "app_starting", "terminated", "closed"
+        }
+        return self.state not in do_not_run
+
 
 class RunnerUpdate(TimestampMixin, SQLModel):
     """Runner update model."""

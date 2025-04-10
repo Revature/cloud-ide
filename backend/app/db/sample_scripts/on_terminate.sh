@@ -33,7 +33,7 @@ if [ -f "$REVATURE_CONFIG" ]; then
     echo "Found repository name: $REPO_NAME"
     echo "Found repository path: $REPO_PATH"
     echo "Found GitHub username: $GIT_USERNAME"
-    
+
     # Check for both variable naming conventions (new and old)
     if [ -n "$GIT_ACCESS_TOKEN" ]; then
         echo "GitHub token: Present (using GIT_ACCESS_TOKEN)"
@@ -119,7 +119,7 @@ echo "Pushing changes to remote repository..."
 if ! sudo git push origin HEAD; then
     # If push fails, try with explicit credentials
     echo "Initial push failed, trying with explicit authentication..."
-    
+
     if [ -n "$REPO_URL" ]; then
         # Create a temporary remote with authentication
         AUTH_REMOTE_URL="https://$GITHUB_USERNAME:$GITHUB_TOKEN@${REPO_URL#https://}"

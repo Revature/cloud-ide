@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRunners, NewRunner } from "@/context/RunnersContext";
-import { useImages, VMImage } from "@/context/ImagesContext";
 import Form from "@/components/form/Form";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
+import { VMImage } from "@/types";
+import { useQuery } from "@tanstack/react-query";
+import { NewRunner } from "@/types/runner";
 
 // Define the shape of the form data
 export interface RunnerFormData {
@@ -20,9 +21,12 @@ interface RunnerFormProps {
 }
 
 const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
-  const { addRunner } = useRunners();
-  const { images } = useImages();
   const router = useRouter();
+
+  // Obtain images from ImagesTable ReactQuery
+  const { data:images = [] } = useQuery<VMImage[]>({
+    queryKey: ['images'],
+  })
 
   // Default duration options in minutes
   const durationOptions = [
@@ -40,10 +44,19 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
   const activeImages = images.filter(image => image.active);
   
   // Convert images for select dropdown
-  const imageOptions = activeImages.map((image, index) => ({
-    value: index.toString(),
-    label: `${image.name} (${image.machine.name}: ${image.machine.cpu_count} CPU, ${image.machine.memory_size} GB RAM)`
-  }));
+  const imageOptions = activeImages.map((image, index) => {
+    if(image.machine){
+      return {
+        value: index.toString(),
+        label: `${image.name} (${image.machine.name}: ${image.machine.cpuCount} CPU, ${image.machine.memorySize} GB RAM)`
+      };
+    } else {
+      return {
+        value: index.toString(),
+        label: `${image.name} No Information on Machine)`
+      };
+    }
+  });
 
   // State for form data with default values
   const [selectedImage, setSelectedImage] = useState(
@@ -88,8 +101,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
     
     console.log("Submitting new runner:", newRunner);
     
-    // Add the runner using context
-    addRunner(newRunner);
+    // TODO: Implement the creation of a new Runner
     
     // Call optional onSubmit prop
     if (onSubmit) {
@@ -207,26 +219,26 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
                     <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.machine.cpu_count} {selectedImageObj.machine.cpu_count === 1 ? "Core" : "Cores"}
+                      {selectedImageObj.machine ? selectedImageObj.machine.cpuCount : 0} {selectedImageObj.machine ? selectedImageObj.machine.cpuCount === 1 ? "Core" : "Cores" : "Core"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
                     <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.machine.memory_size} GB
+                      {selectedImageObj.machine ? selectedImageObj.machine.memorySize : 0} GB
                     </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
                     <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.machine.storage_size} GB
+                      {selectedImageObj.machine ? selectedImageObj.machine.storageSize : 0 } GB
                     </p>
                   </div>
                 </div>
                 <div className="mt-3">
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Instance Type</p>
                   <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    {selectedImageObj.machine.identifier}
+                    {selectedImageObj.machine ? selectedImageObj.machine.identifier : "AMI ID missing"}
                   </p>
                 </div>
               </div>

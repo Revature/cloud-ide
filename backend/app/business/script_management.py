@@ -140,7 +140,6 @@ def get_script_for_runner(
         logger.info(f"[{initiated_by}] Rendered script for '{event}' on runner {runner_id}")
         return rendered_script
 
-
 async def execute_script_for_runner(
     event: str,
     runner_id: int,
@@ -163,7 +162,28 @@ async def execute_script_for_runner(
             cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
             logger.info(f"[{initiated_by}] Executing script '{event}' on runner {runner_id} via SSH")
-            ssh_result = await cloud_service.ssh_run_script(runner.url, private_key, script)
+
+            # For complex scripts with heredocs and quotes, using base64 encoding is safer
+            # Encode the script as base64 and decode it on the runner
+            import base64
+            encoded_script = base64.b64encode(script.encode('utf-8')).decode('utf-8')
+
+            temp_script = f"""#!/bin/bash
+# Decode the base64 encoded script and execute it with sudo
+echo '{encoded_script}' | base64 -d > /tmp/runner_script.sh
+chmod +x /tmp/runner_script.sh
+sudo /tmp/runner_script.sh
+"""
+            # Execute the script
+            ssh_result = await cloud_service.ssh_run_script(
+                runner.url,
+                private_key,
+                temp_script
+            )
+
+            # print(f"[DEBUG] SSH result: {ssh_result}")
+            logger.info(f"[{initiated_by}] SSH result: {ssh_result}")
+
             # Parse the output to get detailed status information
             result = parse_script_output(
                 ssh_result.get("stdout", ""),
@@ -198,11 +218,6 @@ async def execute_script_for_runner(
                     f"[{initiated_by}] Script error: {result.get('error_message', 'Unknown error')}"
                 )
 
-            # Add these debug logs
-            print(f"[DEBUG] Result from parse_script_output: {result}")
-            print(f"[DEBUG] Success value: {result.get('success', False)}")
-            print(f"[DEBUG] Exit code: {result.get('exit_code')}, type: {type(result.get('exit_code'))}")
-
             # Create a script result history record
             script_result_record = RunnerHistory(
                 runner_id=runner_id,
@@ -236,7 +251,7 @@ async def execute_script_for_runner(
 
     except Exception as e:
         error_message = f"Error executing script '{event}' on runner {runner_id}: {e!s}"
-        print(f"{e!s}")
+        # print(f"{e!s}")
         logger.error(f"[{initiated_by}] {error_message}")
 
         # Record the script execution error

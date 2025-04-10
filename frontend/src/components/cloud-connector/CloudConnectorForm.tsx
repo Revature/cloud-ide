@@ -14,7 +14,6 @@ import Toggle from "../form/input/Toggle";
 import Label from "../form/Label";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
-import { useCloudConnectors } from "../../context/CloudConnectorsContext";
 
 type CloudProvider = 'aws' | 'azure' | 'gcp';
 
@@ -45,7 +44,6 @@ interface CloudConnectorFormProps {
 }
 
 const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCancel }) => {
-  const { addConnector } = useCloudConnectors();
   const [status, setStatus] = React.useState(false);
   const [showAccessKey, setShowAccessKey] = React.useState(false);
   const [showSecretKey, setShowSecretKey] = React.useState(false);
@@ -106,9 +104,6 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
         day: 'numeric'
       })
     };
-    
-    // Add to global context
-    addConnector(connectorData);
     
     // Call the onSubmit prop if provided
     if (onSubmit) {

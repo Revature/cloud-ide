@@ -282,28 +282,10 @@ async def terminate_runner(
         # Check for specific error types in the details
         if "details" in result and isinstance(result["details"], dict):
             # Script execution errors
-            if result["details"].get("step") == "script_execution" and "status" in result["details"] and result["details"]["status"] == "error":
-                error_msg = result["details"].get("message", "Unknown script error")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Script error during termination: {error_msg}"
-                )
-
-            # Instance stop errors
-            elif result["details"].get("step") == "stop_instance" and "status" in result["details"] and result["details"]["status"] == "error":
-                error_msg = result["details"].get("message", "Unknown instance stop error")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Error stopping runner instance: {error_msg}"
-                )
-
-            # Instance termination errors
-            elif result["details"].get("step") == "terminate_instance" and "status" in result["details"] and result["details"]["status"] == "error":
-                error_msg = result["details"].get("message", "Unknown instance termination error")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Error terminating runner instance: {error_msg}"
-                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result["details"].get("message", "Unknown error during runner termination queueing")
+            )
 
         # Default error case
         raise HTTPException(
@@ -316,10 +298,10 @@ async def terminate_runner(
         try:
             # Launch a new runner asynchronously
             asyncio.create_task(launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
-            return {"status": "success", "message": "Runner terminated successfully and replacement launched"}
+            return {"status": "success", "message": "Runner termination queued and replacement launched"}
         except Exception as e:
             # If launching the replacement fails, log it but don't fail the termination
-            print(f"Error launching replacement runner: {e}")
-            return {"status": "partial_success", "message": "Runner terminated successfully but failed to launch replacement"}
+            # print(f"Error launching replacement runner: {e}")
+            return {"status": "partial_success", "message": "Runner termination queued but failed to launch replacement"}
 
-    return {"status": "success", "message": "Runner terminated successfully"}
+    return {"status": "success", "message": "Runner termination queued"}

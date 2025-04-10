@@ -31,9 +31,9 @@ const ViewImage: React.FC = () => {
     isLoading: machineLoading,
     error: machineError
   } = useQuery({
-    queryKey: ['machine', image?.machine_id],
-    queryFn: () => machinesApi.getById(image!.machine_id as number),
-    enabled: !!image?.machine_id,
+    queryKey: ['machine', image?.machineId],
+    queryFn: () => machinesApi.getById(image!.machineId as number),
+    enabled: !!image?.machineId,
     staleTime: 1000 * 60 * 5
   });
 
@@ -43,9 +43,9 @@ const ViewImage: React.FC = () => {
     isLoading: connectorLoading,
     error: connectorError
   } = useQuery({
-    queryKey: ['cloudConnector', image?.cloudConnector_id],
-    queryFn: () => cloudConnectorsApi.getById(image!.cloudConnector_id as number),
-    enabled: !!image?.cloudConnector_id,
+    queryKey: ['cloudConnector', image?.cloudConnectorId],
+    queryFn: () => cloudConnectorsApi.getById(image!.cloudConnectorId as number),
+    enabled: !!image?.cloudConnectorId,
     staleTime: 1000 * 60 * 5
   });
 
@@ -59,13 +59,13 @@ const ViewImage: React.FC = () => {
 
   // Overall loading state
   const isLoading = imageLoading || 
-    (!!image?.machine_id && machineLoading) || 
-    (!!image?.cloudConnector_id && connectorLoading);
+    (!!image?.machineId && machineLoading) || 
+    (!!image?.cloudConnectorId && connectorLoading);
 
   // Overall error state
   const error = imageError || 
-    (!!image?.machine_id && machineError) || 
-    (!!image?.cloudConnector_id && connectorError);
+    (!!image?.machineId && machineError) || 
+    (!!image?.cloudConnectorId && connectorError);
 
   if (isLoading) {
     return (
@@ -227,7 +227,7 @@ const ViewImage: React.FC = () => {
         <div className="mb-8">
           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Configuration</h4>
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            {image.machine_id ? (
+            {image.machineId ? (
               machineLoading ? (
                 <div className="flex justify-center p-8">
                   <div className="animate-pulse">Loading machine data...</div>
@@ -263,19 +263,19 @@ const ViewImage: React.FC = () => {
                         <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-gray-700 dark:text-gray-300">CPU: {machine.cpu_count} {machine.cpu_count === 1 ? 'Core' : 'Cores'}</span>
+                        <span className="text-gray-700 dark:text-gray-300">CPU: {machine.cpuCount} {machine.cpuCount === 1 ? 'Core' : 'Cores'}</span>
                       </div>
                       <div className="flex items-center">
                         <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
-                        <span className="text-gray-700 dark:text-gray-300">Memory: {machine.memory_size} GB</span>
+                        <span className="text-gray-700 dark:text-gray-300">Memory: {machine.memorySize} GB</span>
                       </div>
                       <div className="flex items-center">
                         <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                         </svg>
-                        <span className="text-gray-700 dark:text-gray-300">Storage: {machine.storage_size} GB</span>
+                        <span className="text-gray-700 dark:text-gray-300">Storage: {machine.storageSize} GB</span>
                       </div>
                     </div>
                   </div>
@@ -320,7 +320,7 @@ const ViewImage: React.FC = () => {
         <div>
           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Cloud Provider</h4>
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            {image.cloudConnector_id ? (
+            {image.cloudConnectorId ? (
               connectorLoading ? (
                 <div className="flex justify-center p-8">
                   <div className="animate-pulse">Loading cloud provider data...</div>

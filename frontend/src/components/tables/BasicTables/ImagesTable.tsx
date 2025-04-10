@@ -42,15 +42,16 @@ export default function ImagesTable() {
   // Extract unique IDs for related resources
   const uniqueConnectorIds = useMemo(() => 
     [...new Set(images
-      .map(img => img.cloudConnector_id)
+      .map(img => img.cloudConnectorId)
       .filter((id): id is number => id !== undefined && id !== null)
     )],
     [images]
   );
 
+  // TODO: Check for why this infomration seems to be missing
   const uniqueMachineIds = useMemo(() => 
     [...new Set(images
-      .map(img => img.machine_id)
+      .map(img => img.machineId)
       .filter((id): id is number => id !== undefined && id !== null)
     )],
     [images]
@@ -80,7 +81,7 @@ export default function ImagesTable() {
     connectorQueries
       .filter(q => q.data)
       .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data; 
+        if (q.data && q.data.id) map[q.data.id] = q.data as CloudConnector; 
       });
     return map;
   }, [connectorQueries]);
@@ -90,7 +91,7 @@ export default function ImagesTable() {
     machineQueries
       .filter(q => q.data)
       .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data; 
+        if (q.data && q.data.id) map[q.data.id] = q.data as Machine; 
       });
     return map;
   }, [machineQueries]);
@@ -99,11 +100,11 @@ export default function ImagesTable() {
   const enrichedImages = useMemo(() => 
     images.map(image => ({
       ...image,
-      cloudConnector: image.cloudConnector_id && connectorsMap[image.cloudConnector_id] 
-        ? connectorsMap[image.cloudConnector_id] 
+      cloudConnector: image.cloudConnectorId && connectorsMap[image.cloudConnectorId] 
+        ? connectorsMap[image.cloudConnectorId] 
         : undefined,
-      machine: image.machine_id && machinesMap[image.machine_id] 
-        ? machinesMap[image.machine_id] 
+      machine: image.machineId && machinesMap[image.machineId] 
+        ? machinesMap[image.machineId] 
         : undefined
     })),
     [images, connectorsMap, machinesMap]
@@ -360,9 +361,9 @@ export default function ImagesTable() {
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
                       <div className="flex flex-col">
-                        <span>{item.machine?.cpu_count || 0} CPU{(item.machine?.cpu_count || 0) > 1 ? 's' : ''}</span>
-                        <span>{item.machine?.memory_size || 0} GB RAM</span>
-                        <span>{item.machine?.storage_size || 0} GB Storage</span>
+                        <span>{item.machine?.cpuCount || 0} CPU{(item.machine?.cpuCount || 0) > 1 ? 's' : ''}</span>
+                        <span>{item.machine?.memorySize || 0} GB RAM</span>
+                        <span>{item.machine?.storageSize || 0} GB Storage</span>
                       </div>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
