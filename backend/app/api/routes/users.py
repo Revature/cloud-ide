@@ -41,19 +41,19 @@ def post_user(user_create: UserCreate,
     try:
         user = user_management.create_user(password=password, user=user)
     except workos_exceptions.BadRequestException as e:
-        logger.debug(f'Unable to persist user with workos: {e.message}')
+        logger.exception(f'Unable to persist user with workos.')
         return Response(status_code = status.HTTP_400_BAD_REQUEST,
                         content = '{"response": "Unable to create user."}')
     except EmailInUseException as e:
-        logger.debug(f'Email {user.email} already in use: {e.message}')
+        logger.exception(f'Email {user.email} already in use.')
         return Response(status_code = status.HTTP_400_BAD_REQUEST,
                         content = '"response": "That email is already in use."')
     except NoSuchRoleException as e:
-        logger.debug(f'Unable to assign the default user role to new user.')
+        logger.exception(f'Unable to assign the default user role to new user.')
         return Response(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                         content = '{"response": "Unable to create user with default role."}')
     except Exception as e:
-        logger.debug(f'Exception raised while creating new user: {e.message}')
+        logger.exception(f'Exception raised while creating new user.')
         return Response(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                         content = '{"response": "Unable to create user."}')
 
