@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       console.error(`Backend API error: ${response.status}`);
       throw new Error(`Backend API error: ${response.status}`);

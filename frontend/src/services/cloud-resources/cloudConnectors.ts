@@ -16,7 +16,7 @@ export const cloudConnectorsApi = {
   //     method: 'POST',
   //     body: connector,
   //   }),
-    
+
   // update: (id: number, connector: UpdateCloudConnector) => 
   //   apiRequest<CloudConnector>(`/cloud_connectors/${id}`, {
   //     method: 'PUT',

@@ -1,7 +1,7 @@
 """Runners API routes."""
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket, WebSocketDisconnect, Query, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -12,9 +12,7 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
-from app.business.runner_management import terminate_runner as terminate_runner_function
-from app.business.runner_management import launch_runners
-from app.business.script_management import run_script_for_runner
+from app.business import key_management, runner_management, script_management, terminal_management
 from app.db import runner_repository
 import logging
 import asyncio
@@ -24,7 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
+def read_runners(session: Session = Depends(get_session)):
     """Retrieve a list of all Runners."""
     runners = runner_repository.find_all_runners(session)
     if not runners:
@@ -32,7 +30,7 @@ def read_runners(session: Session = Depends(get_session), access_token: str = He
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
+def read_runner(runner_id: int, session: Session = Depends(get_session)):
     """Retrieve a single Runner by ID."""
     runner = runner_repository.find_runner_by_id(session, runner_id)
     if not runner:
@@ -211,7 +209,7 @@ async def update_runner_state(
         try:
             # For on_awaiting_client, we need env_vars which we don't have here
             # For other events, empty env_vars is fine
-            script_result = await run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
+            script_result = await script_management.run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
             if script_result:
                 logger.info(f"Script executed for runner {runner.id}: {script_result}")
         except Exception as e:
@@ -275,7 +273,7 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
-    result = await terminate_runner_function(runner_id, initiated_by="manual_termination_endpoint")
+    result = await runner_management.terminate_runner(runner_id, initiated_by="manual_termination_endpoint")
 
     # Check for various error conditions with specific messages
     if result["status"] == "error":
@@ -297,7 +295,7 @@ async def terminate_runner(
     if needs_replenishing and image_identifier:
         try:
             # Launch a new runner asynchronously
-            asyncio.create_task(launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
+            asyncio.create_task(runner_management.launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
             return {"status": "success", "message": "Runner termination queued and replacement launched"}
         except Exception as e:
             # If launching the replacement fails, log it but don't fail the termination
@@ -305,3 +303,29 @@ async def terminate_runner(
             return {"status": "partial_success", "message": "Runner termination queued but failed to launch replacement"}
 
     return {"status": "success", "message": "Runner termination queued"}
+
+
+# Store active connections
+active_connections: dict[int, dict] = {}
+
+@router.websocket("/connect/{runner_id}")
+async def websocket_terminal(
+    websocket: WebSocket,
+    runner_id: int,
+    session: Session = Depends(get_session),
+):
+    await websocket.accept()
+    
+    try:
+        # Get runner and validate it's available
+        runner = runner_repository.find_runner_by_id(session, runner_id)
+        if not runner or runner.status not in ["ready", "active", "awaiting_client"]:
+            await websocket.close(code=1008, reason="Runner not available")
+            return
+            
+        # Connect terminal (delegated to service)
+        await terminal_management.connect_terminal(websocket, runner)
+
+    except Exception as e:
+        logger.error(f"Terminal connection error: {str(e)}")
+        await websocket.close(code=1011, reason=f"Unexpected error: {str(e)}")
