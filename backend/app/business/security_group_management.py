@@ -1,6 +1,7 @@
 """Business logic for managing security groups for runners."""
 
 import logging
+import os
 import uuid
 from sqlmodel import Session
 from app.db.database import engine
@@ -58,18 +59,17 @@ async def create_security_group(
             # Prepare inbound rules
             inbound_rules = {}
 
+            # remove :8000 from backend_ip
+            backend_ip = os.environ.get("BACKEND_URL")
+            if backend_ip and ":8000" in backend_ip:
+                backend_ip = backend_ip.split(":")[0]
+
             # Always open SSH port (22) by default unless specified otherwise
             if open_ssh:
                 ssh_result = await cloud_service.authorize_security_group_ingress(
                     cloud_group_id,
-                    "0.0.0.0/0",  # Broad SSH access
+                    f"{backend_ip}/32",
                     22  # SSH port
-                )
-
-                # Log a warning about broad SSH access
-                logger.warning(
-                    f"SSH access (0.0.0.0/0) enabled for security group {group_name}. "
-                    "This is a potential security risk!"
                 )
 
                 # Store SSH rule in inbound rules
@@ -78,6 +78,19 @@ async def create_security_group(
                     "cidr": "0.0.0.0/0",
                     "result": ssh_result
                 }
+
+            # Add port 3000 access for the backend
+            backend_result = await cloud_service.authorize_security_group_ingress(
+                cloud_group_id,
+                f"{backend_ip}/32",
+                3000  # Backend port
+            )
+            # Store backend rule in inbound rules
+            inbound_rules["port_3000"] = {
+                "port": 3000,
+                "cidr": f"{backend_ip}/32",
+                "result": backend_result
+            }
 
             # Store the security group in the database
             new_security_group = SecurityGroup(
@@ -137,7 +150,7 @@ async def associate_security_group_with_runner(runner_id: int, cloud_group_id: s
         return False
 
 # TODO better way to know what ports are needed for the runner
-async def authorize_user_access(runner_id: int, user_ip: str, user_email: str, cloud_service, port: int = 3000) -> bool:
+async def authorize_user_access(runner_id: int, user_ip: str, user_email: str, cloud_service, port: int = 4200) -> bool:
     """
     Add ingress rule to allow user's IP access to a specific port on the runner.
 
@@ -145,7 +158,7 @@ async def authorize_user_access(runner_id: int, user_ip: str, user_email: str, c
         runner_id: ID of the runner
         user_ip: IP address of the user who will connect to the runner
         cloud_service: The cloud service implementation to use
-        port: Port to open access to (default is 3000)
+        port: Port to open access to (default is 4200)
 
     Returns:
         True if successful, False otherwise
