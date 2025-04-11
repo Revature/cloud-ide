@@ -66,6 +66,7 @@ services:
     container_name: nginx
     ports:
       - "${PORT}:80"
+      - "2222:2222"
     env_file:
       - .env
     volumes:
