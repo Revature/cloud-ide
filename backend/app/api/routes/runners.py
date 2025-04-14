@@ -315,11 +315,11 @@ async def websocket_terminal(
     session: Session = Depends(get_session),
 ):
     await websocket.accept()
-    
+
     try:
         # Get runner and validate it's available
         runner = runner_repository.find_runner_by_id(session, runner_id)
-        if not runner or runner.status not in ["ready", "active", "awaiting_client"]:
+        if not runner or runner.state not in ["ready", "active", "awaiting_client"]:
             await websocket.close(code=1008, reason="Runner not available")
             return
 

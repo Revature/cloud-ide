@@ -8,7 +8,7 @@ cleanup_node_exporter() {
     if [ "$RUNNER_IP" = "unknown" ]; then
         echo "Warning: Failed to determine runner IP address"
     else
-        MONITOR_VM="54.188.253.144"
+        MONITOR_VM="34.223.156.189"
         echo "Removing metrics for runner $RUNNER_IP from monitor $MONITOR_VM"
         if ! curl -s -f -X DELETE http://$MONITOR_VM:9091/metrics/job/$RUNNER_IP; then
             echo "Warning: Failed to remove metrics from monitoring server"

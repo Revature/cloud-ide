@@ -68,7 +68,13 @@ async def create_security_group(
             if open_ssh:
                 ssh_result = await cloud_service.authorize_security_group_ingress(
                     cloud_group_id,
-                    f"{backend_ip}/32",
+                    "4.37.23.165/32",
+                    22  # SSH port
+                )
+                
+                ssh_result = await cloud_service.authorize_security_group_ingress(
+                    cloud_group_id,
+                    "209.249.178.117/32",
                     22  # SSH port
                 )
 

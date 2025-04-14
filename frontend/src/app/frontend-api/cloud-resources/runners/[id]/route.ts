@@ -4,10 +4,11 @@ import { BackendRunner } from '@/types/api';
 
 export async function GET(
   request: NextRequest,
-  { params } : { params: { id: string } }
+  { params } : { params: Promise<{ id: string }> }
 ) {
+  const awaitedParams = await params;
   try {
-    const id = params.id;
+    const id = awaitedParams.id;
     
     // Backend API URL
     const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
@@ -28,99 +29,72 @@ export async function GET(
       throw new Error(`Backend API error: ${response.status}`);
     }
 
-    // Get the raw response text first to debug
-    const responseText = await response.text();
-    console.log('Raw backend response:', responseText);
+    // Parse the JSON response
+    const runnerData = await response.json() as BackendRunner;
     
-    // Parse the response text
-    let runnerData;
-    try {
-      // Try to parse the response as JSON
-      const parsedResponse = JSON.parse(responseText);
-      
-      // Check if the response has a data property (APIResponse format)
-      if (parsedResponse.data) {
-        runnerData = parsedResponse.data;
-      } else {
-        // If it's a direct object, use it directly
-        runnerData = parsedResponse;
-      }
-      
-      console.log('Processed runner data:', runnerData);
-      
-      // Validate that we have the expected fields
-      if (!runnerData || !runnerData.id) {
-        console.error('Invalid runner data:', runnerData);
-        throw new Error('Invalid runner data returned from backend');
-      }
-    } catch (parseError) {
-      console.error('Error parsing JSON response:', parseError);
-      throw new Error('Failed to parse backend response');
+    // Validate that we have the expected fields
+    if (!runnerData || !runnerData.id) {
+      console.error('Invalid runner data:', runnerData);
+      throw new Error('Invalid runner data returned from backend');
     }
-
-    // Get the backend data with proper typing
-    const backendData = await response.json() as BackendRunner[];
-    console.log('Backend response:', backendData);
     
-    // Transform the backend data using proper types
-        const transformedData: Runner[] = backendData.map((item: BackendRunner) => ({
-          id: item.id,
-            userId: item.user_id, // Optional because runners in the pool don't have a user yet
-            imageId: item.image_id,
-            machineId: item.machine_id,
-            keyId: item.key_id,
-            state: item.state,
-            identifier: item.identifier,
-            externalHash: item.external_hash,
-            url: item.url, // Will be populated when the runner is ready
-            userIP: item.user_ip,
-            envData: item.env_data,
-            sessionStart: new Date(item.session_start).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                second: 'numeric',
-              }), // When user requests runner
-            sessionEnd: new Date(item.session_end).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                second: 'numeric',
-              }), // When runner expires
-            endedOn: new Date(item.ended_on).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                second: 'numeric',
-              }),
-            createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              }),
-            updatedOn: new Date(item.updated_on).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              }),
-            modifiedBy: item.modified_by,
-        }));
-    
-    console.log('Transformed data for frontend:', transformedData);
+    // Transform the backend data to our frontend model
+    const transformedData: Runner = {
+        id: runnerData.id,
+        userId: runnerData.user_id,
+        imageId: runnerData.image_id,
+        machineId: runnerData.machine_id,
+        keyId: runnerData.key_id,
+        state: runnerData.state,
+        identifier: runnerData.identifier,
+        externalHash: runnerData.external_hash,
+        url: runnerData.url,
+        userIP: runnerData.user_ip,
+        envData: runnerData.env_data,
+        sessionStart: new Date(runnerData.session_start).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+          }), // When user requests runner
+        sessionEnd: new Date(runnerData.session_end).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+          }), // When runner expires
+        endedOn: new Date(runnerData.ended_on).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+          }),
+        createdOn: new Date(runnerData.created_on).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          }),
+        updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          }),
+        modifiedBy: runnerData.modified_by,
+    };
     
     // Return the transformed data
     return NextResponse.json(transformedData);
   } catch (error) {
-    console.error(`Error fetching runner with ID ${params.id}:`, error);
+    console.error(`Error fetching runner with ID ${awaitedParams.id}:`, error);
     
     return NextResponse.json(
-      { error: `Failed to fetch runner with ID ${params.id}` },
+      { error: `Failed to fetch runner with ID ${awaitedParams.id}` },
       { status: 500 }
     );
   }
