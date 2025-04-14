@@ -24,8 +24,9 @@ import Select from "@/components/form/Select";
 import InteractiveTerminal from '@/components/terminal/InteractiveTerminal';
 import FallbackTerminal from '@/components/terminal/FallbackTerminal';
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { CloudConnector, Machine, machineTypes } from "@/types";
+import { CloudConnector, Machine, machineTypes, VMImage } from "@/types";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -68,6 +69,11 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
     queryKey: ['cloudConnectors'],
   })
 
+  // Obtain connectors from CloudConnectorsTable ReactQuery
+  const { data:images = [] } = useQuery<VMImage[]>({
+    queryKey: ['images'],
+  })
+
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({
     value: machine.identifier,
@@ -89,15 +95,60 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
         label: `${connector.provider} (${connector.region})`
       }
     });
+    
+    // State for form data with default values
+    const [selectedMachine, setSelectedMachine] = useState(machineTypes[1].identifier); // Default to Medium
+    const [selectedConnector, setSelectedConnector] = useState(
+      connectors.length > 0 && connectors[0].active ? connectors[0].name : ""
+    );
+    const [selectedImage, setSelectedImage] = useState(images.length > 0 ? images[0].identifier : "");
+    const [description, setDescription] = useState("");
+    const [name, setName] = useState("");
 
-  // State for form data with default values
-  const [selectedMachine, setSelectedMachine] = useState(machineTypes[1].identifier); // Default to Medium
-  const [selectedConnector, setSelectedConnector] = useState(
-    connectors.length > 0 && connectors[0].active ? connectors[0].name : ""
-  );
-  const [description, setDescription] = useState("");
-  const [name, setName] = useState("");
+  // Handle machine selection change
+  const handleMachineChange = (value: string) => {
+    setSelectedMachine(value);
+  };
 
+  // Handle cloud connector selection change
+  const handleConnectorChange = (value: string) => {
+    setSelectedConnector(value);
+  };
+
+  const handleImageChange = (value: string) => {
+    setSelectedImage(value);
+  }
+
+  // Get the selected machine object
+  const getSelectedMachineObject = (): Machine => {
+    return machineTypes.find(m => m.identifier === selectedMachine) || machineTypes[1];
+  };
+
+  // Get the selected cloud connector object
+  const getSelectedConnectorObject = (): CloudConnector | undefined => {
+    return connectors.find((c => c.name === selectedConnector));
+  };
+
+  // Get the selected image object
+  const getSelectedImageObject = (): VMImage | undefined => {
+    return images.find((c => c.identifier === selectedImage));
+  };
+    
+  // Create options for cloud connectors dropdown
+  const imageOptions = images
+    .map(image => { 
+      if(image.name)  
+      return {
+          value: image.identifier,
+          label: `${image.name}`
+      }
+      else 
+      return {
+        value: '',
+        label: `Create Available Base Image`
+      }
+    });
+    
   // Dynamically load the InteractiveTerminal component
   useEffect(() => {
     const loadTerminalComponent = async () => {
@@ -115,26 +166,6 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
 
     loadTerminalComponent();
   }, []);
-
-  // Handle machine selection change
-  const handleMachineChange = (value: string) => {
-    setSelectedMachine(value);
-  };
-
-  // Handle cloud connector selection change
-  const handleConnectorChange = (value: string) => {
-    setSelectedConnector(value);
-  };
-
-  // Get the selected machine object
-  const getSelectedMachineObject = (): Machine => {
-    return machineTypes.find(m => m.identifier === selectedMachine) || machineTypes[1];
-  };
-
-  // Get the selected cloud connector object
-  const getSelectedConnectorObject = (): CloudConnector | undefined => {
-    return connectors.find((c => c.name === selectedConnector));
-  };
 
   // Handle terminal commands when in interactive mode
   const handleTerminalCommand = (command: string) => {
@@ -154,6 +185,7 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
   const simulateTerminalCommands = async () => {
     const selectedConnector = getSelectedConnectorObject();
     const machine = getSelectedMachineObject();
+    const image = getSelectedImageObject();
     
     // Clear previous logs
     setTerminalLogs([]);
@@ -167,7 +199,9 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
     await new Promise(resolve => setTimeout(resolve, 1000));
     setTerminalLogs(prev => [...prev, `$ cd ~/image-builder`]);
     await new Promise(resolve => setTimeout(resolve, 400));
-    
+    setTerminalLogs(prev => [...prev, `$ echo ${image?.name}`]);
+    await new Promise(resolve => setTimeout(resolve, 400));
+
     // Start the image creation process
     setTerminalLogs(prev => [...prev, `$ ./create-image.sh --name="${name}" --provider="${selectedConnector?.name || 'unknown'}" --region="${selectedConnector?.region || 'unknown'}" --type="${selectedConnector?.type || 'unknown'}"`]);
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -351,9 +385,9 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
                 <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
                   <p className="text-gray-500 dark:text-gray-400 text-sm">
                     No active cloud connectors available. 
-                    <a href="/cloud-connectors" className="text-brand-500 ml-1 hover:underline">
+                    <Link href="/cloud-connectors" className="text-brand-500 ml-1 hover:underline">
                       Add a connector
-                    </a>
+                    </Link>
                   </p>
                 </div>
               )}
@@ -367,6 +401,27 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
                 defaultValue={selectedMachine}
                 onChange={handleMachineChange}
               />
+            </div>
+
+            {/* Image */}
+            <div className="col-span-full md:col-span-1">
+              <Label htmlFor="image">Base Image</Label>
+              {images.length > 0 ? (
+                <Select
+                  options={imageOptions}
+                  defaultValue={selectedImage}
+                  onChange={handleImageChange}
+                />
+              ) : (
+                <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    No active images available. 
+                    <Link href="/images" className="text-brand-500 ml-1 hover:underline">
+                      Add an image
+                    </Link>
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Active/Inactive Toggle */}
