@@ -1,9 +1,15 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Button from "@/components/ui/button/Button";
 import { Runner, RunnerState } from '@/types/runner';
 import { useQuery } from '@tanstack/react-query';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+
+// Import styles for xterm - make sure to add these to your project
+// import '@xterm/xterm/css/xterm.css';
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -41,40 +47,246 @@ const getStateLabel = (state: RunnerState) => {
 const RunnerView: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const runnerIndex = parseInt(params.id as string, 10);
+  const runnerId = params.id as string;
   
-    // Obtain images from RunnersTable ReactQuery
-    const { data:runners = [] } = useQuery<Runner[]>({
-      queryKey: ['runners'],
-    })
+  // Get runner data from API
+  const { data: runner, isLoading, error } = useQuery<Runner>({
+    queryKey: ['runner', runnerId],
+    queryFn: async () => {
+      const response = await fetch(`/frontend-api/cloud-resources/runners/${runnerId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch runner data');
+      }
+      return response.json();
+    },
+  });
 
-  const [runner, setRunner] = useState<Runner | null>(null);
-  const [loading, setLoading] = useState(true);
   const [confirmTerminate, setConfirmTerminate] = useState(false);
+  const [terminalVisible, setTerminalVisible] = useState(false);
+  const [terminalConnected, setTerminalConnected] = useState(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const terminalInstance = useRef<Terminal | null>(null);
+  const websocketRef = useRef<WebSocket | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
 
-  useEffect(() => {
-    if (!isNaN(runnerIndex) && runners[runnerIndex]) {
-      setRunner(runners[runnerIndex]);
-      setLoading(false);
-    } else {
-      // Handle invalid index
-      router.push('/runners');
+  const initializeTerminal = () => {
+    if (!terminalRef.current || terminalInstance.current) return;
+
+    // Create terminal instance
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 14,
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      theme: {
+        background: '#1e1e1e',
+        foreground: '#f0f0f0',
+        cursor: '#ffffff',
+      },
+      allowTransparency: true,
+      scrollback: 1000,
+    });
+
+    // Initialize fit addon
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.loadAddon(new WebLinksAddon());
+
+    // Open terminal in the container
+    term.open(terminalRef.current);
+    
+    // Store references
+    terminalInstance.current = term;
+    fitAddonRef.current = fitAddon;
+    
+    // Initial terminal message
+    term.writeln('\r\n\x1b[1;34m*** Cloud IDE Terminal ***\x1b[0m');
+    term.writeln('Connecting to runner...\r\n');
+    
+    // Fit terminal to container
+    setTimeout(() => {
+      fitAddon.fit();
+      
+      // Set up resize handler
+      const resizeObserver = new ResizeObserver(() => {
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit();
+        }
+      });
+      
+      if (terminalRef.current) {
+        resizeObserver.observe(terminalRef.current);
+      }
+      
+      window.addEventListener('resize', () => {
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit();
+        }
+      });
+    }, 100);
+  };
+
+  const connectToTerminal = () => {
+    if (!runner) return;
+    
+    setTerminalVisible(true);
+    
+    // Initialize terminal if not already done
+    if (!terminalInstance.current) {
+      initializeTerminal();
     }
-  }, [runnerIndex, runners, router]);
+    
+    // Connect to WebSocket
+    const terminal = terminalInstance.current;
+    if (!terminal) return;
+    
+    // Determine WebSocket URL
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/api/v1/runners/connect/${runner.id}`;
+
+    // Close existing connection if any
+    if (websocketRef.current) {
+      websocketRef.current.close();
+    }
+    
+    // Create new WebSocket connection
+    const socket = new WebSocket(wsUrl);
+    websocketRef.current = socket;
+    
+    socket.onopen = () => {
+      terminal.writeln('\r\n\x1b[32mConnected to runner.\x1b[0m\r\n');
+      setTerminalConnected(true);
+      
+      // Send terminal size on connection
+      if (terminal.cols && terminal.rows) {
+        const resizeMessage = JSON.stringify({
+          type: 'resize',
+          cols: terminal.cols,
+          rows: terminal.rows
+        });
+        socket.send(resizeMessage);
+      }
+    };
+    
+    socket.onmessage = (event) => {
+      // Handle different message types from server
+      try {
+        // Check if it's a binary message (most terminal data)
+        if (event.data instanceof Blob) {
+          event.data.text().then((text: string) => {
+            terminal.write(text);
+          });
+        } else {
+          // Handle JSON control messages
+          const data = JSON.parse(event.data);
+          if (data.type === 'error') {
+            terminal.writeln(`\r\n\x1b[31mError: ${data.message}\x1b[0m\r\n`);
+          }
+        }
+      } catch (e) {
+        // If it's not JSON, treat as raw terminal data
+        terminal.write(event.data);
+      }
+    };
+    
+    socket.onclose = (event) => {
+      terminal.writeln(`\r\n\x1b[33mConnection closed: ${event.reason || 'Unknown reason'}\x1b[0m\r\n`);
+      setTerminalConnected(false);
+    };
+    
+    socket.onerror = (error) => {
+      terminal.writeln(`\r\n\x1b[31mWebSocket error\x1b[0m\r\n`);
+      console.error('WebSocket error:', error);
+    };
+    
+    // Send user input to server
+    terminal.onData((data) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(data);
+      }
+    });
+    
+    // Send terminal resize events
+    terminal.onResize(({ cols, rows }) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        const resizeMessage = JSON.stringify({
+          type: 'resize',
+          cols,
+          rows
+        });
+        socket.send(resizeMessage);
+      }
+    });
+  };
+
+  const disconnectTerminal = () => {
+    if (websocketRef.current) {
+      websocketRef.current.close();
+      websocketRef.current = null;
+    }
+    
+    if (terminalInstance.current) {
+      terminalInstance.current.writeln('\r\n\x1b[33mDisconnected from runner.\x1b[0m\r\n');
+    }
+    
+    setTerminalConnected(false);
+  };
+
+  const toggleTerminal = () => {
+    if (terminalVisible) {
+      setTerminalVisible(false);
+      disconnectTerminal();
+    } else {
+      connectToTerminal();
+    }
+  };
+
+  // Clean up terminal and websocket on unmount
+  useEffect(() => {
+    return () => {
+      if (websocketRef.current) {
+        websocketRef.current.close();
+      }
+      
+      if (terminalInstance.current) {
+        terminalInstance.current.dispose();
+      }
+    };
+  }, []);
 
   const goBack = () => {
     router.push('/runners');
   };
 
-  const handleConnect = () => {
-    // In a real app, this would redirect to the runner URL or open a connection
-    alert(`Connecting to runner: ${runner?.url}`);
-  };
-
-  const handleTerminate = () => {
-    if (confirmTerminate && runner) {
-      // TODO: IMPLEMENT TERMINATE RUNNER
-      setConfirmTerminate(false);
+  const handleTerminate = async () => {
+    if (!runner) return;
+    
+    if (confirmTerminate) {
+      try {
+        // Disconnect terminal first
+        disconnectTerminal();
+        
+        // Call terminate API
+        const response = await fetch(`/frontend-api/cloud-resources/runners/${runner.id}/terminate`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to terminate runner');
+        }
+        
+        // Success - wait a moment then redirect to runner list
+        setTimeout(() => {
+          router.push('/runners');
+        }, 1500);
+      } catch (error) {
+        console.error('Error terminating runner:', error);
+      } finally {
+        setConfirmTerminate(false);
+      }
     } else {
       setConfirmTerminate(true);
     }
@@ -83,10 +295,27 @@ const RunnerView: React.FC = () => {
   const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client';
   const canTerminate = runner?.state !== 'terminated';
 
-  if (loading || !runner) {
+  if (isLoading) {
     return (
       <div className="flex justify-center">
         <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error || !runner) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/20 dark:border-red-800/20 dark:text-red-400">
+        <h3 className="text-lg font-semibold mb-2">Error Loading Runner</h3>
+        <p>Unable to load runner details. Please try again later.</p>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={goBack}
+          className="mt-4"
+        >
+          Return to Runners
+        </Button>
       </div>
     );
   }
@@ -124,25 +353,51 @@ const RunnerView: React.FC = () => {
             <Button 
               size="sm" 
               variant="secondary"
-              onClick={handleConnect}
-              className="text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+              onClick={toggleTerminal}
+              className={terminalVisible 
+                ? "text-yellow-600 bg-yellow-50 hover:bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/30"
+                : "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+              }
             >
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-                className="stroke-current mr-2"
-              >
-                <path 
-                  d="M5 12H19M19 12L12 5M19 12L12 19" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Connect
+              {terminalVisible ? (
+                <>
+                  <svg 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="stroke-current mr-2"
+                  >
+                    <path 
+                      d="M18 6L6 18M6 6L18 18" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Disconnect
+                </>
+              ) : (
+                <>
+                  <svg 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="stroke-current mr-2"
+                  >
+                    <path 
+                      d="M5 12H19M19 12L12 5M19 12L12 19" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Connect
+                </>
+              )}
             </Button>
           )}
           {canTerminate && (
@@ -171,6 +426,27 @@ const RunnerView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Terminal Section - Visible when connected */}
+      {terminalVisible && (
+        <div className="mb-6 bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+              Terminal Connection
+            </h3>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+              terminalConnected 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+            }`}>
+              {terminalConnected ? 'Connected' : 'Connecting...'}
+            </span>
+          </div>
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div ref={terminalRef} className="h-96 w-full" />
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
         <div className="flex justify-between items-start mb-6">
@@ -231,52 +507,68 @@ const RunnerView: React.FC = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Image Information</h4>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Image Name</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Image ID</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.identifier}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.machine ? runner.image!.machine.name : "No Name"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.machine ? runner.image!.machine.identifier : "No AMI ID"}</span>
-                </div>
+                {runner.image ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Image Name</span>
+                      <span className="text-gray-800 dark:text-white">{runner.image.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Image ID</span>
+                      <span className="text-gray-800 dark:text-white">{runner.image.identifier}</span>
+                    </div>
+                    {runner.image.machine && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
+                          <span className="text-gray-800 dark:text-white">{runner.image.machine.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
+                          <span className="text-gray-800 dark:text-white">{runner.image.machine.identifier}</span>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-gray-600 dark:text-gray-300">Image information not available</div>
+                )}
               </div>
             </div>
 
             <div>
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Hardware Configuration</h4>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">CPU</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {runner.image!.machine ? runner.image!.machine.cpuCount : 0} {runner.image!.machine ? runner.image!.machine.cpuCount === 1 ? 'Core' : 'Cores' : 'Core'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Memory</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {runner.image!.machine ? runner.image!.machine.memorySize : 0} GB
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Storage</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {runner.image!.machine ? runner.image!.machine.storageSize : 0} GB
-                    </span>
-                  </div>
-                </div>
+                {runner.image && runner.image.machine ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">CPU</span>
+                      <div className="flex items-center">
+                        <span className="text-gray-800 dark:text-white">
+                          {runner.image.machine.cpuCount} {runner.image.machine.cpuCount === 1 ? 'Core' : 'Cores'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Memory</span>
+                      <div className="flex items-center">
+                        <span className="text-gray-800 dark:text-white">
+                          {runner.image.machine.memorySize} GB
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Storage</span>
+                      <div className="flex items-center">
+                        <span className="text-gray-800 dark:text-white">
+                          {runner.image.machine.storageSize} GB
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-gray-600 dark:text-gray-300">Hardware information not available</div>
+                )}
               </div>
             </div>
           </div>

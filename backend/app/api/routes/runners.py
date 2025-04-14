@@ -322,7 +322,7 @@ async def websocket_terminal(
         if not runner or runner.status not in ["ready", "active", "awaiting_client"]:
             await websocket.close(code=1008, reason="Runner not available")
             return
-            
+
         # Connect terminal (delegated to service)
         await terminal_management.connect_terminal(websocket, runner)
 
