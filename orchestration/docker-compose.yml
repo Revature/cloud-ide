@@ -27,7 +27,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
+        loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
         loki-external-labels: "job=web,container=web,agent=${LOG_HOST}"
 
   celery-worker:
@@ -50,7 +50,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
+        loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
         loki-external-labels: "job=celery-worker,container=celery-worker,agent=${LOG_HOST}"
 
   celery-beat:
@@ -73,7 +73,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
+        loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
         loki-external-labels: "job=celery-beat,container=celery-beat,agent=${LOG_HOST}"
       
   frontend:
@@ -91,7 +91,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
+        loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
         loki-external-labels: "job=frontend,container=frontend,agent=${LOG_HOST}"
 
   redis:
@@ -107,7 +107,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
+        loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
         loki-external-labels: "job=redis,container=redis,agent=${LOG_HOST}"
 
   nginx:
@@ -132,5 +132,5 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-        loki-url: "http://54.188.253.144:3100/loki/api/v1/push"
+        loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
         loki-external-labels: "job=nginx,container=nginx,agent=${LOG_HOST}"
