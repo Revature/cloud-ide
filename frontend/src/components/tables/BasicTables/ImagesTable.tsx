@@ -10,17 +10,12 @@ import {
 import Button from "../../ui/button/Button";
 import { useRouter } from "next/navigation";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { VMImage } from '@/types/images';
-import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
-import { imagesApi } from '@/services/cloud-resources/images';
-import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
-import { machinesApi } from '@/services/cloud-resources/machines';
-import { CloudConnector } from '@/types/cloudConnectors';
-import { Machine } from '@/types/machines';
+import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
+import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
 
 export default function ImagesTable() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   
   // State for current page and items per page
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -34,92 +29,50 @@ export default function ImagesTable() {
     data: images = [], 
     isLoading: imagesLoading, 
     error: imagesError 
-  } = useQuery<VMImage[]>({
-    queryKey: ['images'],
-    queryFn: imagesApi.getAll,
-  });
+  } = useImageQuery()
 
-  // Extract unique IDs for related resources
-  const uniqueConnectorIds = useMemo(() => 
-    [...new Set(images
-      .map(img => img.cloudConnectorId)
-      .filter((id): id is number => id !== undefined && id !== null)
-    )],
-    [images]
-  );
+  const {
+    machinesById, 
+    isLoading: machineLoading, 
+    isError: machineError, 
+  } = useMachineForItems(images)
 
-  // TODO: Check for why this infomration seems to be missing
-  const uniqueMachineIds = useMemo(() => 
-    [...new Set(images
-      .map(img => img.machineId)
-      .filter((id): id is number => id !== undefined && id !== null)
-    )],
-    [images]
-  );
-
-  // Fetch all cloud connectors in parallel
-  const connectorQueries = useQueries({
-    queries: uniqueConnectorIds.map(id => ({
-      queryKey: ['cloudConnector', id],
-      queryFn: () => cloudConnectorsApi.getById(id),
-      enabled: id !== undefined && id !== null
-    }))
-  });
-
-  // Fetch all machines in parallel
-  const machineQueries = useQueries({
-    queries: uniqueMachineIds.map(id => ({
-      queryKey: ['machine', id],
-      queryFn: () => machinesApi.getById(id),
-      enabled: id !== undefined && id !== null
-    }))
-  });
-  
-  // Create lookup maps for faster access
-  const connectorsMap = useMemo(() => {
-    const map: Record<number, CloudConnector> = {};
-    connectorQueries
-      .filter(q => q.data)
-      .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data as CloudConnector; 
-      });
-    return map;
-  }, [connectorQueries]);
-
-  const machinesMap = useMemo(() => {
-    const map: Record<number, Machine> = {};
-    machineQueries
-      .filter(q => q.data)
-      .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data as Machine; 
-      });
-    return map;
-  }, [machineQueries]);
+  const {
+    connectorsById, 
+    isLoading: connectorLoading, 
+    isError: connectorError, 
+  } = useConnectorForItems(images)
 
   // Join the data
   const enrichedImages = useMemo(() => 
-    images.map(image => ({
+    images.map(image => {
+      
+      const matchingMachine = image.machineId ? machinesById[image.machineId] : null;
+      const matchingConnector = image.cloudConnectorId ? connectorsById[image.cloudConnectorId] : null;
+    
+      return {
       ...image,
-      cloudConnector: image.cloudConnectorId && connectorsMap[image.cloudConnectorId] 
-        ? connectorsMap[image.cloudConnectorId] 
-        : undefined,
-      machine: image.machineId && machinesMap[image.machineId] 
-        ? machinesMap[image.machineId] 
-        : undefined
-    })),
-    [images, connectorsMap, machinesMap]
+      cloudConnector: matchingConnector || null,
+      machine: matchingMachine || null
+    }
+    
+  }),
+    [images, machinesById, connectorsById]
   );
   
-  // Loading state for all data
+  console.log(enrichedImages)
+  
+  
+  // Loading state for any query
   const isLoading = imagesLoading || 
-    connectorQueries.some(q => q.isLoading) || 
-    machineQueries.some(q => q.isLoading);
+    machineLoading || 
+    connectorLoading;
   
   // Error state for any query
   const error = imagesError || 
-    connectorQueries.some(q => q.error) || 
-    machineQueries.some(q => q.error);
-  
+    connectorError || 
+    machineError;
+
   // Use useMemo to filter images based on search term
   const filteredImages = useMemo(() => {
     if (searchTerm.trim() === "") {
@@ -201,13 +154,13 @@ export default function ImagesTable() {
           size="sm"
           className="mt-4"
           onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ['images'] });
-            uniqueConnectorIds.forEach(id => {
-              queryClient.invalidateQueries({ queryKey: ['cloudConnector', id] });
-            });
-            uniqueMachineIds.forEach(id => {
-              queryClient.invalidateQueries({ queryKey: ['machine', id] });
-            });
+            // queryClient.invalidateQueries({ queryKey: ['images'] });
+            // uniqueConnectorIds.forEach(id => {
+            //   queryClient.invalidateQueries({ queryKey: ['cloudConnector', id] });
+            // });
+            // uniqueMachineIds.forEach(id => {
+            //   queryClient.invalidateQueries({ queryKey: ['machine', id] });
+            // });
           }}
         >
           Try Again
