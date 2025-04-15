@@ -12,7 +12,8 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
-from app.business import key_management, runner_management, script_management, terminal_management
+from app.business import key_management, runner_management, script_management
+from app.util import terminal_management
 from app.db import runner_repository
 import logging
 import asyncio
@@ -304,7 +305,6 @@ async def terminate_runner(
 
     return {"status": "success", "message": "Runner termination queued"}
 
-
 # Store active connections
 active_connections: dict[int, dict] = {}
 
@@ -319,9 +319,12 @@ async def websocket_terminal(
     try:
         # Get runner and validate it's available
         runner = runner_repository.find_runner_by_id(session, runner_id)
-        if not runner or runner.state not in ["ready", "active", "awaiting_client"]:
+        if not runner or runner.state not in ["ready_claimed", "ready", "active", "awaiting_client"]:
             await websocket.close(code=1008, reason="Runner not available")
             return
+
+        runner.state = "active"
+        runner_repository.update_runner(session, runner)
 
         # Connect terminal (delegated to service)
         await terminal_management.connect_terminal(websocket, runner)

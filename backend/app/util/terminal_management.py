@@ -4,14 +4,14 @@ from fastapi import WebSocket, WebSocketDisconnect
 import asyncio
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
 from app.business import ssh_management, key_management
 
 logger = logging.getLogger(__name__)
 
 # Store active connections
-active_connections: Dict[int, Dict[str, Any]] = {}
+active_connections: dict[int, dict[str, Any]] = {}
 
 async def connect_terminal(websocket: WebSocket, runner):
     """Establish SSH connection to runner and set up WebSocket relay"""
