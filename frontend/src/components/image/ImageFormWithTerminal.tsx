@@ -25,8 +25,9 @@ import InteractiveTerminal from '@/components/terminal/InteractiveTerminal';
 import FallbackTerminal from '@/components/terminal/FallbackTerminal';
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { CloudConnector, Machine, machineTypes, VMImage } from "@/types";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -65,14 +66,10 @@ const ImageFormWithTerminal: React.FC<ImageFormWithTerminalProps> = ({ onSubmit,
   const [customizationsApplied, setCustomizationsApplied] = useState(false);
 
   // Obtain connectors from CloudConnectorsTable ReactQuery
-  const { data:connectors = [] } = useQuery<CloudConnector[]>({
-    queryKey: ['cloudConnectors'],
-  })
+  const { data:connectors = [] } = useCloudConnectorQuery()
 
   // Obtain connectors from CloudConnectorsTable ReactQuery
-  const { data:images = [] } = useQuery<VMImage[]>({
-    queryKey: ['images'],
-  })
+  const { data:images = [] } = useImageQuery()
 
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({
