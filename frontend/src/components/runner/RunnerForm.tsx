@@ -6,8 +6,8 @@ import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import { VMImage } from "@/types";
-import { useQuery } from "@tanstack/react-query";
 import { NewRunner } from "@/types/runner";
+import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 
 // Define the shape of the form data
 export interface RunnerFormData {
@@ -24,9 +24,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
   const router = useRouter();
 
   // Obtain images from ImagesTable ReactQuery
-  const { data:images = [] } = useQuery<VMImage[]>({
-    queryKey: ['images'],
-  })
+  const { data:images = [] } = useImageQuery()
 
   // Default duration options in minutes
   const durationOptions = [

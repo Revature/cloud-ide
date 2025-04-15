@@ -60,8 +60,6 @@ export default function ImagesTable() {
     [images, machinesById, connectorsById]
   );
   
-  console.log(enrichedImages)
-  
   
   // Loading state for any query
   const isLoading = imagesLoading || 

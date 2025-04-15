@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -11,7 +10,6 @@ import {
 import Button from "../../ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { useRouter } from "next/navigation";
-import { cloudConnectorsApi } from "@/services/cloud-resources/cloudConnectors";
 import { CloudConnector } from "@/types";
 import { 
   ChevronLeftIcon, 
@@ -19,6 +17,7 @@ import {
   PencilIcon, 
   SearchIcon // You might need to add this to your icons
 } from "@/icons";
+import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
 
 export default function CloudConnectorsTable() {
   // React Query for data fetching
@@ -26,10 +25,7 @@ export default function CloudConnectorsTable() {
     data: connectorsData = [], 
     isLoading, 
     error 
-  } = useQuery({
-    queryKey: ['cloudConnectors'],
-    queryFn: cloudConnectorsApi.getAll,
-  });
+  } = useCloudConnectorQuery()
   
   // Router for navigation
   const router = useRouter();

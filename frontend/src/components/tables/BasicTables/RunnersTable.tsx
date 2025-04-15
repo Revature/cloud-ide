@@ -3,11 +3,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { Runner, RunnerState } from "@/types/runner";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { runnersApi } from "@/services/cloud-resources/runners";
-import { Machine, VMImage } from "@/types";
-import { machinesApi } from "@/services/cloud-resources/machines";
-import { imagesApi } from "@/services/cloud-resources/images";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRunnerQuery } from "@/hooks/api/runners/useRunnersData";
+import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
+import { useImageForItems } from "@/hooks/api/images/useImageForItems";
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -53,94 +52,49 @@ const RunnersTable: React.FC = () => {
     data: runners = [],
     isLoading: runnersLoading,
     error: runnersError 
-  } = useQuery({
-    queryKey: ['runners'],
-    queryFn: runnersApi.getAll,
-  });
+  } = useRunnerQuery()
+
+  
+    const {
+      machinesById, 
+      isLoading: machineLoading, 
+      isError: machineError, 
+    } = useMachineForItems(runners)
+  
+    const {
+      imagesById,
+      isLoading: imageLoading, 
+      isError: imageError, 
+    } = useImageForItems(runners)
   
   // Search functionality
   const [searchTerm, setSearchTerm] = useState<string>("");
   
-  // Extract unique IDs for related resources
-  const uniqueImageIds = useMemo(() => 
-    [...new Set(runners
-      .map(rnr => rnr.imageId)
-      .filter((id): id is number => id !== undefined && id !== null)
-    )],
-    [runners]
-  );
-
-  // TODO: Check for why this infomration seems to be missing
-  const uniqueMachineIds = useMemo(() => 
-    [...new Set(runners
-      .map(rnr => rnr.machineId)
-      .filter((id): id is number => id !== undefined && id !== null)
-    )],
-    [runners]
-  );
-
-  // Fetch all  in parallel
-  const imageQueries = useQueries({
-    queries: uniqueImageIds.map(id => ({
-      queryKey: ['images', id],
-      queryFn: () => imagesApi.getById(id),
-      // enabled: id !== undefined && id !== null
-    }))
-  });
-
-  // Fetch all machines in parallel
-  const machineQueries = useQueries({
-    queries: uniqueMachineIds.map(id => ({
-      queryKey: ['machine', id],
-      queryFn: () => machinesApi.getById(id),
-      // enabled: id !== undefined && id !== null
-    }))
-  });
-  
-  // Create lookup maps for faster access
-  const imagesMap = useMemo(() => {
-    const map: Record<number, VMImage> = {};
-    imageQueries
-      .filter(q => q.data)
-      .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data as VMImage; 
-      });
-    return map;
-  }, [imageQueries]);
-
-  const machinesMap = useMemo(() => {
-    const map: Record<number, Machine> = {};
-    machineQueries
-      .filter(q => q.data)
-      .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data as Machine; 
-      });
-    return map;
-  }, [machineQueries]);
 
   // Join the data
   const enrichedRunners = useMemo(() => 
-    runners.map(runner => ({
-      ...runner,
-      image: runner.imageId && imagesMap[runner.imageId] 
-        ? imagesMap[runner.imageId] 
-        : undefined,
-      machine: runner.machineId && machinesMap[runner.machineId] 
-        ? machinesMap[runner.machineId] 
-        : undefined
-    })),
-    [runners, imagesMap, machinesMap]
+    runners.map(runner => {
+
+      const matchingMachine = runner.machineId ? machinesById[runner.machineId] : null;
+      const matchingImage = runner.imageId ? imagesById[runner.imageId] : null;
+    
+      
+      return {
+        ...runner,
+        image: matchingImage || undefined,
+        machine: matchingMachine || undefined
+      }
+  }).reverse(),
+    [runners, machinesById, imagesById]
   );
-  
+
   // Loading state for all data
   const isLoading = runnersLoading || 
-    imageQueries.some(q => q.isLoading) || 
-    machineQueries.some(q => q.isLoading);
+    imageLoading || machineLoading;
   
   // Error state for any query
-  const error = runnersError || 
-    imageQueries.some(q => q.error) || 
-    machineQueries.some(q => q.error);
+  const error = runnersError || imageError || 
+    machineError;
 
   // Use useMemo to filter runners based on search term
   const filteredRunners = useMemo(() => {
@@ -235,12 +189,12 @@ const RunnersTable: React.FC = () => {
           className="mt-4"
           onClick={() => {
             queryClient.invalidateQueries({ queryKey: ['runners'] });
-            uniqueImageIds.forEach(id => {
-              queryClient.invalidateQueries({ queryKey: ['images', id] });
-            });
-            uniqueMachineIds.forEach(id => {
-              queryClient.invalidateQueries({ queryKey: ['machine', id] });
-            });
+            // uniqueImageIds.forEach(id => {
+            //   queryClient.invalidateQueries({ queryKey: ['images', id] });
+            // });
+            // uniqueMachineIds.forEach(id => {
+            //   queryClient.invalidateQueries({ queryKey: ['machine', id] });
+            // });
           }}
         >
           Try Again
