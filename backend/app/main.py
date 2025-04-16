@@ -1,6 +1,7 @@
 """Main module to start the FastAPI application."""
 
 from http import HTTPStatus
+import logging
 from fastapi import FastAPI, Request, Response
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
@@ -9,17 +10,19 @@ from workos import exceptions
 
 # Import business modules
 from app.business.pkce import verify_token_exp
-from app.business.workos import get_workos_client
+from app.business.workos import authenticate_sealed_session, get_workos_client
+from workos.types.user_management.session import RefreshWithSessionCookieSuccessResponse
 from app.db.database import create_db_and_tables, engine
 from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION, API_ROOT_PATH, DEV_ROUTES
 from app.business.resource_setup import setup_resources
 from app.business.runner_management import launch_runners, shutdown_all_runners
-from app.exceptions.no_matching_key import NoMatchingKeyException
+from app.exceptions.pkce_exceptions import NoMatchingKeyException
 from app.models.image import Image
-from app.models.workos_session import get_refresh_token, refresh_session
+from app.db.workos_session_repository import get_refresh_token, refresh_session
 from app.util import constants
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,8 +51,6 @@ async def lifespan(app: FastAPI):
 
     # On shutdown: terminate all alive runners
     try:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info("Starting application shutdown process...")
 
         # Set a reasonable timeout for the shutdown process
@@ -82,59 +83,91 @@ async def route_guard(request: Request, call_next):
     Protects routes.
 
     This middleware will intercept all requests to the API and perform its logic before passing the request on.
-    If the route is among the unsecured routes, the request is simply passed. Otherwise there must be an access-token header
-    with a valid token. This initiates the token verification and refresh behavior with workos.
+    If the route shouldn't be secured, the request is passed without authentication. Otherwise the request must
+    carry either a WorkOS session cookie ("wos_session") or a WorkOS "access-token" header.
 
-    Before the response is sent, execution returns to the middleware, where we make sure the access_token is updated before responding.
+    Before the response is sent, execution returns to the middleware, where we make sure the session cookie or
+    access-token is updated before responding.
     """
-    print(f'\n\nDEBUG PATH: {request.url.path}\n\n')
+    logger.info(f'Request Path: {request.url.path}')
+
+    """
+    This response object will eventually be used as the response. Instead of returning too many times with
+    different response objects, at the end of the method just respond with whichever is assigned to this ref.
+    We shouldn't ever see this default response, it should always be replaced with an actual response.
+    """
+    final_response: Response = Response(
+        status_code = HTTPStatus.SERVICE_UNAVAILABLE,
+        content = '{"response":"Default response."}'
+    )
 
     # Use pattern matching for runner state endpoints
     path = request.url.path
     path_parts = path.split('/')
-
     runner_path_prefix = f"{API_ROOT_PATH}{API_VERSION}/runners/"
 
-    print(f"Checking if path {path} starts with {runner_path_prefix}")
+    logger.info(f"Checking if path {path} starts with {runner_path_prefix}")
 
-    # Check if the structure is correct and the runner ID is a digit
-    if (path.startswith(runner_path_prefix) and
-        'state' in path_parts and
-        path_parts[4].isdigit()):
-        print("Matched runner state endpoint")
-        return await call_next(request)
-
-    print(f"passed through route guard 1: {request.url.path}")
-
-    # Check exact matches
-    if (request.url.path in UNSECURE_ROUTES or
-        constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and
-                                        constants.auth_mode!="PROD"):
-            return await call_next(request)
-
+    session_cookie = request.cookies.get("wos_session")
     access_token = request.headers.get("Access-Token")
-    if not access_token:
-        return Response(status_code = 400, content = "Missing Access Token")
 
     try:
-        if not verify_token_exp(access_token):
-            refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
-            refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
-            access_token = refresh_response.access_token
-        response: Response = await call_next(request)
-        response.headers['Access-Token'] = access_token
-        return response
+        # Check if the structure is correct and the runner ID is a digit
+        if (path.startswith(runner_path_prefix) and
+            'state' in path_parts and
+            path_parts[4].isdigit()):
+            logger.info("Matched runner state endpoint")
+            # return await call_next(request)
+            final_response = await call_next(request)
+
+        # Check exact matches
+        elif (request.url.path in UNSECURE_ROUTES or
+            constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and constants.auth_mode!="PROD"):
+            # return await call_next(request)
+            final_response = await call_next(request)
+
+        # Authenticate with sealed session or access token
+
+        elif session_cookie:
+            auth_result = authenticate_sealed_session(session_cookie = session_cookie)
+            response: Response = await call_next(request)
+            if isinstance(auth_result, RefreshWithSessionCookieSuccessResponse):
+                response.set_cookie(
+                    key = "wos_session",
+                    value = auth_result.sealed_session,
+                    secure = True,# True for HTTPS
+                    httponly = True,
+                    samesite = "lax"
+                )
+            # return response
+            final_response = response
+
+        elif access_token:
+            if not verify_token_exp(access_token):
+                refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
+                refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
+                access_token = refresh_response.access_token
+            response: Response = await call_next(request)
+            response.headers['Access-Token'] = access_token
+            final_response = response
+            # return response
+
+        # Neither bearer token is present in request
+        logger.warning('Unable to authenticate request, no access-token and no session cookie present.')
+        final_response = Response(status_code = 400, content = '{"error":"Missing Access Token"')
 
     except (exceptions.BadRequestException, NoMatchingKeyException) as e:
         error_message = "Invalid workos session" if isinstance(e, exceptions.BadRequestException) else "Bad Token Header"
-        return Response(status_code=400, content=error_message)
+        # return Response(status_code=400, content=error_message)
+        final_response = Response(status_code=400, content=error_message)
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).exception(f'Exception raised in the backend middleware.')
-        return Response(
+        logger.exception('Exception raised in the backend middleware.')
+        final_response = Response(
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
             content = '{"response":"Internal Server Error: ' + str(e) + '"}'
         )
+
+    return final_response
 
 app.include_router(api_router)
 
