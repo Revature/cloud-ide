@@ -21,7 +21,7 @@ class RunnerExecException(Exception):
 
     def __str__(self):
         """ToString implementation."""
-        return f"{self.message}" 
+        return f"{self.message}"
 
 class RunnerDefinitionException(Exception):
     """Exception raised for when a user has supplied an invalid runner."""
