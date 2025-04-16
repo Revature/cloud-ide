@@ -1,8 +1,8 @@
 """Simple module to grab the workos session rather than repeating the same snippet."""
 
 import os
-from workos import WorkOSClient, exceptions as workos_exceptions
-
+from workos import WorkOSClient
+from app.exceptions.auth_exceptions import InvalidSealedSessionException
 from app.models.user import User
 
 workos = WorkOSClient(
@@ -30,3 +30,34 @@ def create_workos_user(*, password: str, user: User):
         password=password,
         **user
     ).id
+
+def get_authkit_url():
+    """Get a WorkOS AuthKit URL."""
+    return workos.user_management.get_authorization_url(
+        provider="authkit",
+        redirect_uri=os.getenv("WORKOS_REDIRECT_URI") #This must match the redirect URI in workos dashboard
+    )
+
+def handle_authkit_code(code: str):
+    """Handle the WorkOS redirect auth code."""
+    return workos.user_management.authenticate_with_code(
+        code = code,
+        session = {"seal_session": True, "cookie_password": os.getenv("WORKOS_COOKIE_PASSCODE")}
+    )
+
+def authenticate_sealed_session(session_cookie: str):
+    """Authenticate user with sealed session."""
+    session = workos.user_management.load_sealed_session(
+        sealed_session = session_cookie,
+        cookie_password = os.getenv("WORKOS_COOKIE_PASSCODE")
+    )
+
+    auth_response = session.authenticate()
+    if auth_response.authenticated:
+        return auth_response
+
+    refresh_result = session.refresh()
+    if refresh_result.authenticated:
+        return refresh_result
+
+    raise InvalidSealedSessionException("Unable to authenticate or refresh sealed session.")

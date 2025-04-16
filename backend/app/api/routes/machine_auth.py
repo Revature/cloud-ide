@@ -1,4 +1,8 @@
-"""Authorization route."""
+"""
+Old machine auth route.
+
+This should eventually be removed once RevPro starts using the new route. Behavior is the same for both.
+"""
 import os
 import logging
 from workos import exceptions as workos_exceptions
@@ -11,8 +15,7 @@ router = APIRouter()
 workos = get_workos_client()
 logger = logging.getLogger(__name__)
 
-@router.post("/machine_auth")
-@router.post("/machine_auth/")
+@router.post("/", status_code=200)
 def machine_auth(request: Request, passwordAuth: PasswordAuth):
     """Authenticate with username and password, receive access token in Access-Token header."""
     workos_auth_dto = WorkOSAuthDTO(
@@ -41,46 +44,3 @@ def machine_auth(request: Request, passwordAuth: PasswordAuth):
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             content = '{"response": "Internal Server Error"}'
             )
-
-@router.get("/authkit_url")
-@router.get("/authkit_url/")
-def get_auth_url():
-    """Get a WorkOS AuthKit URL."""
-    try:
-        auth_url = get_authkit_url()
-        return Response(
-            status_code = status.HTTP_200_OK,
-            content='{"url":"' + auth_url + '"}'
-        )
-    except Exception as e:
-        logger.exception('Exception while getting authkit URL from WorkOS.')
-        return Response(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content='{"response":"Error getting authorization URL."}'
-        )
-
-@router.get("/authkit_callback")
-@router.get("/authkit_callback/")
-def authkit_callback(code: str):
-    """Handle the WorkOS redirect auth code."""
-    try:
-        auth_response = handle_authkit_code(code = code)
-        response = Response(
-            status_code = status.HTTP_200_OK,
-            content = {"response":"Ok"}
-        )
-        response.set_cookie(
-            key = 'wos_session',
-            value = auth_response.sealed_session,
-            secure = True,
-            httponly = True,
-            samesite = "lax"
-        )
-        return response
-
-    except Exception as e:
-        logger.exception('Exception while handling auth callback.')
-        return Response(
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content = '{"response":"Error while handling auth code."}'
-        )
