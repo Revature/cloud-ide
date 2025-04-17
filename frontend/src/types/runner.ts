@@ -2,7 +2,7 @@ import { VMImage } from "./images";
 import { Machine } from "./machines";
 
 // Define runner states
-export type RunnerState = "starting" | "ready" | "awaiting_client" | "active" | "terminated" | "runner_starting"
+export type RunnerState = "starting" | "ready" | "awaiting_client" | "active" | "terminated" | "runner_starting" | "ready_claimed"
 
 // Define the backend runner interface (snake_case as returned by API)
 export interface BackendRunner {

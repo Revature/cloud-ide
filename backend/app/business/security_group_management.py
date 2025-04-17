@@ -68,20 +68,14 @@ async def create_security_group(
             if open_ssh:
                 ssh_result = await cloud_service.authorize_security_group_ingress(
                     cloud_group_id,
-                    "4.37.23.165/32",
-                    22  # SSH port
-                )
-                
-                ssh_result = await cloud_service.authorize_security_group_ingress(
-                    cloud_group_id,
-                    "209.249.178.117/32",
+                    f"{backend_ip}/32",
                     22  # SSH port
                 )
 
                 # Store SSH rule in inbound rules
                 inbound_rules["port_22"] = {
                     "port": 22,
-                    "cidr": "0.0.0.0/0",
+                    "cidr": "{backend_ip}/32",
                     "result": ssh_result
                 }
 

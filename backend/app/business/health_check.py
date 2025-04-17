@@ -5,6 +5,7 @@ import time
 from app.business.cloud_services.base import CloudService
 from app.exceptions.runner_exceptions import RunnerExecException
 logger = get_task_logger(__name__)
+
 async def check_life(
     ip : int,
     key: str,

@@ -16,11 +16,12 @@ class RunnerExecException(Exception):
 
     def __init__(self, message):
         """Construct an exception."""
+        self.message = message
         super().__init__(message)
 
     def __str__(self):
         """ToString implementation."""
-        return f"{self.message})"
+        return f"{self.message}"
 
 class RunnerDefinitionException(Exception):
     """Exception raised for when a user has supplied an invalid runner."""

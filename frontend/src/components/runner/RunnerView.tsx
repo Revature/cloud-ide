@@ -28,6 +28,8 @@ const getStateColor = (state: RunnerState) => {
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
     case "runner_starting":
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+    case "ready_claimed":
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
     case "terminated":
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
@@ -46,6 +48,8 @@ const getStateLabel = (state: RunnerState) => {
       return 'Starting';
     case "runner_starting":
       return 'Starting';
+    case "ready_claimed":
+      return 'Ready';
     case "terminated":
       return 'Terminated';
     default:
@@ -110,7 +114,7 @@ const RunnerView: React.FC = () => {
     }
   };
 
-  const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client' || runner?.state === 'ready' || runner?.state === 'terminated' || runner?.state === 'starting' || runner?.state === 'runner_starting';
+  const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client' || runner?.state === 'ready' || runner?.state === 'ready_claimed' || runner?.state === 'starting' || runner?.state === 'runner_starting';
   const canTerminate = runner?.state !== 'terminated';
 
   if (isLoading) {

@@ -6,9 +6,10 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
+from typing import Optional
 from app.db.database import engine
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
-from app.util import constants
+from app.util import constants, runner_status_management
 from app.business.cloud_services import cloud_service_factory
 from app.tasks import starting_runner, shutdown_runner
 from app.business import image_management, jwt_creation, key_management, script_management, security_group_management
@@ -17,7 +18,9 @@ from app.exceptions.runner_exceptions import RunnerExecException, RunnerRetrieva
 
 logger = get_task_logger(__name__)
 
-async def launch_runners(image_identifier: str, runner_count: int, initiated_by: str = "system", claimed: bool = False) -> list[Runner]:
+async def launch_runners(
+        image_identifier: str, runner_count: int, initiated_by: str = "system", claimed: bool = False, request_id: Optional[int] = None
+    ) -> list[Runner]:
     """
     Launch instances concurrently and create Runner records.
 
@@ -26,6 +29,7 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
         runner_count: Number of runners to launch
         initiated_by: Identifier of the service/job that initiated the launch
                      (e.g., "pool_manager", "api_request", "admin_action")
+        request_id: Optional request ID for status tracking
 
     Each new runner is associated with today's key.
     Returns a list of launched instance IDs.
@@ -48,7 +52,9 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
     # 6) Launch all instances concurrently using the appropriate cloud service.
     coroutines = []
     for _ in range(runner_count):
-        coroutine = launch_runner(config["machine"], config["image"], key_record, config["cloud_service"], initiated_by, claimed=claimed)
+        coroutine = launch_runner(
+            config["image"], key_record, config["cloud_service"], initiated_by, claimed=claimed, request_id=request_id
+        )
         coroutines.append(coroutine)
     for i in range(runner_count):
         try:
@@ -68,16 +74,33 @@ async def launch_runners(image_identifier: str, runner_count: int, initiated_by:
 
     return launched_instances
 
-async def launch_runner(machine: Machine,
-                        image: Image,
-                        key: Key,
-                        cloud_service,
-                        initiated_by: str,
-                        claimed: bool = False) -> Runner:
+async def launch_runner(
+    image: Image,
+    key: Key,
+    cloud_service,
+    initiated_by: str,
+    claimed: bool = False,
+    request_id: Optional[int] = None
+) -> Runner:
     """Launch a single runner and produce a record for it."""
     try:
+        # Get the machine from the image
+        with Session(engine) as session:
+            machine = machine_repository.find_machine_by_id(session, image.machine_id)
+            if not machine:
+                raise RunnerDefinitionException(f"Machine not found for image {image.id}")
+
         # First create a dedicated security group for this runner
         security_group_id = await security_group_management.create_security_group(image.cloud_connector_id)
+
+        # Emit event if request_id is provided
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "INSTANCE_CREATING_SECURITY_GROUP",
+                "Creating security group for runner",
+                {"security_group_id": security_group_id}
+            )
 
         # Create the instance with the security group
         instance_id = await cloud_service.create_instance(
@@ -85,8 +108,17 @@ async def launch_runner(machine: Machine,
             image_id=image.identifier,
             instance_type=machine.identifier,
             instance_count=1,
-            security_groups=[security_group_id]  # Use the newly created security group
+            security_groups=[security_group_id]
         )
+
+        # Emit event if request_id is provided
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "INSTANCE_CREATED",
+                "Created virtual machine instance",
+                {"instance_id": instance_id}
+            )
 
         if not instance_id:
             raise RunnerExecException("Failed to create instance.")
@@ -101,10 +133,10 @@ async def launch_runner(machine: Machine,
             new_runner = Runner(
                 machine_id=machine.id,
                 image_id=image.id,
-                user_id=None,           # No user assigned yet.
-                key_id=key.id,     # Associate the runner with today's key.
-                state=state,  # State will update once instance is running.
-                url="",                 # Empty URL; background task will update it.
+                user_id=None,
+                key_id=key.id,
+                state=state,
+                url="",
                 token="",
                 identifier=instance_id,
                 external_hash=uuid.uuid4().hex,
@@ -125,7 +157,7 @@ async def launch_runner(machine: Machine,
                     "machine_id": machine.id,
                     "instance_id": instance_id,
                     "security_group_id": security_group_id,
-                    "state": "runner_starting",
+                    "state": state,
                     "initiated_by": initiated_by
                 },
                 created_by=initiated_by
@@ -139,13 +171,30 @@ async def launch_runner(machine: Machine,
                 security_group_id
             )
 
-            # Queue a Celery task to update runner state when instance is ready
-            starting_runner.update_runner_state.delay(new_runner.id, instance_id)
+            if request_id:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "INSTANCE_RECORD_CREATED",
+                    "Runner record created successfully",
+                    {
+                        "runner_id": new_runner.id,
+                        "state": state
+                    }
+                )
+
+                # Start tracking runner state changes in background
+                asyncio.create_task(
+                    runner_status_management.track_runner_state(new_runner.id, request_id)
+                )
+
+            # Queue the task chain - just the first task
+            from app.tasks.starting_runner import wait_for_instance_running
+            wait_for_instance_running.delay(new_runner.id, instance_id)
 
             return new_runner
 
     except Exception as e:
-        logger.error(f"Error launching runner: {e!s}")
+        logger.error(f"Error launching runner: {e}")
         # Clean up security group if instance creation failed
         if 'security_group_id' in locals() and not ('instance_id' in locals() and instance_id):
             try:
@@ -153,6 +202,16 @@ async def launch_runner(machine: Machine,
                 await security_group_management.delete_security_group(security_group_id, cloud_service)
             except Exception as cleanup_error:
                 logger.error(f"Error cleaning up security group: {cleanup_error!s}")
+
+        # Emit error event if request_id is provided
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "ERROR",
+                f"Error launching runner: {e!s}",
+                {"error_details": str(e)}
+            )
+
         raise RunnerExecException(f"Failed to launch runner: {e!s}") from e
 
 async def wait_for_runner_state(runner:Runner, state: str, seconds:int) -> Runner:
@@ -180,7 +239,7 @@ def get_runner_from_pool(image_id) -> Runner:
     with Session(engine) as session:
         return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
 
-async def claim_runner(runner: Runner, requested_session_time, user: User, user_ip: str, script_vars):
+async def claim_runner(runner: Runner, requested_session_time, user: User, user_ip: str, script_vars, request_id: Optional[int] = None) -> str:
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
     logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, requested_session_time={requested_session_time}")
 
@@ -202,14 +261,6 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
             runner.user_ip = user_ip
 
         logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, script_vars_size={len(script_vars)}")
-
-        # Create JWT token
-        jwt_token = jwt_creation.create_jwt_token(
-            runner_ip=str(runner.url),
-            runner_id=runner.id,
-            user_ip=user_ip
-        )
-        logger.info(f"Created JWT token for runner {runner.id}")
 
         # Get cloud service for security group and tagging operations
         try:
@@ -241,9 +292,23 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
                             )
                             # print(f"Security group result: {security_group_result}")
                             logger.info(f"Security group update result: {security_group_result}")
+                            if request_id:
+                                await runner_status_management.runner_status_emitter.emit_status(
+                                    request_id,
+                                    "INSTANCE_SECURITY_GROUP_UPDATED",
+                                    "Security group updated to allow user access",
+                                    {"security_group_result": security_group_result}
+                                )
                         except Exception as e:
                             # print(f"Failed to update security groups: {e!s}")
                             logger.error(f"Failed to update security groups: {e!s}", exc_info=True)
+                            if request_id:
+                                await runner_status_management.runner_status_emitter.emit_status(
+                                    request_id,
+                                    "SECURITY_GROUP_UPDATE_FAILED",
+                                    "Failed to update security group for user access",
+                                    {"error": str(e)}
+                                )
                             # Continue execution even if security group update fails
 
                         # Add instance tag for the user
@@ -256,9 +321,23 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
                             )
                             # print(f"Tag addition result: {tag_result}")
                             logger.info(f"Tag addition result: {tag_result}")
+                            if request_id:
+                                await runner_status_management.runner_status_emitter.emit_status(
+                                    request_id,
+                                    "INSTANCE_TAG_ADDED",
+                                    "Instance tag added for user",
+                                    {"tag_result": tag_result}
+                                )
                         except Exception as e:
                             # print(f"Failed to add instance tag: {e!s}")
                             logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
+                            if request_id:
+                                await runner_status_management.runner_status_emitter.emit_status(
+                                    request_id,
+                                    "INSTANCE_TAG_FAILED",
+                                    "Failed to add instance tag for user",
+                                    {"error": str(e)}
+                                )
                     except Exception as e:
                         # print(f"Failed to create cloud service: {e!s}")
                         logger.error(f"Failed to create cloud service: {e!s}", exc_info=True)
@@ -274,10 +353,31 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
             # Continue execution even if cloud operations fail
 
         session.commit()
-        destination_url = f"{constants.domain}/dest/{jwt_token}/"
-        logger.info(f"Returning destination URL for runner {runner.id}: {destination_url}")
 
-        return destination_url
+        return get_runner_destination_url(runner)
+
+def get_runner_destination_url(runner: Runner) -> str:
+    """
+    Generate the destination URL for a runner.
+
+    Args:
+        runner: The runner object
+    Returns:
+        The destination URL for the runner
+    """
+    # Create JWT token
+    jwt_token = jwt_creation.create_jwt_token(
+        runner_ip=str(runner.url),
+        runner_id=runner.id,
+        user_ip=runner.user_ip
+    )
+    logger.info(f"Created JWT token for runner {runner.id}")
+
+    # Construct the destination URL
+    destination_url = f"{constants.domain}/dest/{jwt_token}/"
+    logger.info(f"Generated destination URL for runner {runner.id}: {destination_url}")
+
+    return destination_url
 
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
     """
