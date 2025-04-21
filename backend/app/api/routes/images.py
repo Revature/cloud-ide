@@ -10,6 +10,7 @@ router = APIRouter()
 
 class ImageCreate(BaseModel):
     """Schema for creating an Image."""
+
     name: str
     description: str
     machine_id: int
@@ -25,7 +26,7 @@ async def create_image(
         created_image = await image_management.create_image(image.dict(), image.runner_id)
         return created_image
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e!s}") from e
 
 @router.get("/", response_model=list[Image])
 def read_images():

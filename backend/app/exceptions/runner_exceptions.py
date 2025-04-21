@@ -51,7 +51,7 @@ class RunnerLaunchError(Exception):
     def __init__(self, message, error_type="launch_failed", details=None):
         """
         Construct an exception.
-        
+
         Args:
             message: Human-readable error message
             error_type: Standardized error type for event system
@@ -72,7 +72,7 @@ class RunnerClaimError(Exception):
     def __init__(self, message, error_type="claim_failed", details=None):
         """
         Construct an exception.
-        
+
         Args:
             message: Human-readable error message
             error_type: Standardized error type for event system
@@ -93,7 +93,7 @@ class RunnerConnectionError(Exception):
     def __init__(self, message, error_type="connection_failed", details=None):
         """
         Construct an exception.
-        
+
         Args:
             message: Human-readable error message
             error_type: Standardized error type for event system
@@ -114,7 +114,7 @@ class ResourceAllocationError(Exception):
     def __init__(self, message, error_type="allocation_failed", details=None):
         """
         Construct an exception.
-        
+
         Args:
             message: Human-readable error message
             error_type: Standardized error type for event system
@@ -135,7 +135,7 @@ class SecurityConfigurationError(Exception):
     def __init__(self, message, error_type="security_failed", details=None):
         """
         Construct an exception.
-        
+
         Args:
             message: Human-readable error message
             error_type: Standardized error type for event system
@@ -156,7 +156,7 @@ class RunnerTimeoutError(Exception):
     def __init__(self, message, error_type="timeout", details=None):
         """
         Construct an exception.
-        
+
         Args:
             message: Human-readable error message
             error_type: Standardized error type for event system

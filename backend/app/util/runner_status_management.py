@@ -91,8 +91,8 @@ async def track_runner_state(runner_id: int, request_id: str):
             runner = runner_repository.find_runner_by_id(session, runner_id)
             if not runner:
                 await runner_status_emitter.emit_status(
-                    request_id, 
-                    "ERROR", 
+                    request_id,
+                    "ERROR",
                     "Runner not found",
                     {
                         "error_type": "not_found",
@@ -127,7 +127,7 @@ async def track_runner_state(runner_id: int, request_id: str):
                             "status": "ready"
                         }
                     )
-                    
+
                     # Also emit a final progress update
                     await runner_status_emitter.emit_status(
                         request_id,
@@ -177,7 +177,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
             "preparation_type": "boot",
             "status": "succeeded"
         },
-        
+
         # Network setup events
         "instance_ip_assigning": {
             "type": "NETWORK_SETUP",
@@ -191,7 +191,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
             "setup_type": "allocate_ip",
             "status": "succeeded"
         },
-        
+
         # Connection events
         "ssh_waiting": {
             "type": "CONNECTION_STATUS",
@@ -203,7 +203,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
             "message": "SSH connection available",
             "status": "connected"
         },
-        
+
         # Script execution events
         "startup_script_starting": {
             "type": "INSTANCE_SCRIPT",
@@ -223,14 +223,14 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
             "script_type": "startup",
             "status": "failed"
         },
-        
+
         # Lifecycle events
         "runner_shutdown": {
             "type": "INSTANCE_LIFECYCLE",
             "message": "Runner is shutting down",
             "state": "terminating"
         },
-        
+
         # Security events
         "security_group_creating": {
             "type": "SECURITY_UPDATE",
@@ -256,7 +256,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
             "update_type": "update_security_group",
             "status": "succeeded"
         },
-        
+
         # Tagging events
         "instance_tagging": {
             "type": "RESOURCE_TAGGING",
@@ -275,7 +275,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
         event_data = {
             "runner_id": runner_id,
         }
-        
+
         # Add event data from history record if available
         if event.event_data:
             if isinstance(event.event_data, dict):
@@ -295,10 +295,10 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
             else:
                 # If event_data is not a dict, include it as a string
                 event_data["details"] = event.event_data
-        
+
         # Add event config data to the payload
         event_data.update({k: v for k, v in event_config.items() if k not in ["type", "message"]})
-        
+
         # Emit the status
         await runner_status_emitter.emit_status(
             request_id,
@@ -360,16 +360,16 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
 #             "stage": "configuration"
 #         }
 #     }
-    
+
 #     if event_name in progress_map:
 #         progress_data = progress_map[event_name]
 #         progress_data["runner_id"] = runner_id
 #         progress_data["status"] = "in_progress"
-        
+
 #         # For completed events, mark as succeeded
 #         if event_name in ["instance_running", "security_group_updated", "startup_script_completed"]:
 #             progress_data["status"] = "succeeded"
-        
+
 #         await runner_status_emitter.emit_status(
 #             request_id,
 #             "PROGRESS_UPDATE",

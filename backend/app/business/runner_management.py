@@ -273,7 +273,7 @@ async def launch_runner(
 
     except Exception as e:
         logger.error(f"Error launching runner: {e}")
-        
+
         # Clean up security group if instance creation failed
         if 'security_group_id' in locals() and not ('instance_id' in locals() and instance_id):
             try:
@@ -295,7 +295,7 @@ async def launch_runner(
                 error_type = "timeout"
             elif "network" in str(e).lower():
                 error_type = "network"
-            
+
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
                 "ERROR",
@@ -351,11 +351,11 @@ def get_runner_from_pool(image_id) -> Runner:
         return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
 
 async def claim_runner(
-    runner: Runner, 
-    requested_session_time: int, 
-    user: User, 
-    user_ip: str, 
-    script_vars: dict, 
+    runner: Runner,
+    requested_session_time: int,
+    user: User,
+    user_ip: str,
+    script_vars: dict,
     request_id: Optional[str] = None
 ) -> str:
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
@@ -428,7 +428,7 @@ async def claim_runner(
                         # Update security group rules to allow user IP access
                         try:
                             logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
-                            
+
                             # Emit security update event - starting
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
@@ -444,7 +444,7 @@ async def claim_runner(
                                         }
                                     }
                                 )
-                            
+
                             security_group_result = await security_group_management.authorize_user_access(
                                 runner.id,
                                 user_ip,
@@ -452,7 +452,7 @@ async def claim_runner(
                                 cloud_service
                             )
                             logger.info(f"Security group update result: {security_group_result}")
-                            
+
                             # Emit security update event - completed
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
@@ -470,7 +470,7 @@ async def claim_runner(
                                 )
                         except Exception as e:
                             logger.error(f"Failed to update security groups: {e!s}", exc_info=True)
-                            
+
                             # Emit security update failure event
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
@@ -489,7 +489,7 @@ async def claim_runner(
                         # Add instance tag for the user
                         try:
                             logger.info(f"Adding tag to instance {runner.identifier} for user {user.email}")
-                            
+
                             # Emit tagging event - starting
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
@@ -505,13 +505,13 @@ async def claim_runner(
                                         ]
                                     }
                                 )
-                            
+
                             tag_result = await cloud_service.add_instance_tag(
                                 runner.identifier,
                                 user.email
                             )
                             logger.info(f"Tag addition result: {tag_result}")
-                            
+
                             # Emit tagging event - completed
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
@@ -529,7 +529,7 @@ async def claim_runner(
                                 )
                         except Exception as e:
                             logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
-                            
+
                             # Emit tagging failure event
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
@@ -548,7 +548,7 @@ async def claim_runner(
                                 )
                     except Exception as e:
                         logger.error(f"Failed to create cloud service: {e!s}", exc_info=True)
-                        
+
                         # Emit error event
                         if request_id:
                             await runner_status_management.runner_status_emitter.emit_status(
@@ -566,7 +566,7 @@ async def claim_runner(
                             )
                 else:
                     logger.error(f"Cloud connector not found for image {image.id}")
-                    
+
                     # Emit error event
                     if request_id:
                         await runner_status_management.runner_status_emitter.emit_status(
@@ -583,7 +583,7 @@ async def claim_runner(
                         )
             else:
                 logger.error(f"Image not found or has no cloud connector for runner {runner.id}")
-                
+
                 # Emit error event
                 if request_id:
                     await runner_status_management.runner_status_emitter.emit_status(
@@ -600,7 +600,7 @@ async def claim_runner(
                     )
         except Exception as e:
             logger.error(f"Error in cloud operations: {e!s}", exc_info=True)
-            
+
             # Emit error event
             if request_id:
                 await runner_status_management.runner_status_emitter.emit_status(
@@ -618,9 +618,9 @@ async def claim_runner(
             # Continue execution even if cloud operations fail
 
         session.commit()
-        
+
         runner_url = get_runner_destination_url(runner)
-        
+
         # Return the destination URL
         return runner_url
 
