@@ -250,8 +250,7 @@ async def update_runner_state(
 @router.delete("/{runner_id}", response_model=dict[str, str])
 async def terminate_runner(
     runner_id: int,
-    session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token")
+    session: Session = Depends(get_session)
 ):
     """
     Manually terminate a runner.

@@ -9,12 +9,14 @@ from sqlmodel import Session
 from pydantic import BaseModel
 from typing import Any, Optional
 from datetime import datetime, timezone
+from app.db import runner_repository
+from app.db.database import engine
 from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants, websocket_management, runner_status_management
 from app.business import image_management, user_management, runner_management, script_management
-
+from app.exceptions.runner_exceptions import RunnerLaunchError, RunnerClaimError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -104,61 +106,117 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
     """Will run on the "awaiting_client" state."""
     try:
         if request_id:
-            # Emit starting script status
+            # Emit script starting status
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "INSTANCE_AWAITING_CLIENT_SCRIPT_START",
+                "INSTANCE_SCRIPT",
                 "Running script for awaiting client",
                 {
-                    "runner_id": runner.id
+                    "runner_id": runner.id,
+                    "script_type": "awaiting_client",
+                    "status": "in_progress"
                 }
             )
-        script_result = await script_management.run_script_for_runner("on_awaiting_client",
-                                                                    runner.id,
-                                                                    env_vars,
-                                                                    initiated_by="app_requests_endpoint")
+
+        script_result = await script_management.run_script_for_runner(
+            "on_awaiting_client",
+            runner.id,
+            env_vars,
+            initiated_by="app_requests_endpoint"
+        )
+
         if request_id:
-            # Emit the script result to the WebSocket
+            # Emit script success status
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "INSTANCE_AWAITING_CLIENT_SCRIPT_SUCCESS",
+                "INSTANCE_SCRIPT",
                 "Script for awaiting client completed",
                 {
                     "runner_id": runner.id,
-                    "script_result": script_result
+                    "script_type": "awaiting_client",
+                    "status": "succeeded",
+                    "exit_code": 0 if script_result == "success" else 1,
+                    "details": script_result
                 }
             )
-    except Exception as e:
-        if request_id:
-            # Emit error status
+            
+            # Emit session status to indicate the session is ready
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "INSTANCE_AWAITING_CLIENT_SCRIPT_ERROR",
+                "SESSION_STATUS",
+                "User session created successfully",
+                {
+                    "runner_id": runner.id,
+                    "session_type": "create",
+                    "status": "succeeded",
+                    "duration": env_vars.get("session_time", 60)  # Default to 60 minutes if not specified
+                }
+            )
+            
+            # Emit connection ready status
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "CONNECTION_STATUS",
+                "Your runner is ready for connection",
+                {
+                    "runner_id": runner.id,
+                    "status": "ready",
+                    "url": url
+                }
+            )
+
+    except Exception as e:
+        if request_id:
+            # Emit script failure status
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "INSTANCE_SCRIPT",
                 "Error running script for awaiting client",
                 {
                     "runner_id": runner.id,
+                    "script_type": "awaiting_client",
+                    "status": "failed",
+                    "exit_code": 1,
+                    "error": str(e)
+                }
+            )
+            
+            # Emit session status to indicate the session failed
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "SESSION_STATUS",
+                "Failed to create user session",
+                {
+                    "runner_id": runner.id,
+                    "session_type": "create",
+                    "status": "failed",
                     "error": str(e)
                 }
             )
 
+            # Emit shutdown notification
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "INSTANCE_SHUTTING_DOWN",
-                "Error running script, shutting down runner",
+                "INSTANCE_LIFECYCLE",
+                "Shutting down runner",
                 {
-                    "runner_id": runner.id
+                    "runner_id": runner.id,
+                    "state": "terminating",
+                    "reason": "Script execution failed"
                 }
             )
+
         shutdown_result = await runner_management.force_shutdown_runners(
             [runner.identifier],
             initiated_by="app_requests_endpoint"
         )
-        raise HTTPException(status_code=400,  detail=f"Error executing script for runner {runner.id}") from e
+        raise HTTPException(status_code=400, detail=f"Error executing script for runner {runner.id}") from e
+    
     return app_requests_dto(url, runner)
 
 def app_requests_dto(url: str, runner: Runner):
     """Create DTO for the app_request."""
-    return {"url":url, "runner_id":str(runner.id)}
+    return {"url": url, "runner_id": str(runner.id)}
 
 @router.post("/with_status", response_model=dict)
 async def get_ready_runner_with_status(
@@ -235,12 +293,7 @@ async def process_runner_request_with_status(
     request_id: str,
     request: RunnerRequest
 ):
-    """Process the runner request and emit status updates.
-
-    Args:
-        request_id (str): Request ID for tracking the request
-        request (RunnerRequest): Request object containing all required data
-    """
+    """Process the runner request and emit status updates using the standardized event structure."""
     try:
         # Extract data directly from the request
         script_vars = request.env_data.get("script_vars", {})
@@ -264,38 +317,170 @@ async def process_runner_request_with_status(
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
                 "ERROR",
-                error_message.strip()
+                error_message.strip(),
+                {
+                    "error_type": "invalid_request",
+                    "details": {
+                        "missing_image": not db_image,
+                        "missing_user": not db_user,
+                        "missing_user_ip": not user_ip
+                    }
+                }
             )
-        else:
-            # All validation passed, continue with processing
+            return
+        
+        # All validation passed, continue with processing
 
-            # Emit initial status
+        # Emit initial status for request processing
+        await runner_status_management.runner_status_emitter.emit_status(
+            request_id,
+            "REQUEST_PROCESSING",
+            f"Processing request for {db_image.name}",
+            {
+                "image_id": db_image.id,
+                "image_name": db_image.name,
+                "user_id": db_user.id,
+                "status": "in_progress"
+            }
+        )
+
+        # Begin resource discovery - Check for existing runner
+        await runner_status_management.runner_status_emitter.emit_status(
+            request_id,
+            "RESOURCE_DISCOVERY",
+            "Checking for existing runner",
+            {
+                "discovery_type": "existing",
+                "status": "in_progress"
+            }
+        )
+
+        existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
+
+        if existing_runner:
+            # Found existing runner
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "PROCESSING_REQUEST",
-                f"Processing request for {db_image.name}",
+                "RESOURCE_DISCOVERY",
+                "Found an existing active runner for your session",
                 {
-                    "image_id": db_image.id,
-                    "image_name": db_image.name,
-                    "user_id": db_user.id
+                    "discovery_type": "existing",
+                    "runner_id": existing_runner.id,
+                    "status": "succeeded"
                 }
             )
 
-            # Check for existing runner
-            existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
+            # Allocate existing runner
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "RESOURCE_ALLOCATION",
+                "Claiming existing runner for your session",
+                {
+                    "allocation_type": "claim_existing",
+                    "runner_id": existing_runner.id,
+                    "status": "in_progress"
+                }
+            )
 
-            if existing_runner:
-                # Process existing runner
+            # Use existing runner with request_id for status tracking
+            url = await runner_management.claim_runner(
+                existing_runner,
+                request.session_time,
+                db_user,
+                user_ip,
+                script_vars,
+                request_id=request_id
+            )
+
+            # Allocation succeeded
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "RESOURCE_ALLOCATION",
+                "Existing runner claimed successfully",
+                {
+                    "allocation_type": "claim_existing",
+                    "runner_id": existing_runner.id,
+                    "status": "succeeded"
+                }
+            )
+
+            # Emit request processing completion
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "REQUEST_PROCESSING",
+                f"Finished processing request for {db_image.name}",
+                {
+                    "image_id": db_image.id,
+                    "image_name": db_image.name,
+                    "user_id": db_user.id,
+                    "status": "succeeded"
+                }
+            )
+
+            # Emit connection ready event
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "CONNECTION_STATUS",
+                "Your runner is ready for connection",
+                {
+                    "runner_id": existing_runner.id,
+                    "status": "ready",
+                    "url": url
+                }
+            )
+        else:
+            # No existing runner, check for pooled runner
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "RESOURCE_DISCOVERY",
+                "Checking for available runner in pool",
+                {
+                    "discovery_type": "pool",
+                    "status": "in_progress"
+                }
+            )
+
+            ready_runner = runner_management.get_runner_from_pool(db_image.id)
+
+            if ready_runner:
+                # Found pool runner
                 await runner_status_management.runner_status_emitter.emit_status(
                     request_id,
-                    "EXISTING_RUNNER_FOUND",
-                    "Found an existing active runner for your session",
-                    {"runner_id": existing_runner.id}
+                    "RESOURCE_DISCOVERY",
+                    "Found an available runner in the pool",
+                    {
+                        "discovery_type": "pool",
+                        "runner_id": ready_runner.id,
+                        "status": "succeeded"
+                    }
                 )
 
-                # Use existing runner with request_id for status tracking
+                # Allocate pool runner
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "RESOURCE_ALLOCATION",
+                    "Claiming pool runner for your session",
+                    {
+                        "allocation_type": "claim_pool",
+                        "runner_id": ready_runner.id,
+                        "status": "in_progress"
+                    }
+                )
+
+                # Replenish pool if needed
+                if db_image.runner_pool_size > 0:
+                    # Not passing request_id as this is a background task
+                    asyncio.create_task(
+                        runner_management.launch_runners(
+                            db_image.identifier,
+                            1,
+                            initiated_by="app_requests_endpoint_pool_replenish"
+                        )
+                    )
+
+                # Claim the pool runner with request_id for status tracking
                 url = await runner_management.claim_runner(
-                    existing_runner,
+                    ready_runner,
                     request.session_time,
                     db_user,
                     user_ip,
@@ -303,77 +488,53 @@ async def process_runner_request_with_status(
                     request_id=request_id
                 )
 
-                # Emit connection ready event
+                # Allocation succeeded
                 await runner_status_management.runner_status_emitter.emit_status(
                     request_id,
-                    "CONNECTION_READY",
-                    "Your runner is ready for connection",
+                    "RESOURCE_ALLOCATION",
+                    "Pool runner claimed successfully",
                     {
-                        "runner_id": existing_runner.id,
-                        "url": url
+                        "allocation_type": "claim_pool",
+                        "runner_id": ready_runner.id,
+                        "status": "succeeded"
                     }
                 )
+
+                # Run awaiting client hook
+                await awaiting_client_hook(ready_runner, url, env_vars, request_id)
+
             else:
-                # Check for pooled runner
-                ready_runner = runner_management.get_runner_from_pool(db_image.id)
+                # No resources found
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "RESOURCE_DISCOVERY",
+                    "No existing or pool runners available",
+                    {
+                        "discovery_type": "none",
+                        "status": "succeeded"
+                    }
+                )
 
-                if ready_runner:
-                    # Process pool runner
-                    await runner_status_management.runner_status_emitter.emit_status(
-                        request_id,
-                        "POOL_RUNNER_FOUND",
-                        "Found an available runner in the pool",
-                        {"runner_id": ready_runner.id}
-                    )
-
-                    # Replenish pool if needed
-                    if db_image.runner_pool_size != 0:
-                        # Not passing request_id as this is a background task
-                        asyncio.create_task(
-                            runner_management.launch_runners(
-                                db_image.identifier,
-                                1,
-                                initiated_by="app_requests_endpoint_pool_replenish"
-                            )
-                        )
-
-                    # Claim the pool runner with request_id for status tracking
-                    url = await runner_management.claim_runner(
-                        ready_runner,
-                        request.session_time,
-                        db_user,
-                        user_ip,
-                        script_vars,
-                        request_id=request_id
-                    )
-
-                    await awaiting_client_hook(ready_runner, url, env_vars, request_id)
-
-                    # Emit connection ready event
-                    await runner_status_management.runner_status_emitter.emit_status(
-                        request_id,
-                        "CONNECTION_READY",
-                        "Your runner is ready for connection",
-                        {
-                            "runner_id": ready_runner.id,
-                            "url": url
-                        }
-                    )
-                else:
-                    # No pool runner available, launch a new one
-                    await handle_new_runner_launch(
-                        request_id,
-                        db_image,
-                        db_user,
-                        request
-                    )
+                # Launch new runner
+                await handle_new_runner_launch(
+                    request_id,
+                    db_image,
+                    db_user,
+                    request
+                )
 
     except Exception as e:
         logger.error(f"Error in process_runner_request_with_status: {e}")
         await runner_status_management.runner_status_emitter.emit_status(
             request_id,
-            "INSTANCE_ERROR",
-            f"Error processing runner request: {e!s}"
+            "ERROR",
+            f"Error processing runner request: {e!s}",
+            {
+                "error_type": "request_processing",
+                "details": {
+                    "exception": str(e)
+                }
+            }
         )
 
 async def handle_new_runner_launch(
@@ -382,90 +543,153 @@ async def handle_new_runner_launch(
     db_user,
     request: RunnerRequest
 ):
-    """Handle launching a new runner when no pool runner is available.
+    """Handle launching a new runner when no pool runner is available."""
+    try:
+        # Extract data from the request
+        script_vars = request.env_data.get("script_vars", {})
+        env_vars = request.env_data.get("env_vars", {})
+        user_ip = script_vars.get("user_ip", "")
+        session_time = request.session_time
 
-    Args:
-        request_id (str): The request ID for tracking
-        db_image: The database image object
-        db_user: The database user object
-        request (RunnerRequest): The original request object
-    """
-    # Extract data from the request
-    script_vars = request.env_data.get("script_vars", {})
-    env_vars = request.env_data.get("env_vars", {})
-    user_ip = script_vars.get("user_ip", "")
-    session_time = request.session_time
+        # Emit launching status
+        await runner_status_management.runner_status_emitter.emit_status(
+            request_id,
+            "RESOURCE_ALLOCATION",
+            "Launching new runner",
+            {
+                "allocation_type": "launch_new",
+                "image_id": db_image.id,
+                "status": "in_progress"
+            }
+        )
 
-    await runner_status_management.runner_status_emitter.emit_status(
-        request_id,
-        "INSTANCE_LAUNCHING",
-        "No available runners in pool, launching new runner",
-        {"image_id": db_image.id}
-    )
+        # Launch new runner with request_id for status tracking
+        try:
+            # Launch a new runner with the request_id for status updates
+            fresh_runners = await runner_management.launch_runners(
+                db_image.identifier,
+                1,
+                initiated_by="app_requests_endpoint_no_pool",
+                claimed=True,
+                request_id=request_id
+            )
+            
+            if not fresh_runners:
+                raise RunnerLaunchError("Runner was not launched successfully.")
+            
+            runner = fresh_runners[0]
+            
+            runner = await runner_management.wait_for_runner_state(
+                runner,
+                "ready_claimed",
+                120
+            )
+            
+            if not runner or runner.state != "ready_claimed":
+                raise RunnerClaimError("Runner did not become ready in time.")
 
-    # Launch a new runner with the request_id for status updates
-    fresh_runners = await runner_management.launch_runners(
-        db_image.identifier,
-        1,
-        initiated_by="app_requests_endpoint_no_pool",
-        claimed=True,
-        request_id=request_id
-    )
+            # Runner launched successfully
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "RESOURCE_ALLOCATION",
+                "New runner launched successfully",
+                {
+                    "allocation_type": "launch_new",
+                    "runner_id": runner.id,
+                    "status": "succeeded"
+                }
+            )
 
-    if not fresh_runners:
+            # Setup phase
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "CONNECTION_STATUS",
+                "New runner is ready, claiming for your session",
+                {
+                    "runner_id": runner.id,
+                    "status": "setup_in_progress"
+                }
+            )
+
+            # Claim the runner and set up client
+            url = await runner_management.claim_runner(
+                runner,
+                session_time,
+                db_user,
+                user_ip,
+                script_vars,
+                request_id=request_id
+            )
+
+            # Run awaiting client hook
+            await awaiting_client_hook(runner, url, env_vars, request_id)
+
+        except RunnerLaunchError as e:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "ERROR",
+                f"Failed to launch new runner: {e!s}",
+                {
+                    "error_type": "launch_failed",
+                    "details": {
+                        "exception": str(e)
+                    }
+                }
+            )
+            
+            # Resource allocation failed
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "RESOURCE_ALLOCATION",
+                "Failed to allocate resources",
+                {
+                    "allocation_type": "launch_new",
+                    "status": "failed",
+                    "error": str(e)
+                }
+            )
+            raise
+
+        except RunnerClaimError as e:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "ERROR",
+                f"Runner did not become ready in time: {e!s}",
+                {
+                    "error_type": "timeout",
+                    "details": {
+                        "resource_type": "runner"
+                    }
+                }
+            )
+            
+            # Resource allocation failed
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "RESOURCE_ALLOCATION",
+                "Failed to claim runner",
+                {
+                    "allocation_type": "launch_new",
+                    "status": "failed",
+                    "error": str(e)
+                }
+            )
+            raise
+
+    except Exception as e:
+        logger.error(f"Error in handle_new_runner_launch: {e}")
         await runner_status_management.runner_status_emitter.emit_status(
             request_id,
             "ERROR",
-            "Failed to launch new runner"
+            f"Error launching runner: {e!s}",
+            {
+                "error_type": "launch_failed",
+                "details": {
+                    "exception": str(e)
+                }
+            }
         )
-        return
-
-    fresh_runner = fresh_runners[0]
-
-    # Wait for runner to be ready
-    fresh_runner = await runner_management.wait_for_runner_state(
-        fresh_runner,
-        "ready_claimed",
-        120
-    )
-
-    if not fresh_runner or fresh_runner.state != "ready_claimed":
-        await runner_status_management.runner_status_emitter.emit_status(
-            request_id,
-            "ERROR",
-            "Runner did not become ready in time"
-        )
-        return
-
-    await runner_status_management.runner_status_emitter.emit_status(
-        request_id,
-        "INSTANCE_POST_BOOT_SETUP",
-        "New runner is ready, claiming for your session",
-        {"runner_id": fresh_runner.id}
-    )
-
-    # Claim the runner with request_id for status tracking
-    url = await runner_management.claim_runner(
-        fresh_runner,
-        session_time,
-        db_user,
-        user_ip,
-        script_vars,
-        request_id=request_id
-    )
-
-    await awaiting_client_hook(fresh_runner, url, env_vars, request_id)
-
-    # Emit connection ready event
-    await runner_status_management.runner_status_emitter.emit_status(
-        request_id,
-        "INSTANCE_SETUP_COMPLETE",
-        "Your runner is ready for connection",
-        {
-            "runner_id": fresh_runner.id,
-            "url": url
-        }
-    )
+        raise
 
 @router.websocket("/runner_status/{request_id}")
 async def runner_status_websocket(
@@ -497,7 +721,10 @@ async def runner_status_websocket(
             # Process client messages if needed
             if "action" in data:
                 if data["action"] == "heartbeat":
-                    await websocket.send_json({"type": "HEARTBEAT_ACK", "timestamp": datetime.now(timezone.utc).isoformat()})
+                    await websocket.send_json({
+                        "type": "HEARTBEAT_ACK", 
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    })
                 elif data["action"] == "cancel":
                     # Handle cancellation request
                     await websocket.send_json({
@@ -515,7 +742,8 @@ async def runner_status_websocket(
             await websocket.send_json({
                 "type": "ERROR",
                 "message": f"WebSocket error: {e!s}",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "error_type": "websocket"
             })
         except Exception:
             pass

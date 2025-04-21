@@ -3,10 +3,11 @@
 from celery.utils.log import get_task_logger
 from sqlmodel import Session
 from app.db.database import engine
-from app.models import Image
-from app.db import image_repository, machine_repository, cloud_connector_repository
-from app.business.cloud_services import cloud_service_factory
+from app.models import Image, Runner
+from app.db import image_repository, machine_repository, cloud_connector_repository, runner_repository
+from app.business import runner_management, cloud_services
 from app.exceptions.runner_exceptions import RunnerExecException
+import logging
 
 logger = get_task_logger(__name__)
 
@@ -84,6 +85,76 @@ def get_image_config(image_id: int, initiated_by: str = "default") -> dict:
         results["cloud_connector"]=db_cloud_connector
 
         # 4) Get the appropriate cloud service
-        cloud_service = cloud_service_factory.get_cloud_service(db_cloud_connector)
+        cloud_service = cloud_services.cloud_service_factory.get_cloud_service(db_cloud_connector)
         results["cloud_service"] = cloud_service
         return results
+    
+async def create_image(image_data: dict, runner_id: int) -> Image:
+    """
+    Create a new Image record from a runner instance.
+    
+    This function:
+    1. Gets the runner information
+    2. Uses the appropriate cloud service to create an AMI
+    3. Creates and returns a new Image record
+    """
+    
+    logger = logging.getLogger(__name__)
+    
+    with Session(engine) as session:
+        # Get the runner
+        runner = runner_repository.find_runner_by_id(session, runner_id)
+        if not runner:
+            logger.error(f"Runner with id {runner_id} not found")
+            raise RunnerExecException(f"Runner with id {runner_id} not found")
+        
+        # Get the cloud connector
+        cloud_connector_id = image_data["cloud_connector_id"]
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, cloud_connector_id)
+        if not cloud_connector:
+            logger.error(f"Cloud connector with id {cloud_connector_id} not found")
+            raise RunnerExecException(f"Cloud connector with id {cloud_connector_id} not found")
+        
+        # Get the cloud service for the connector
+        cloud_service = cloud_services.cloud_service_factory.get_cloud_service(cloud_connector)
+
+        image_name = image_data["name"]
+
+        # Create tags for the image
+        image_tags = [
+            {'Key': 'Name', 'Value': image_name},
+            {'Key': 'Description', 'Value': image_data.get('description', '')},
+            {'Key': 'SourceRunnerId', 'Value': str(runner_id)}
+        ]
+
+        # Create the AMI from the runner instance
+        try:
+            image_identifier = await cloud_service.create_runner_image(
+                instance_id=runner.identifier,
+                image_name=image_name,
+                image_tags=image_tags
+            )
+
+            if not image_identifier or image_identifier.startswith("An error occurred"):
+                logger.error(f"Failed to create AMI: {image_identifier}")
+                raise RunnerExecException(f"Failed to create AMI: {image_identifier}")
+
+            # Create the Image record in the database
+            new_image = Image(
+                name=image_data["name"],
+                description=image_data.get("description", ""),
+                identifier=image_identifier,
+                machine_id=image_data.get("machine_id"),
+                cloud_connector_id=cloud_connector_id,
+                runner_pool_size=0  # Default to 0, can be updated later
+            )
+
+            # Save the new image to the database
+            db_image = image_repository.create_image(session, new_image)
+            session.commit()
+            logger.info(f"Image created with ID: {db_image.id}")
+            return db_image
+
+        except Exception as e:
+            logger.error(f"Error creating image from runner {runner_id}: {str(e)}")
+            raise RunnerExecException(f"Error creating image from runner: {str(e)}")
