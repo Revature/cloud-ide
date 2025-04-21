@@ -139,7 +139,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
                     "details": script_result
                 }
             )
-            
+
             # Emit session status to indicate the session is ready
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
@@ -152,7 +152,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
                     "duration": env_vars.get("session_time", 60)  # Default to 60 minutes if not specified
                 }
             )
-            
+
             # Emit connection ready status
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
@@ -180,7 +180,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
                     "error": str(e)
                 }
             )
-            
+
             # Emit session status to indicate the session failed
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
@@ -211,7 +211,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
             initiated_by="app_requests_endpoint"
         )
         raise HTTPException(status_code=400, detail=f"Error executing script for runner {runner.id}") from e
-    
+
     return app_requests_dto(url, runner)
 
 def app_requests_dto(url: str, runner: Runner):
@@ -328,7 +328,7 @@ async def process_runner_request_with_status(
                 }
             )
             return
-        
+
         # All validation passed, continue with processing
 
         # Emit initial status for request processing
@@ -573,18 +573,18 @@ async def handle_new_runner_launch(
                 claimed=True,
                 request_id=request_id
             )
-            
+
             if not fresh_runners:
                 raise RunnerLaunchError("Runner was not launched successfully.")
-            
+
             runner = fresh_runners[0]
-            
+
             runner = await runner_management.wait_for_runner_state(
                 runner,
                 "ready_claimed",
                 120
             )
-            
+
             if not runner or runner.state != "ready_claimed":
                 raise RunnerClaimError("Runner did not become ready in time.")
 
@@ -636,7 +636,7 @@ async def handle_new_runner_launch(
                     }
                 }
             )
-            
+
             # Resource allocation failed
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
@@ -662,7 +662,7 @@ async def handle_new_runner_launch(
                     }
                 }
             )
-            
+
             # Resource allocation failed
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
@@ -722,7 +722,7 @@ async def runner_status_websocket(
             if "action" in data:
                 if data["action"] == "heartbeat":
                     await websocket.send_json({
-                        "type": "HEARTBEAT_ACK", 
+                        "type": "HEARTBEAT_ACK",
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                 elif data["action"] == "cancel":

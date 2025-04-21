@@ -88,33 +88,32 @@ def get_image_config(image_id: int, initiated_by: str = "default") -> dict:
         cloud_service = cloud_services.cloud_service_factory.get_cloud_service(db_cloud_connector)
         results["cloud_service"] = cloud_service
         return results
-    
+
 async def create_image(image_data: dict, runner_id: int) -> Image:
     """
     Create a new Image record from a runner instance.
-    
+
     This function:
     1. Gets the runner information
     2. Uses the appropriate cloud service to create an AMI
     3. Creates and returns a new Image record
     """
-    
     logger = logging.getLogger(__name__)
-    
+
     with Session(engine) as session:
         # Get the runner
         runner = runner_repository.find_runner_by_id(session, runner_id)
         if not runner:
             logger.error(f"Runner with id {runner_id} not found")
             raise RunnerExecException(f"Runner with id {runner_id} not found")
-        
+
         # Get the cloud connector
         cloud_connector_id = image_data["cloud_connector_id"]
         cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, cloud_connector_id)
         if not cloud_connector:
             logger.error(f"Cloud connector with id {cloud_connector_id} not found")
             raise RunnerExecException(f"Cloud connector with id {cloud_connector_id} not found")
-        
+
         # Get the cloud service for the connector
         cloud_service = cloud_services.cloud_service_factory.get_cloud_service(cloud_connector)
 
@@ -156,5 +155,5 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
             return db_image
 
         except Exception as e:
-            logger.error(f"Error creating image from runner {runner_id}: {str(e)}")
-            raise RunnerExecException(f"Error creating image from runner: {str(e)}")
+            logger.error(f"Error creating image from runner {runner_id}: {e!s}")
+            raise RunnerExecException(f"Error creating image from runner: {e!s}") from e
