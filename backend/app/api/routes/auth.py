@@ -29,13 +29,14 @@ def machine_auth(request: Request, passwordAuth: PasswordAuth):
             content = '{"response": "Access-Token granted"}',
             headers = {'Access-Token': access_token}
             )
-    except workos_exceptions.BadRequestException:
+    except workos_exceptions.BadRequestException as e:
         logger.exception(f'Bad request exception during machine authorization.')
         return Response(
             status_code = status.HTTP_401_UNAUTHORIZED,
             content = '{"response": "Bad username or password"}'
             )
-    except Exception:
+
+    except Exception as e:
         logger.exception(f'Exception during machine authorization.')
         return Response(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,

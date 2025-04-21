@@ -10,7 +10,7 @@ mv node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /usr/local/b
 nohup /usr/local/bin/node_exporter &
 
 RUNNER_IP=$(curl icanhazip.com)
-MONITOR_VM="54.188.253.144"
+MONITOR_VM="34.223.156.189"
 PUSHGATEWAY_URL="http://$MONITOR_VM:9091/metrics/job/$RUNNER_IP"
 
 while true; do
