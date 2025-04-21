@@ -10,6 +10,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
+      - /home/ubuntu/loki-data:/loki
       - ./loki-config.yml:/etc/loki/loki-config.yml
     networks:
       - monitor
@@ -20,6 +21,8 @@ services:
     pull_policy: always
     ports:
       - "9091:9091"
+    volumes:
+      - ./pushgateway-data:/data
     networks:
       - monitor
     
