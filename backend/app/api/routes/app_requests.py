@@ -62,8 +62,6 @@ async def get_ready_runner(
     env_vars = request.env_data.get("env_vars", {})
     # user_ip = http.extract_original_ip(client_ip, x_forwarded_for)
     user_ip = script_vars.get("user_ip", "")
-    if not user_ip:
-        return HTTPException(status_code=400, detail="User IP not found in script_vars")
 
     # Check if the user already has a runner.
     existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
@@ -90,7 +88,7 @@ async def get_ready_runner(
                                                                               claimed=True)
         fresh_runner : Runner = fresh_runners[0]
         logger.info(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
-        fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready_claimed", 120)
+        fresh_runner = await runner_management.wait_for_runner_state(fresh_runner, "ready_claimed", 600)
         if not fresh_runner or fresh_runner.state != "ready_claimed":
             raise HTTPException(status_code=500, detail="Runner did not become ready in time")
         url = await runner_management.claim_runner(fresh_runner, request.session_time, db_user, user_ip, script_vars=script_vars)
