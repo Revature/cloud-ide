@@ -108,7 +108,7 @@ jobs:
                 docker push $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:test
 
     Deploy:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         environment: TEST
         needs: 
             - Build-Proxy
