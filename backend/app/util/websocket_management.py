@@ -86,4 +86,3 @@ class ConnectionManager:
 
 # Global instance
 connection_manager = ConnectionManager()
-

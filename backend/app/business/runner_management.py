@@ -80,7 +80,7 @@ async def launch_runner(
     cloud_service,
     initiated_by: str,
     claimed: bool = False,
-    request_id: Optional[int] = None
+    request_id: Optional[str] = None
 ) -> Runner:
     """Launch a single runner and produce a record for it."""
     try:
@@ -90,19 +90,45 @@ async def launch_runner(
             if not machine:
                 raise RunnerDefinitionException(f"Machine not found for image {image.id}")
 
-        # First create a dedicated security group for this runner
-        security_group_id = await security_group_management.create_security_group(image.cloud_connector_id)
-
-        # Emit event if request_id is provided
+        # Create a dedicated security group for this runner
         if request_id:
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "INSTANCE_CREATING_SECURITY_GROUP",
+                "NETWORK_SETUP",
                 "Creating security group for runner",
-                {"security_group_id": security_group_id}
+                {
+                    "setup_type": "security_group",
+                    "status": "in_progress"
+                }
+            )
+
+        security_group_id = await security_group_management.create_security_group(image.cloud_connector_id)
+
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "NETWORK_SETUP",
+                "Security group created for runner",
+                {
+                    "setup_type": "security_group",
+                    "status": "succeeded",
+                    "details": {
+                        "security_group_id": security_group_id
+                    }
+                }
             )
 
         # Create the instance with the security group
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "VM_CREATION",
+                "Creating virtual machine instance",
+                {
+                    "status": "in_progress"
+                }
+            )
+
         instance_id = await cloud_service.create_instance(
             key_name=key.key_name,
             image_id=image.identifier,
@@ -111,17 +137,32 @@ async def launch_runner(
             security_groups=[security_group_id]
         )
 
-        # Emit event if request_id is provided
+        if not instance_id:
+            raise RunnerExecException("Failed to create instance.")
+
         if request_id:
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
-                "INSTANCE_CREATED",
+                "VM_CREATION",
                 "Created virtual machine instance",
-                {"instance_id": instance_id}
+                {
+                    "status": "succeeded",
+                    "instance_id": instance_id
+                }
             )
 
-        if not instance_id:
-            raise RunnerExecException("Failed to create instance.")
+        # Begin VM boot sequence
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "INSTANCE_PREPARATION",
+                "Virtual machine is booting",
+                {
+                    "instance_id": instance_id,
+                    "preparation_type": "boot",
+                    "status": "in_progress"
+                }
+            )
 
         # Create the runner record
         with Session(engine) as session:
@@ -129,6 +170,18 @@ async def launch_runner(
                 state = "runner_starting_claimed"
             else:
                 state = "runner_starting"
+
+            # Create runner record
+            if request_id:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "RUNNER_REGISTRATION",
+                    "Creating runner record in database",
+                    {
+                        "instance_id": instance_id,
+                        "status": "in_progress"
+                    }
+                )
 
             new_runner = Runner(
                 machine_id=machine.id,
@@ -158,7 +211,8 @@ async def launch_runner(
                     "instance_id": instance_id,
                     "security_group_id": security_group_id,
                     "state": state,
-                    "initiated_by": initiated_by
+                    "initiated_by": initiated_by,
+                    "request_id": request_id
                 },
                 created_by=initiated_by
             )
@@ -174,11 +228,15 @@ async def launch_runner(
             if request_id:
                 await runner_status_management.runner_status_emitter.emit_status(
                     request_id,
-                    "INSTANCE_RECORD_CREATED",
+                    "RUNNER_REGISTRATION",
                     "Runner record created successfully",
                     {
                         "runner_id": new_runner.id,
-                        "state": state
+                        "instance_id": instance_id,
+                        "status": "succeeded",
+                        "details": {
+                            "state": state
+                        }
                     }
                 )
 
@@ -186,6 +244,26 @@ async def launch_runner(
                 asyncio.create_task(
                     runner_status_management.track_runner_state(new_runner.id, request_id)
                 )
+
+            # Begin tagging process
+            if request_id:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "RESOURCE_TAGGING",
+                    "Adding tags to instance",
+                    {
+                        "runner_id": new_runner.id,
+                        "instance_id": instance_id,
+                        "status": "in_progress",
+                        "tags": [
+                            {"key": "Name", "value": f"runner-{new_runner.id}"},
+                            {"key": "ImageId", "value": str(image.id)},
+                            {"key": "ManagedBy", "value": "cloud-ide"}
+                        ]
+                    }
+                )
+
+                # Tag added event would be emitted by the tagging function
 
             # Queue the task chain - just the first task
             from app.tasks.starting_runner import wait_for_instance_running
@@ -195,6 +273,7 @@ async def launch_runner(
 
     except Exception as e:
         logger.error(f"Error launching runner: {e}")
+        
         # Clean up security group if instance creation failed
         if 'security_group_id' in locals() and not ('instance_id' in locals() and instance_id):
             try:
@@ -205,12 +284,44 @@ async def launch_runner(
 
         # Emit error event if request_id is provided
         if request_id:
+            error_type = "unknown"
+            if isinstance(e, RunnerDefinitionException):
+                error_type = "invalid_configuration"
+            elif "capacity" in str(e).lower():
+                error_type = "capacity"
+            elif "permission" in str(e).lower():
+                error_type = "permission"
+            elif "timeout" in str(e).lower():
+                error_type = "timeout"
+            elif "network" in str(e).lower():
+                error_type = "network"
+            
             await runner_status_management.runner_status_emitter.emit_status(
                 request_id,
                 "ERROR",
                 f"Error launching runner: {e!s}",
-                {"error_details": str(e)}
+                {
+                    "error_type": error_type,
+                    "details": {
+                        "exception": str(e),
+                        "image_id": image.id if 'image' in locals() else None,
+                        "security_group_id": security_group_id if 'security_group_id' in locals() else None,
+                        "instance_id": instance_id if 'instance_id' in locals() else None
+                    }
+                }
             )
+
+            # If VM creation was in progress, emit failure status
+            if 'instance_id' in locals() and not instance_id:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "VM_CREATION",
+                    "Failed to create virtual machine instance",
+                    {
+                        "status": "failed",
+                        "error": str(e)
+                    }
+                )
 
         raise RunnerExecException(f"Failed to launch runner: {e!s}") from e
 
@@ -239,7 +350,14 @@ def get_runner_from_pool(image_id) -> Runner:
     with Session(engine) as session:
         return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
 
-async def claim_runner(runner: Runner, requested_session_time, user: User, user_ip: str, script_vars, request_id: Optional[int] = None) -> str:
+async def claim_runner(
+    runner: Runner, 
+    requested_session_time: int, 
+    user: User, 
+    user_ip: str, 
+    script_vars: dict, 
+    request_id: Optional[str] = None
+) -> str:
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
     logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, requested_session_time={requested_session_time}")
 
@@ -248,10 +366,24 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
         logger.info(f"Found runner: id={runner.id}, state={runner.state}, image_id={runner.image_id}")
 
         # Update the runner state quickly to avoid race condition
+        previous_state = runner.state
         runner.state = "awaiting_client"
-        logger.info(f"Updating runner state to awaiting_client")
+        logger.info(f"Updating runner state from {previous_state} to awaiting_client")
 
         session.commit()
+
+        # Emit instance lifecycle event for state change
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "INSTANCE_LIFECYCLE",
+                f"Runner state changed to awaiting_client",
+                {
+                    "runner_id": runner.id,
+                    "state": "awaiting_client",
+                    "previous_state": previous_state
+                }
+            )
 
         # Update session_end and other attributes
         runner.session_end = datetime.now(timezone.utc) + timedelta(minutes=requested_session_time)
@@ -262,10 +394,23 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
 
         logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, script_vars_size={len(script_vars)}")
 
+        # Emit session status update
+        if request_id:
+            await runner_status_management.runner_status_emitter.emit_status(
+                request_id,
+                "SESSION_STATUS",
+                "User session created",
+                {
+                    "runner_id": runner.id,
+                    "session_type": "create",
+                    "status": "in_progress",
+                    "duration": requested_session_time
+                }
+            )
+
         # Get cloud service for security group and tagging operations
         try:
             image = image_repository.find_image_by_id(session, runner.image_id)
-            # print(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
             logger.info(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
 
             if image and image.cloud_connector_id:
@@ -282,79 +427,202 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
 
                         # Update security group rules to allow user IP access
                         try:
-                            # print(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
                             logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
+                            
+                            # Emit security update event - starting
+                            if request_id:
+                                await runner_status_management.runner_status_emitter.emit_status(
+                                    request_id,
+                                    "SECURITY_UPDATE",
+                                    "Updating security group to allow user access",
+                                    {
+                                        "runner_id": runner.id,
+                                        "update_type": "update_security_group",
+                                        "status": "in_progress",
+                                        "details": {
+                                            "user_ip": user_ip
+                                        }
+                                    }
+                                )
+                            
                             security_group_result = await security_group_management.authorize_user_access(
                                 runner.id,
                                 user_ip,
                                 user.email,
                                 cloud_service
                             )
-                            # print(f"Security group result: {security_group_result}")
                             logger.info(f"Security group update result: {security_group_result}")
+                            
+                            # Emit security update event - completed
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
                                     request_id,
-                                    "INSTANCE_SECURITY_GROUP_UPDATED",
+                                    "SECURITY_UPDATE",
                                     "Security group updated to allow user access",
-                                    {"security_group_result": security_group_result}
+                                    {
+                                        "runner_id": runner.id,
+                                        "update_type": "update_security_group",
+                                        "status": "succeeded",
+                                        "details": {
+                                            "user_ip": user_ip
+                                        }
+                                    }
                                 )
                         except Exception as e:
-                            # print(f"Failed to update security groups: {e!s}")
                             logger.error(f"Failed to update security groups: {e!s}", exc_info=True)
+                            
+                            # Emit security update failure event
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
                                     request_id,
-                                    "SECURITY_GROUP_UPDATE_FAILED",
+                                    "SECURITY_UPDATE",
                                     "Failed to update security group for user access",
-                                    {"error": str(e)}
+                                    {
+                                        "runner_id": runner.id,
+                                        "update_type": "update_security_group",
+                                        "status": "failed",
+                                        "error": str(e)
+                                    }
                                 )
                             # Continue execution even if security group update fails
 
                         # Add instance tag for the user
                         try:
-                            # print(f"Adding tag to instance {runner.identifier} for user {user.email}")
                             logger.info(f"Adding tag to instance {runner.identifier} for user {user.email}")
+                            
+                            # Emit tagging event - starting
+                            if request_id:
+                                await runner_status_management.runner_status_emitter.emit_status(
+                                    request_id,
+                                    "RESOURCE_TAGGING",
+                                    "Adding tags to instance",
+                                    {
+                                        "runner_id": runner.id,
+                                        "instance_id": runner.identifier,
+                                        "status": "in_progress",
+                                        "tags": [
+                                            {"key": "User", "value": user.email}
+                                        ]
+                                    }
+                                )
+                            
                             tag_result = await cloud_service.add_instance_tag(
                                 runner.identifier,
                                 user.email
                             )
-                            # print(f"Tag addition result: {tag_result}")
                             logger.info(f"Tag addition result: {tag_result}")
+                            
+                            # Emit tagging event - completed
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
                                     request_id,
-                                    "INSTANCE_TAG_ADDED",
+                                    "RESOURCE_TAGGING",
                                     "Instance tag added for user",
-                                    {"tag_result": tag_result}
+                                    {
+                                        "runner_id": runner.id,
+                                        "instance_id": runner.identifier,
+                                        "status": "succeeded",
+                                        "tags": [
+                                            {"key": "User", "value": user.email}
+                                        ]
+                                    }
                                 )
                         except Exception as e:
-                            # print(f"Failed to add instance tag: {e!s}")
                             logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
+                            
+                            # Emit tagging failure event
                             if request_id:
                                 await runner_status_management.runner_status_emitter.emit_status(
                                     request_id,
-                                    "INSTANCE_TAG_FAILED",
+                                    "RESOURCE_TAGGING",
                                     "Failed to add instance tag for user",
-                                    {"error": str(e)}
+                                    {
+                                        "runner_id": runner.id,
+                                        "instance_id": runner.identifier,
+                                        "status": "failed",
+                                        "error": str(e),
+                                        "tags": [
+                                            {"key": "User", "value": user.email}
+                                        ]
+                                    }
                                 )
                     except Exception as e:
-                        # print(f"Failed to create cloud service: {e!s}")
                         logger.error(f"Failed to create cloud service: {e!s}", exc_info=True)
+                        
+                        # Emit error event
+                        if request_id:
+                            await runner_status_management.runner_status_emitter.emit_status(
+                                request_id,
+                                "ERROR",
+                                "Failed to create cloud service",
+                                {
+                                    "error_type": "service_creation",
+                                    "details": {
+                                        "exception": str(e),
+                                        "cloud_connector_id": cloud_connector.id,
+                                        "provider": getattr(cloud_connector, 'provider', 'unknown')
+                                    }
+                                }
+                            )
                 else:
-                    # print(f"Cloud connector not found for image {image.id}")
                     logger.error(f"Cloud connector not found for image {image.id}")
+                    
+                    # Emit error event
+                    if request_id:
+                        await runner_status_management.runner_status_emitter.emit_status(
+                            request_id,
+                            "ERROR",
+                            "Cloud connector not found",
+                            {
+                                "error_type": "not_found",
+                                "details": {
+                                    "resource_type": "cloud_connector",
+                                    "image_id": image.id
+                                }
+                            }
+                        )
             else:
-                # print(f"Image not found or has no cloud connector for runner {runner.id}")
                 logger.error(f"Image not found or has no cloud connector for runner {runner.id}")
+                
+                # Emit error event
+                if request_id:
+                    await runner_status_management.runner_status_emitter.emit_status(
+                        request_id,
+                        "ERROR",
+                        "Image not found or has no cloud connector",
+                        {
+                            "error_type": "not_found",
+                            "details": {
+                                "resource_type": "image",
+                                "runner_id": runner.id
+                            }
+                        }
+                    )
         except Exception as e:
-            # print(f"Error in cloud operations: {e!s}")
             logger.error(f"Error in cloud operations: {e!s}", exc_info=True)
+            
+            # Emit error event
+            if request_id:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    request_id,
+                    "ERROR",
+                    f"Error in cloud operations: {e!s}",
+                    {
+                        "error_type": "cloud_operations",
+                        "details": {
+                            "exception": str(e),
+                            "runner_id": runner.id
+                        }
+                    }
+                )
             # Continue execution even if cloud operations fail
 
         session.commit()
-
-        return get_runner_destination_url(runner)
+        
+        runner_url = get_runner_destination_url(runner)
+        
+        # Return the destination URL
+        return runner_url
 
 def get_runner_destination_url(runner: Runner) -> str:
     """

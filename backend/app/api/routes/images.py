@@ -1,19 +1,31 @@
 """Images API routes."""
 
 from fastapi import APIRouter, HTTPException, Header
+from pydantic import BaseModel
 from app.business import image_management
 from app.models.image import Image
 from app.business import image_management
 
 router = APIRouter()
 
-# @router.post("/", response_model=Image, status_code=status.HTTP_201_CREATED)
-# def create_image(image: Image, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
-#     """Create a new Image record."""
-#     session.add(image)
-#     session.commit()
-#     session.refresh(image)
-#     return image
+class ImageCreate(BaseModel):
+    """Schema for creating an Image."""
+    name: str
+    description: str
+    machine_id: int
+    cloud_connector_id: int
+    runner_id: int
+
+@router.post("/", response_model=Image, status_code=201)
+async def create_image(
+    image: ImageCreate
+):
+    """Create a new Image record."""
+    try:
+        created_image = await image_management.create_image(image.dict(), image.runner_id)
+        return created_image
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @router.get("/", response_model=list[Image])
 def read_images():
