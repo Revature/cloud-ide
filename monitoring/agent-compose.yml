@@ -47,3 +47,8 @@ services:
     privileged: true
     depends_on:
       - cadvisor
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
