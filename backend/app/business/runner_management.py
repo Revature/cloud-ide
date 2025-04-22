@@ -279,11 +279,10 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
 
         return destination_url
 
-def auth_runner(runner_id: int, runner_token: str):
+def auth_runner(runner_id: int, runner_token: str, session: Session = next(get_session())):
     """Check the runner's hash against a provided auth token."""
-    with Session(engine) as session:
-        runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
-        return runner.external_hash == runner_token
+    runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
+    return runner.external_hash == runner_token
 
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
     """
