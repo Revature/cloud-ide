@@ -102,12 +102,12 @@ async def route_guard(request: Request, call_next):
     print(f"passed through route guard 1: {request.url.path}")
 
     # Check exact matches
-    if (request.url.path in UNSECURE_ROUTES or
-        constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and
+    if (path_in_route_patterns(path, UNSECURE_ROUTES) or
+        constants.auth_mode=="OFF") or (path_in_route_patterns(path, DEV_ROUTES) and
                                         constants.auth_mode!="PROD"):
             return await call_next(request)
 
-    if (request.url.path in RUNNER_ACCESS_ROUTES and request.headers.get("Runner-Token")):
+    if (path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES) and request.headers.get("Runner-Token")):
         runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
         runner_token = request.headers.get("Runner-Token")
         if runner_management.auth_runner(runner_id, runner_token):
@@ -136,6 +136,13 @@ async def route_guard(request: Request, call_next):
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
             content = '{"response":"Internal Server Error: ' + str(e) + '"}'
         )
+
+def path_in_route_patterns(path: str, patterns: tuple) -> bool:
+    """Check if our route matches a regex in our tuple of routes."""
+    for pattern in patterns:
+        if re.match(pattern, path):
+            return True
+    return False
 
 app.include_router(api_router)
 
