@@ -217,6 +217,10 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
+    #####################
+    # EC2 Status Waiters
+    #####################
+
     async def wait_for_instance_running(self, instance_id: str):
         """Wait for the EC2 instance with the given instance_id to be in the running state."""
         waiter = self.ec2_client.get_waiter("instance_running")
@@ -252,6 +256,10 @@ class AWSCloudService(CloudService):
         waiter.wait(InstanceIds=[instance_id])
         return True
 
+    ###################
+    # AMI Functionality
+    ###################
+
     async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """
         Create an AMI from the given instance_id with the given tags.
@@ -276,6 +284,20 @@ class AWSCloudService(CloudService):
                 NoReboot = True
             )
             return response['ImageId']
+        except Exception as e:
+            return str(e)
+
+    async def deregister_runner_image(self, image_id: str) -> str:
+        """
+        Deregister the AMI with the given ImageId.
+
+        Returns the HTTP status code as a string.
+        """
+        try:
+            response = self.ec2_client.deregister_image(
+                ImageId = image_id
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
         except Exception as e:
             return str(e)
 
