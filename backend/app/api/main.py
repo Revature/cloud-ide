@@ -6,11 +6,6 @@ from app.api.routes import auth, registration, users, runners, machines, cloud_c
 API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
 
-
-API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
-API_VERSION: str = '/v1' #still present in the path, not for docs
-
-
 # Update route patterns with proper regex patterns
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/?$',
