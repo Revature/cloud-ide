@@ -160,7 +160,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
                 "Your runner is ready for connection",
                 {
                     "runner_id": runner.id,
-                    "status": "ready",
+                    "status": "succeeded",
                     "url": url
                 }
             )
@@ -202,7 +202,7 @@ async def awaiting_client_hook(runner: Runner, url: str, env_vars: dict[str, Any
                 {
                     "runner_id": runner.id,
                     "state": "terminating",
-                    "reason": "Script execution failed"
+                    "reason": "Script execution failed",
                 }
             )
 
@@ -424,7 +424,7 @@ async def process_runner_request_with_status(
                 "Your runner is ready for connection",
                 {
                     "runner_id": existing_runner.id,
-                    "status": "ready",
+                    "status": "succeeded",
                     "url": url
                 }
             )
@@ -607,7 +607,7 @@ async def handle_new_runner_launch(
                 "New runner is ready, claiming for your session",
                 {
                     "runner_id": runner.id,
-                    "status": "setup_in_progress"
+                    "status": "in_progress"
                 }
             )
 
