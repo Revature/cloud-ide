@@ -124,7 +124,7 @@ async def track_runner_state(runner_id: int, request_id: str):
                         "Runner is ready for connection",
                         {
                             "runner_id": runner_id,
-                            "status": "ready"
+                            "status": "succeeded",
                         }
                     )
 
@@ -201,7 +201,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
         "ssh_available": {
             "type": "CONNECTION_STATUS",
             "message": "SSH connection available",
-            "status": "connected"
+            "status": "succeeded"
         },
 
         # Script execution events
