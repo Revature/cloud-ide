@@ -283,6 +283,7 @@ async def run_script_for_runner(
     return None
 
 async def runner_config_script(runner_id: int, auth_token: str):
+    """Place a config file on the runner when it starts up so that it can identify itself."""
     print(f"Starting config script: {runner_id}, {auth_token}")
     monolith_url: str = constants.domain
     config_data = {

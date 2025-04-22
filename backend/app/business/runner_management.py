@@ -278,8 +278,9 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
         logger.info(f"Returning destination URL for runner {runner.id}: {destination_url}")
 
         return destination_url
-    
-def shouldAuthRunner(runner_id: int, runner_token: str, session: Session = get_session()):
+
+def should_auth_runner(runner_id: int, runner_token: str, session: Session = get_session()):
+    """Check the runner's hash against a provided auth token."""
     runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
     return runner.external_hash == runner_token
 

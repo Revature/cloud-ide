@@ -99,13 +99,6 @@ async def route_guard(request: Request, call_next):
 
     print(f"Checking if path {path} starts with {runner_path_prefix}")
 
-    # Check if the structure is correct and the runner ID is a digit
-    if (path.startswith(runner_path_prefix) and
-        'state' in path_parts and
-        path_parts[4].isdigit()):
-        print("Matched runner state endpoint")
-        return await call_next(request)
-
     print(f"passed through route guard 1: {request.url.path}")
 
     # Check exact matches
@@ -113,7 +106,7 @@ async def route_guard(request: Request, call_next):
         constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and
                                         constants.auth_mode!="PROD"):
             return await call_next(request)
-    
+
     if (request.url.path in RUNNER_ACCESS_ROUTES and request.headers.get("Runner-Token")):
         runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
         runner_token = request.headers.get("Runner-Token")
