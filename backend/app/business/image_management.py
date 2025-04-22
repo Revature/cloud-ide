@@ -7,6 +7,7 @@ from app.models import Image, Runner
 from app.db import image_repository, machine_repository, cloud_connector_repository, runner_repository
 from app.business import runner_management, cloud_services
 from app.exceptions.runner_exceptions import RunnerExecException
+from app.util import constants
 import logging
 
 logger = get_task_logger(__name__)
@@ -48,6 +49,40 @@ def update_image(image_id: int, updated_image: Image) -> bool:
         # If pool size changed, trigger the runner pool management task
         if pool_size_changed:
             logger.info(f"Runner pool size changed for image {image_id}. Triggering pool management task.")
+            from app.tasks.runner_pool_management import manage_runner_pool
+            # Queue the task to run immediately (using .delay() for async execution)
+            manage_runner_pool.delay()
+
+        return True
+
+def update_runner_pool(image_id: int, runner_pool_size: int) -> bool:
+    """Update the runner pool of an existing image."""
+    # Validate the runner pool size
+    if runner_pool_size > constants.max_runner_pool_size:
+        logger.warning(f"Requested pool size {runner_pool_size} exceeds maximum allowed {constants.max_runner_pool_size}")
+        return False
+
+    with Session(engine) as session:
+        # Get the existing image first to check if pool size will change
+        existing_image = image_repository.find_image_by_id(session, image_id)
+        if not existing_image:
+            logger.error(f"Image with id {image_id} not found for updating")
+            return False
+
+        # Check if runner_pool_size is changing
+        current_pool_size = existing_image.runner_pool_size
+        pool_size_changed = current_pool_size != runner_pool_size
+
+        # Apply the new pool size
+        existing_image.runner_pool_size = runner_pool_size
+
+        # Get the updated image from repository
+        db_image = image_repository.update_image(session, image_id, existing_image)
+        session.commit()
+
+        # If pool size changed, trigger the runner pool management task
+        if pool_size_changed:
+            logger.info(f"Runner pool size changed for image {image_id} from {current_pool_size} to {runner_pool_size}.")
             from app.tasks.runner_pool_management import manage_runner_pool
             # Queue the task to run immediately (using .delay() for async execution)
             manage_runner_pool.delay()

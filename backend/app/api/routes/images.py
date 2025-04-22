@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.business import image_management
 from app.models.image import Image
 from app.business import image_management
+from app.util import constants
 
 router = APIRouter()
 
@@ -54,6 +55,28 @@ def update_image(
     if not success:
         raise HTTPException(status_code=404, detail="Image not found")
     return {"message": f"Image {image_id} updated successfully"}
+
+
+class RunnerPoolUpdate(BaseModel):
+    """Schema for updating runner pool size."""
+
+    runner_pool_size: int
+
+@router.patch("/{image_id}/runner_pool", response_model=dict[str, str])
+def update_runner_pool(
+    image_id: int,
+    pool_update: RunnerPoolUpdate
+):
+    """Update the runner pool size of an existing Image."""
+    if pool_update.runner_pool_size > constants.max_runner_pool_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Runner pool size cannot exceed {constants.max_runner_pool_size}"
+        )
+    success = image_management.update_runner_pool(image_id, pool_update.runner_pool_size)
+    if not success:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return {"message": f"Runner pool for image {image_id} updated successfully"}
 
 # @router.delete("/{image_id}", status_code=status.HTTP_200_OK)
 # def delete_image(image_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
