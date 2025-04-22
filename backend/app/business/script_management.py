@@ -291,7 +291,7 @@ async def runner_config_script(runner_id: int, auth_token: str):
     }
     config_json = json.dumps(config_data)
     write_config_script = f"""#!/bin/bash
-echo '{config_json}' > ~/.cloudide.config
+echo '{config_json}' > /home/ubuntu/.cloudide.config
 echo 'Setup config'
 """
     await execute_script_for_runner("config", runner_id, write_config_script)
