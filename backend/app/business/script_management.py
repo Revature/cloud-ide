@@ -149,7 +149,6 @@ async def execute_script_for_runner(
     initiated_by: str = "system"
 ) -> dict[str, Any]:
     """Given a runner and a rendered script, execute the script."""
-    print("Starting config script execution")
     script_start_time = datetime.now(timezone.utc)
     runner = runner_management.get_runner_by_id(runner_id)
     # Retrieve the private key using runner.key_id.
@@ -284,7 +283,6 @@ async def run_script_for_runner(
 
 async def runner_config_script(runner_id: int, auth_token: str):
     """Place a config file on the runner when it starts up so that it can identify itself."""
-    print(f"Starting config script: {runner_id}, {auth_token}")
     monolith_url: str = constants.domain
     config_data = {
         "runnerAuth": auth_token,
