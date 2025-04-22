@@ -11,7 +11,7 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.models.cloud_connector import CloudConnector
-from app.business import key_management, health_check
+from app.business import key_management, health_check, script_management
 from app.business.cloud_services.cloud_service_factory import get_cloud_service
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ def update_runner_state(runner_id: int, instance_id: str):
             if runner:
                 runner.url = public_ip
                 session.commit()
+                asyncio.run(script_management.runner_config_script(runner_id, runner.external_hash))
                 if runner.state == "runner_starting_claimed":
                     runner.state = "ready_claimed"
                 else:
@@ -93,8 +94,6 @@ def update_runner_state(runner_id: int, instance_id: str):
 
                 # print(f"Runner {runner_id} updated to 'ready' and history record created.")
                 logger.info(f"Runner {runner_id} updated to 'ready' and history record created.")
-
-                from app.business import script_management
                 # on_startup script execution
                 script_result = asyncio.run(script_management.run_script_for_runner(
                     "on_startup",

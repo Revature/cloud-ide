@@ -11,6 +11,7 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/',
     f'{API_VERSION}/machine_auth',
     f'{API_VERSION}/runners/[0-9]+/state',
+    f'{API_VERSION}/runners/[0-9]+/state/',
     f'{API_VERSION}/',
     # Everything behind the proxy loses the api root path from the URI
     f'{API_VERSION}/',
@@ -19,6 +20,16 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/registration/email_invite',
     f'{API_VERSION}/registration/email_invite/'
     # Test keeps api root path
+    )
+
+RUNNER_ACCESS_ROUTES: tuple = (
+    f'{API_VERSION}/runners/[0-9]+/state',
+    f'{API_VERSION}/runners/[0-9]+/state/',
+    f'{API_VERSION}/runners/[0-9]+/extend-time',
+    f'{API_VERSION}/runners/[0-9]+/extend-time/',
+    f'{API_VERSION}/runners/[0-9]+',
+    f'{API_VERSION}/runners/[0-9]+/',
+    f'{API_VERSION}/'
     )
 
 DEV_ROUTES: tuple = (

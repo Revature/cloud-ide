@@ -1,6 +1,7 @@
 """Main module to start the FastAPI application."""
 
 from http import HTTPStatus
+import re
 from fastapi import FastAPI, Request, Response
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
@@ -11,9 +12,10 @@ from workos import exceptions
 from app.business.pkce import verify_token_exp
 from app.business.workos import get_workos_client
 from app.db.database import create_db_and_tables, engine
-from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION, API_ROOT_PATH, DEV_ROUTES
+from app.api.main import API_ROOT_PATH, UNSECURE_ROUTES, api_router, API_VERSION, API_ROOT_PATH, DEV_ROUTES, RUNNER_ACCESS_ROUTES
 from app.business.resource_setup import setup_resources
 from app.business.runner_management import launch_runners, shutdown_all_runners
+from app.business import runner_management
 from app.exceptions.no_matching_key import NoMatchingKeyException
 from app.models.image import Image
 from app.models.workos_session import get_refresh_token, refresh_session
@@ -110,6 +112,12 @@ async def route_guard(request: Request, call_next):
     if (request.url.path in UNSECURE_ROUTES or
         constants.auth_mode=="OFF") or (request.url.path in DEV_ROUTES and
                                         constants.auth_mode!="PROD"):
+            return await call_next(request)
+    
+    if (request.url.path in RUNNER_ACCESS_ROUTES and request.headers.get("Runner-Token")):
+        runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
+        runner_token = request.headers.get("Runner-Token")
+        if runner_management.shouldAuthRunner(runner_id, runner_token):
             return await call_next(request)
 
     access_token = request.headers.get("Access-Token")

@@ -1,5 +1,6 @@
 """Module for managing scripts and running them on runners via SSH."""
 
+import json
 from sqlmodel import Session, select
 from celery.utils.log import get_task_logger
 from app.db.database import engine
@@ -9,6 +10,7 @@ from app.business.cloud_services import cloud_service_factory
 from app.business import key_management, encryption, runner_management
 from app.exceptions.runner_exceptions import RunnerExecException
 from app.db import script_repository, runner_repository, runner_history_repository, image_repository
+from app.util import constants
 from datetime import datetime, timezone
 import time
 import jinja2
@@ -147,6 +149,7 @@ async def execute_script_for_runner(
     initiated_by: str = "system"
 ) -> dict[str, Any]:
     """Given a runner and a rendered script, execute the script."""
+    print("Starting config script execution")
     script_start_time = datetime.now(timezone.utc)
     runner = runner_management.get_runner_by_id(runner_id)
     # Retrieve the private key using runner.key_id.
@@ -278,3 +281,18 @@ async def run_script_for_runner(
         result = await execute_script_for_runner(event=event, runner_id=runner_id, script=script, initiated_by=initiated_by)
         return result
     return None
+
+async def runner_config_script(runner_id: int, auth_token: str):
+    print(f"Starting config script: {runner_id}, {auth_token}")
+    monolith_url: str = constants.domain
+    config_data = {
+        "runnerAuth": auth_token,
+        "runnerId": runner_id,
+        "monolithUrl": monolith_url
+    }
+    config_json = json.dumps(config_data)
+    write_config_script = f"""#!/bin/bash
+echo '{config_json}' > ~/.cloudide.config
+echo 'Setup config'
+"""
+    await execute_script_for_runner("config", runner_id, write_config_script)
