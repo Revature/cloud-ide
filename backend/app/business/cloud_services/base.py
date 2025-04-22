@@ -83,7 +83,7 @@ class CloudService(ABC):
     #####################
     # EC2 Status Waiters
     #####################
-    
+
     @abstractmethod
     async def wait_for_instance_running(self, instance_id: str):
         """Wait for an instance to be in the running state."""
@@ -97,6 +97,7 @@ class CloudService(ABC):
     ####################
     # AMI Functionality
     ####################
+    
     @abstractmethod
     async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """
