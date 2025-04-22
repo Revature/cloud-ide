@@ -6,7 +6,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
-from app.db.database import engine
+from app.db.database import engine, get_session
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
 from app.util import constants
 from app.business.cloud_services import cloud_service_factory
@@ -278,6 +278,11 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
         logger.info(f"Returning destination URL for runner {runner.id}: {destination_url}")
 
         return destination_url
+
+def auth_runner(runner_id: int, runner_token: str, session: Session = get_session()):
+    """Check the runner's hash against a provided auth token."""
+    runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
+    return runner.external_hash == runner_token
 
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
     """

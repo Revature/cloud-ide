@@ -39,12 +39,10 @@ def read_runner(runner_id: int, session: Session = Depends(get_session), access_
         raise HTTPException(status_code=400, detail="Runner not found")
     return runner
 
-# change this to use runner id in url
-@router.put("/extend_session", response_model=str)
+@router.put("/{runner_id}/extend_session", response_model=str)
 def extend_runner_session(
     extend_req: ExtendSessionRequest,
-    session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token")
+    session: Session = Depends(get_session)
     ):
     """Update a runner's session_end by adding extra time."""
     runner = runner_repository.find_runner_by_id(session, extend_req.runner_id)
