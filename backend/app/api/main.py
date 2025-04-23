@@ -126,7 +126,7 @@ async def start_api():
             if (path_in_route_patterns(path, UNSECURE_ROUTES) or
                 constants.auth_mode=="OFF") or (path_in_route_patterns(path, DEV_ROUTES) and
                                                 constants.auth_mode!="PROD"):
-                    final_response = call_next(request)
+                    final_response = await call_next(request)
 
             # Check for runner access paths
             elif (path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
@@ -136,7 +136,7 @@ async def start_api():
                     runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
                     runner_token = request.headers.get("Runner-Token")
                     if runner_management.auth_runner(runner_id, runner_token):
-                        final_response = call_next(request)
+                        final_response = await call_next(request)
 
             # If none of the above, we must find an access token
             elif not access_token:
