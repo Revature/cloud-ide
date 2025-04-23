@@ -138,14 +138,6 @@ async def route_guard(request: Request, call_next):
             content = '{"response":"Internal Server Error: ' + str(e) + '"}'
         )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Or specify exact methods: ["GET", "POST", "PUT", "DELETE"]
-    allow_headers=["*"],  # Or specify required headers
-)
-
 def path_in_route_patterns(path: str, patterns: tuple) -> bool:
     """Check if our route matches a regex in our tuple of routes."""
     for pattern in patterns:
