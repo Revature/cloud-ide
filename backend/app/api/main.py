@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
     setup_resources()
 
     # Find all images with pool size > 0 and launch runners for each
-    fill_runner_pools()
+    await fill_runner_pools()
 
     # API is started, yield to start handling requests.
     yield
@@ -131,7 +131,7 @@ def start_api():
             # Check for runner access paths
             elif (path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
                 if (access_token and access_token == constants.jwt_secret):
-                    final_response = call_next(request)
+                    final_response = await call_next(request)
                 elif (request.headers.get("Runner-Token")):
                     runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
                     runner_token = request.headers.get("Runner-Token")
