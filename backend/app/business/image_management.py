@@ -2,10 +2,13 @@
 
 from celery.utils.log import get_task_logger
 from sqlmodel import Session
+from sqlalchemy import text
+import asyncio
+from datetime import datetime
 from app.db.database import engine
 from app.models import Image, Runner
-from app.db import image_repository, machine_repository, cloud_connector_repository, runner_repository
-from app.business import runner_management, cloud_services
+from app.db import image_repository, machine_repository, cloud_connector_repository, runner_repository, runner_history_repository
+from app.business import runner_management, cloud_services, security_group_management
 from app.exceptions.runner_exceptions import RunnerExecException
 from app.util import constants
 import logging
@@ -180,7 +183,7 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
                 identifier=image_identifier,
                 machine_id=image_data.get("machine_id"),
                 cloud_connector_id=cloud_connector_id,
-                runner_pool_size=0  # Default to 0, can be updated later
+                runner_pool_size=0
             )
 
             # Save the new image to the database
@@ -192,3 +195,142 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
         except Exception as e:
             logger.error(f"Error creating image from runner {runner_id}: {e!s}")
             raise RunnerExecException(f"Error creating image from runner: {e!s}") from e
+
+
+async def delete_image(image_id: int) -> bool:
+    """
+    Delete an image by its ID.
+
+    This function:
+    1. Finds the image in the database
+    2. Terminates all runners associated with this image using proper runner management methods
+    3. Cleans up security groups using security_group_management
+    4. Uses the appropriate cloud service to deregister the AMI
+    5. Deletes the runner histories, runners, and image record from the database
+
+    Returns:
+        bool: True if the image was successfully deleted
+
+    Raises:
+        RunnerExecException: If the image cannot be found or deregistered
+    """
+    logger = logging.getLogger(__name__)
+
+    with Session(engine) as session:
+        # Get the image
+        db_image = image_repository.find_image_by_id(session, image_id)
+        if not db_image:
+            logger.error(f"Image with id {image_id} not found")
+            raise RunnerExecException(f"Image with id {image_id} not found")
+
+        # Get the cloud connector
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, db_image.cloud_connector_id)
+        if not cloud_connector:
+            logger.error(f"Cloud connector with id {db_image.cloud_connector_id} not found")
+            raise RunnerExecException(f"Cloud connector with id {db_image.cloud_connector_id} not found")
+
+        # Get all runners associated with this image
+        runners = runner_repository.find_runners_by_image_id(session, image_id)
+        logger.info(f"Found {len(runners)} runners associated with image {image_id}")
+        
+        # Store instance IDs and runner IDs for termination
+        instance_ids_to_terminate = []
+        runner_ids = []
+        for runner in runners:
+            runner_ids.append(runner.id)
+            if runner.state not in ["terminated", "closed"]:
+                instance_ids_to_terminate.append(runner.identifier)
+
+    # Get the cloud service for cloud operations
+    cloud_service = cloud_services.cloud_service_factory.get_cloud_service(cloud_connector)
+
+    # Terminate all running instances using runner management functions
+    if instance_ids_to_terminate:
+        logger.info(f"Terminating {len(instance_ids_to_terminate)} instances for image {image_id}")
+        try:
+            # Use the shutdown_runners function from runner management
+            termination_results = await runner_management.shutdown_runners(
+                instance_ids_to_terminate, 
+                initiated_by="image_deletion"
+            )
+            logger.info(f"Instance termination results: {termination_results}")
+            
+            # Wait a bit for termination to process
+            await asyncio.sleep(5)
+        except Exception as e:
+            logger.error(f"Error terminating instances: {e!s}")
+            # Continue with AMI deregistration even if some instances fail to terminate
+
+    # Clean up security groups for all runners
+    security_group_cleanup_results = []
+    for runner_id in runner_ids:
+        try:
+            logger.info(f"Cleaning up security groups for runner {runner_id}")
+            result = await security_group_management.handle_runner_termination(runner_id, cloud_service)
+            security_group_cleanup_results.append({"runner_id": runner_id, "success": result})
+            logger.info(f"Security group cleanup for runner {runner_id}: {result}")
+        except Exception as e:
+            logger.error(f"Error cleaning up security groups for runner {runner_id}: {e!s}")
+            security_group_cleanup_results.append({"runner_id": runner_id, "success": False, "error": str(e)})
+    
+    # Handle database cleanup - first runner associations
+    try:
+        with Session(engine) as assoc_session:
+            # Delete runner-security group associations first
+            for runner_id in runner_ids:
+                assoc_session.execute(
+                    text("DELETE FROM runner_security_group WHERE runner_id = :runner_id"), 
+                    {"runner_id": runner_id}
+                )
+            assoc_session.commit()
+    except Exception as e:
+        logger.error(f"Error deleting runner-security group associations: {e!s}")
+        raise RunnerExecException(f"Error deleting runner-security group associations: {e!s}") from e
+    
+    # Now handle runner histories
+    try:
+        with Session(engine) as history_session:
+            # Delete all runner histories
+            for runner_id in runner_ids:
+                runner_history_repository.delete_runner_histories_by_runner_id(history_session, runner_id)
+                logger.info(f"Deleted history records for runner {runner_id}")
+            history_session.commit()
+    except Exception as e:
+        logger.error(f"Error deleting runner histories: {e!s}")
+        raise RunnerExecException(f"Error deleting runner histories: {e!s}") from e
+    
+    # Now delete the runners
+    try:
+        with Session(engine) as runner_session:
+            # Delete all runners
+            for runner_id in runner_ids:
+                runner_repository.delete_runner(runner_session, runner_id)
+                logger.info(f"Deleted runner {runner_id}")
+            runner_session.commit()
+    except Exception as e:
+        logger.error(f"Error deleting runners: {e!s}")
+        raise RunnerExecException(f"Error deleting runners: {e!s}") from e
+    
+    # Deregister the AMI using the cloud service
+    try:
+        deregister_response = await cloud_service.deregister_runner_image(db_image.identifier)
+
+        # Check if the response is a status code string (success case)
+        if str(deregister_response) == "200":
+            logger.info(f"Successfully deregistered AMI for image {image_id}")
+            
+            # Finally, delete the image record
+            with Session(engine) as image_session:
+                image_repository.delete_image(image_session, db_image.id)
+                logger.info(f"Image with ID {db_image.id} deleted successfully")
+                image_session.commit()
+            
+            return True
+        else:
+            # Handle error case - the response contains an error message
+            logger.error(f"Failed to deregister AMI: {deregister_response}")
+            raise RunnerExecException(f"Failed to deregister AMI: {deregister_response}")
+
+    except Exception as e:
+        logger.error(f"Error deleting image {image_id}: {e!s}")
+        raise RunnerExecException(f"Error deleting image: {e!s}") from e

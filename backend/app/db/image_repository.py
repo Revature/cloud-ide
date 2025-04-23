@@ -36,3 +36,13 @@ def create_image(session: Session, image: Image) -> Image:
     session.commit()
     session.refresh(image)
     return image
+
+def delete_image(session: Session, image_id: int) -> bool:
+    """Delete an image by its id."""
+    db_image = find_image_by_id(session, image_id)
+    if not db_image:
+        return False
+
+    session.delete(db_image)
+    session.commit()
+    return True

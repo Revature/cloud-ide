@@ -647,6 +647,261 @@ def get_runner_destination_url(runner: Runner) -> str:
 
     return destination_url
 
+async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
+    """
+    Stop a running instance without terminating it.
+
+    This function transitions a runner to the "closed" state and stops the underlying VM instance.
+
+    Args:
+        runner_id: The ID of the runner to stop
+        initiated_by: Identifier of who initiated the stop operation
+
+    Returns:
+        A dictionary with the result of the stop operation
+    """
+    logger.info(f"[{initiated_by}] Starting stop operation for runner {runner_id}")
+    
+    try:
+        # Store needed information from the database session
+        cloud_service = None
+        instance_id = None
+        
+        # Find runner and validate state
+        with Session(engine) as session:
+            runner = runner_repository.find_runner_by_id(session, runner_id)
+            
+            # Handle not found case
+            if not runner:
+                logger.error(f"[{initiated_by}] Runner with ID {runner_id} not found")
+                return {
+                    "status": "error",
+                    "message": f"Runner with ID {runner_id} not found",
+                    "initiated_by": initiated_by
+                }
+                
+            # Handle already stopped/terminated case
+            if runner.state in ("closed", "terminated"):
+                logger.info(f"[{initiated_by}] Runner with ID {runner_id} is already in {runner.state} state")
+                return {
+                    "status": "warned",
+                    "message": f"Runner with ID {runner_id} is already in {runner.state} state",
+                    "initiated_by": initiated_by
+                }
+                
+            # Get image and cloud connector
+            image = image_repository.find_image_by_id(session, runner.image_id)
+            if not image or not image.cloud_connector_id:
+                return {
+                    "status": "error",
+                    "message": "Missing image or cloud connector information",
+                    "initiated_by": initiated_by
+                }
+                
+            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+                session, image.cloud_connector_id
+            )
+            if not cloud_connector:
+                return {
+                    "status": "error",
+                    "message": "Cloud connector not found",
+                    "initiated_by": initiated_by
+                }
+                
+            # Store the instance ID for later use
+            instance_id = runner.identifier
+            
+            # Create the cloud service while in the session scope
+            cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+            
+            # Create history record for stop request
+            runner_history_repository.add_runner_history(
+                session=session,
+                runner=runner,
+                event_name="stop_requested",
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "initiated_by": initiated_by,
+                    "old_state": runner.state
+                },
+                created_by=initiated_by
+            )
+            
+            # Update runner state to closed
+            old_state = runner.state
+            runner.state = "closed"
+            
+            # Add another history record for state change
+            runner_history_repository.add_runner_history(
+                session=session,
+                runner=runner,
+                event_name="state_changed",
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "old_state": old_state,
+                    "new_state": "closed",
+                    "initiated_by": initiated_by
+                },
+                created_by=initiated_by
+            )
+            session.commit()
+        
+        # Now that we're outside the session scope, use the cloud service to stop the instance
+        if cloud_service and instance_id:
+            stop_result = await cloud_service.stop_instance(instance_id)
+            
+            logger.info(f"[{initiated_by}] Stop instance result for runner {runner_id}: {stop_result}")
+            
+            return {
+                "status": "success",
+                "message": f"Runner {runner_id} stopped successfully",
+                "state": "closed",
+                "instance_state": stop_result,
+                "initiated_by": initiated_by
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to retrieve necessary information for stopping instance",
+                "initiated_by": initiated_by
+            }
+        
+    except Exception as e:
+        logger.error(f"[{initiated_by}] Error stopping runner {runner_id}: {e!s}")
+        return {
+            "status": "error",
+            "message": f"Error stopping runner: {e!s}",
+            "initiated_by": initiated_by
+        }
+
+async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
+    """
+    Start a stopped runner instance.
+    
+    This function transitions a runner from "closed" state to "ready" state 
+    and starts the underlying VM instance.
+
+    Args:
+        runner_id: The ID of the runner to start
+        initiated_by: Identifier of who initiated the start operation
+
+    Returns:
+        A dictionary with the result of the start operation
+    """
+    logger.info(f"[{initiated_by}] Starting start operation for runner {runner_id}")
+    
+    try:
+        # Store needed information from the database session
+        cloud_service = None
+        instance_id = None
+        
+        # Find runner and validate state
+        with Session(engine) as session:
+            runner = runner_repository.find_runner_by_id(session, runner_id)
+            
+            # Handle not found case
+            if not runner:
+                logger.error(f"[{initiated_by}] Runner with ID {runner_id} not found")
+                return {
+                    "status": "error",
+                    "message": f"Runner with ID {runner_id} not found",
+                    "initiated_by": initiated_by
+                }
+                
+            # Only allow starting from closed state
+            if runner.state != "closed":
+                logger.info(f"[{initiated_by}] Cannot start runner with ID {runner_id} from {runner.state} state")
+                return {
+                    "status": "error",
+                    "message": f"Runner must be in 'closed' state to start, current state: {runner.state}",
+                    "initiated_by": initiated_by
+                }
+                
+            # Get image and cloud connector
+            image = image_repository.find_image_by_id(session, runner.image_id)
+            if not image or not image.cloud_connector_id:
+                return {
+                    "status": "error",
+                    "message": "Missing image or cloud connector information",
+                    "initiated_by": initiated_by
+                }
+                
+            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+                session, image.cloud_connector_id
+            )
+            if not cloud_connector:
+                return {
+                    "status": "error",
+                    "message": "Cloud connector not found",
+                    "initiated_by": initiated_by
+                }
+                
+            # Store the instance ID for later use
+            instance_id = runner.identifier
+            
+            # Create the cloud service while in the session scope
+            cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+            
+            # Create history record for start request
+            runner_history_repository.add_runner_history(
+                session=session,
+                runner=runner,
+                event_name="start_requested",
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "initiated_by": initiated_by,
+                    "old_state": runner.state
+                },
+                created_by=initiated_by
+            )
+            
+            # Update runner state to ready
+            old_state = runner.state
+            runner.state = "ready"
+            
+            # Add another history record for state change
+            runner_history_repository.add_runner_history(
+                session=session,
+                runner=runner,
+                event_name="state_changed",
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "old_state": old_state,
+                    "new_state": "ready",
+                    "initiated_by": initiated_by
+                },
+                created_by=initiated_by
+            )
+            session.commit()
+            
+        # Now that we're outside the session scope, use the cloud service to start the instance
+        if cloud_service and instance_id:
+            start_result = await cloud_service.start_instance(instance_id)
+            
+            logger.info(f"[{initiated_by}] Start instance result for runner {runner_id}: {start_result}")
+            
+            return {
+                "status": "success",
+                "message": f"Runner {runner_id} started successfully",
+                "state": "ready",
+                "instance_state": start_result,
+                "initiated_by": initiated_by
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to retrieve necessary information for starting instance",
+                "initiated_by": initiated_by
+            }
+        
+    except Exception as e:
+        logger.error(f"[{initiated_by}] Error starting runner {runner_id}: {e!s}")
+        return {
+            "status": "error",
+            "message": f"Error starting runner: {e!s}",
+            "initiated_by": initiated_by
+        }
+
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
     """
     Terminate a specific runner by ID.

@@ -101,6 +101,15 @@ class CloudService(ABC):
         """
         pass
 
+    @abstractmethod
+    async def deregister_runner_image(self, image_id: str) -> str:
+        """
+        Deregister the AMI with the given ImageId.
+
+        Returns the HTTP status code as a string.
+        """
+        pass
+
     ###################
     # S3 Functionality
     ###################

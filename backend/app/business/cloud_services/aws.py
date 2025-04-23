@@ -278,7 +278,7 @@ class AWSCloudService(CloudService):
             return response['ImageId']
         except Exception as e:
             return str(e)
-    
+
     async def deregister_runner_image(self, image_id: str) -> str:
         """
         Deregister the AMI with the given ImageId.

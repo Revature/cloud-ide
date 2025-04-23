@@ -53,3 +53,29 @@ def update_runner(session: Session, runner: Runner) -> Runner:
     session.commit()
     session.refresh(runner)
     return runner
+
+# Add to runner_repository.py
+def find_runners_by_image_id(session: Session, image_id: int) -> list[Runner]:
+    """
+    Find all runners associated with a specific image.
+
+    Args:
+        session: The database session
+        image_id: The ID of the image
+
+    Returns:
+        A list of Runner objects
+    """
+    return session.exec(select(Runner).where(Runner.image_id == image_id)).all()
+
+def delete_runner(session: Session, runner_id: int) -> None:
+    """
+    Delete a specific runner by ID.
+
+    Args:
+        session: The database session
+        runner_id: The ID of the runner to delete
+    """
+    runner = session.get(Runner, runner_id)
+    if runner:
+        session.delete(runner)
