@@ -126,13 +126,6 @@ async def update_runner_state(
     if not runner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
 
-    # Check if the request is coming from a trusted service
-    if access_token and access_token != os.getenv("JWT_SECRET"):
-        raise HTTPException(
-            status_code=401,
-            detail="Unauthorized access. This endpoint can only be accessed from trusted services."
-        )
-
     # Validate the state is one of the allowed values
     allowed_states = ["runner_starting",
                       "app_starting",
