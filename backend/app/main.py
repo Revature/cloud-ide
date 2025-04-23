@@ -3,6 +3,7 @@
 from http import HTTPStatus
 import re
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
@@ -136,6 +137,14 @@ async def route_guard(request: Request, call_next):
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
             content = '{"response":"Internal Server Error: ' + str(e) + '"}'
         )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Or specify exact methods: ["GET", "POST", "PUT", "DELETE"]
+    allow_headers=["*"],  # Or specify required headers
+)
 
 def path_in_route_patterns(path: str, patterns: tuple) -> bool:
     """Check if our route matches a regex in our tuple of routes."""
