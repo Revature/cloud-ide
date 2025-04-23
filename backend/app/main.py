@@ -132,17 +132,10 @@ async def route_guard(request: Request, call_next):
         print(e)
         return Response(status_code=500, content="Something went wrong when verifying the access token")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Or specify exact methods: ["GET", "POST", "PUT", "DELETE"]
-    allow_headers=["*"],  # Or specify required headers
-)
-
 app.include_router(api_router)
 
 @app.get("/")
 def read_root():
     """Check if the application is running."""
     return {"message": "Hello, welcome to the cloud ide dev backend API!"}
+
