@@ -137,7 +137,7 @@ async def route_guard(request: Request, call_next):
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
             content = '{"response":"Internal Server Error: ' + str(e) + '"}'
         )
-        
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, specify exact origins
