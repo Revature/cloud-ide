@@ -232,7 +232,7 @@ async def delete_image(image_id: int) -> bool:
         # Get all runners associated with this image
         runners = runner_repository.find_runners_by_image_id(session, image_id)
         logger.info(f"Found {len(runners)} runners associated with image {image_id}")
-        
+
         # Store instance IDs and runner IDs for termination
         instance_ids_to_terminate = []
         runner_ids = []
@@ -250,11 +250,11 @@ async def delete_image(image_id: int) -> bool:
         try:
             # Use the shutdown_runners function from runner management
             termination_results = await runner_management.shutdown_runners(
-                instance_ids_to_terminate, 
+                instance_ids_to_terminate,
                 initiated_by="image_deletion"
             )
             logger.info(f"Instance termination results: {termination_results}")
-            
+
             # Wait a bit for termination to process
             await asyncio.sleep(5)
         except Exception as e:
@@ -272,21 +272,21 @@ async def delete_image(image_id: int) -> bool:
         except Exception as e:
             logger.error(f"Error cleaning up security groups for runner {runner_id}: {e!s}")
             security_group_cleanup_results.append({"runner_id": runner_id, "success": False, "error": str(e)})
-    
+
     # Handle database cleanup - first runner associations
     try:
         with Session(engine) as assoc_session:
             # Delete runner-security group associations first
             for runner_id in runner_ids:
                 assoc_session.execute(
-                    text("DELETE FROM runner_security_group WHERE runner_id = :runner_id"), 
+                    text("DELETE FROM runner_security_group WHERE runner_id = :runner_id"),
                     {"runner_id": runner_id}
                 )
             assoc_session.commit()
     except Exception as e:
         logger.error(f"Error deleting runner-security group associations: {e!s}")
         raise RunnerExecException(f"Error deleting runner-security group associations: {e!s}") from e
-    
+
     # Now handle runner histories
     try:
         with Session(engine) as history_session:
@@ -298,7 +298,7 @@ async def delete_image(image_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error deleting runner histories: {e!s}")
         raise RunnerExecException(f"Error deleting runner histories: {e!s}") from e
-    
+
     # Now delete the runners
     try:
         with Session(engine) as runner_session:
@@ -310,7 +310,7 @@ async def delete_image(image_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error deleting runners: {e!s}")
         raise RunnerExecException(f"Error deleting runners: {e!s}") from e
-    
+
     # Deregister the AMI using the cloud service
     try:
         deregister_response = await cloud_service.deregister_runner_image(db_image.identifier)
@@ -318,13 +318,13 @@ async def delete_image(image_id: int) -> bool:
         # Check if the response is a status code string (success case)
         if str(deregister_response) == "200":
             logger.info(f"Successfully deregistered AMI for image {image_id}")
-            
+
             # Finally, delete the image record
             with Session(engine) as image_session:
                 image_repository.delete_image(image_session, db_image.id)
                 logger.info(f"Image with ID {db_image.id} deleted successfully")
                 image_session.commit()
-            
+
             return True
         else:
             # Handle error case - the response contains an error message
