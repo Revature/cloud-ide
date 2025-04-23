@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
     shutdown_api()
 
 
-async def start_api():
+def start_api():
     """Start the API."""
     api = FastAPI(
         lifespan=lifespan,
