@@ -1,6 +1,7 @@
 """Main module to start the FastAPI application."""
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
@@ -130,6 +131,14 @@ async def route_guard(request: Request, call_next):
     except Exception as e:
         print(e)
         return Response(status_code=500, content="Something went wrong when verifying the access token")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Or specify exact methods: ["GET", "POST", "PUT", "DELETE"]
+    allow_headers=["*"],  # Or specify required headers
+)
 
 app.include_router(api_router)
 
