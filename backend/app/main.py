@@ -107,13 +107,17 @@ async def route_guard(request: Request, call_next):
                                         constants.auth_mode!="PROD"):
             return await call_next(request)
 
-    if (path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES) and request.headers.get("Runner-Token")):
-        runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
-        runner_token = request.headers.get("Runner-Token")
-        if runner_management.auth_runner(runner_id, runner_token):
-            return await call_next(request)
-
     access_token = request.headers.get("Access-Token")
+
+    if (path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
+        if (access_token and access_token == constants.jwt_secret):
+            return await call_next(request)
+        elif (request.headers.get("Runner-Token")):
+            runner_id = re.search(r'/runners/(\d+)(?:/.*)?$', path).group(1) if re.search(r'/runners/(\d+)(?:/.*)?$', path) else None
+            runner_token = request.headers.get("Runner-Token")
+            if runner_management.auth_runner(runner_id, runner_token):
+                return await call_next(request)
+
     if not access_token:
         return Response(status_code = 400, content = "Missing Access Token")
 
