@@ -80,6 +80,10 @@ class CloudService(ABC):
         """Terminate/delete an instance and return its state."""
         pass
 
+    #####################
+    # EC2 Status Waiters
+    #####################
+
     @abstractmethod
     async def wait_for_instance_running(self, instance_id: str):
         """Wait for an instance to be in the running state."""
@@ -90,6 +94,10 @@ class CloudService(ABC):
         """Wait for an instance to be in the terminated state."""
         pass
 
+    ####################
+    # AMI Functionality
+    ####################
+
     @abstractmethod
     async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """
@@ -98,6 +106,15 @@ class CloudService(ABC):
         image_tags is a list of dictionaries with the tags to be added to the AMI.
         Example: tags = [ {'Key': 'key_name', 'Value': 'example_value'}, {'Key': 'key_name2', 'Value': 'example_value2'} ]
         Returns the AMI ID as a string.
+        """
+        pass
+
+    @abstractmethod
+    async def deregister_runner_image(self, image_id: str) -> str:
+        """
+        Deregister the AMI with the given ImageId.
+
+        Returns the HTTP status code as a string.
         """
         pass
 
