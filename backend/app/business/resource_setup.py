@@ -3,7 +3,9 @@
 
 from dataclasses import dataclass
 from sqlmodel import Session, select
-from app.db.database import engine
+from app.business.runner_management import launch_runners
+from app.db.database import engine, get_session
+from app.db.image_repository import find_images_with_pool
 from app.models import User, Machine, Image, Script
 from datetime import datetime
 from app.models import CloudConnector
@@ -313,4 +315,15 @@ def setup_resources():
             machine_id=db_machine.id,
             image_identifier=db_image.identifier,
             runner_pool_size=db_image.runner_pool_size
+        )
+
+async def fill_runner_pools():
+    """Fill the runner pools during startup."""
+    images = find_images_with_pool()
+    for image in images:
+        # Launch runners for each image based on its pool size
+        await launch_runners(
+            image_identifier=image.identifier,
+            runner_count=image.runner_pool_size,
+            initiated_by="app_startup"
         )
