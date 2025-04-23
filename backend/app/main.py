@@ -6,7 +6,3 @@ load_dotenv()
 
 app = start_api()
 
-@app.get("/")
-def read_root():
-    """Check if the application is running."""
-    return {"message": "Hello, welcome to the cloud ide dev backend API!"}
