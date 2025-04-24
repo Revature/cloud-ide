@@ -247,10 +247,76 @@ async def update_runner_state(
 
     return f"State for runner {runner.id} updated to {runner.state}"
 
+
+@router.patch("/{runner_id}/stop", response_model=dict)
+async def stop_runner_endpoint(
+    runner_id: int,
+    session: Session = Depends(get_session),
+):
+    """Stop a runner in an alive state."""
+    # Check if the runner exists
+    runner = runner_repository.find_runner_by_id(session, runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+
+    # Only allow stopping runners in active states
+    valid_states = ["ready", "awaiting_client", "active"]
+    if runner.state not in valid_states:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot stop a runner in {runner.state} state. Runner must be in one of {valid_states}"
+        )
+
+    # Call the runner_management function to stop the runner
+    result = await runner_management.stop_runner(
+        runner_id=runner_id,
+        initiated_by=f"stop_runner_endpoint"
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+
+    return result
+
+@router.patch("/{runner_id}/start", response_model=dict)
+async def start_runner_endpoint(
+    runner_id: int,
+    session: Session = Depends(get_session),
+):
+    """Start a runner in closed state."""
+    # Check if the runner exists
+    runner = runner_repository.find_runner_by_id(session, runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+
+    # Only allow starting runners in closed state
+    if runner.state != "closed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot start a runner in {runner.state} state. Runner must be in 'closed' state"
+        )
+
+    # Call the runner_management function to start the runner
+    result = await runner_management.start_runner(
+        runner_id=runner_id,
+        initiated_by=f"start_runner_endpoint"
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+
+    return result
+
 @router.delete("/{runner_id}", response_model=dict[str, str])
 async def terminate_runner(
     runner_id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """
     Manually terminate a runner.

@@ -78,11 +78,12 @@ def update_runner_pool(
         raise HTTPException(status_code=404, detail="Image not found")
     return {"message": f"Runner pool for image {image_id} updated successfully"}
 
-# @router.delete("/{image_id}", status_code=status.HTTP_200_OK)
-# def delete_image(image_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
-#     """Delete an Image record."""
-#     image = session.get(Image, image_id)
-#     if not image:
-#         raise HTTPException(status_code=404, detail="Image not found")
-#     session.delete(image)
-#     session.commit()
+@router.delete("/{image_id}", response_model=dict[str, str])
+async def delete_image(
+    image_id: int
+):
+    """Delete an Image record."""
+    success = await image_management.delete_image(image_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return {"message": f"Image {image_id} deleted successfully"}

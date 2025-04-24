@@ -279,6 +279,20 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
+    async def deregister_runner_image(self, image_id: str) -> str:
+        """
+        Deregister the AMI with the given ImageId.
+
+        Returns the HTTP status code as a string.
+        """
+        try:
+            response = self.ec2_client.deregister_image(
+                ImageId = image_id
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
+        except Exception as e:
+            return str(e)
+
     ###################
     # S3 Functionality
     ###################
