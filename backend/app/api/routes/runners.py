@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session)):
+def read_runners(session: Session = Depends(get_session), 
+        #access_token: str = Header(..., alias="Access-Token")
+    ):
     """Retrieve a list of all Runners."""
     runners = runner_repository.find_all_runners(session)
     if not runners:
@@ -31,7 +33,9 @@ def read_runners(session: Session = Depends(get_session)):
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session)):
+def read_runner(runner_id: int, session: Session = Depends(get_session), 
+        #access_token: str = Header(..., alias="Access-Token")
+    ):
     """Retrieve a single Runner by ID."""
     runner = runner_repository.find_runner_by_id(session, runner_id)
     if not runner:
@@ -100,7 +104,7 @@ class RunnerStateUpdate(BaseModel):
 async def update_runner_state(
     update: RunnerStateUpdate = Body(...),
     session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token"),
+    #access_token: str = Header(..., alias="Access-Token"),
     x_forwarded_for: Optional[str] = Header(None),
     client_ip: Optional[str] = Header(None)
 ):

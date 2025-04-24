@@ -17,7 +17,9 @@ router = APIRouter()
 #     return cloud_connector
 
 @router.get("/", response_model=list[CloudConnector])
-def read_cloud_connectors():
+def read_cloud_connectors(
+                #access_token: str = Header(..., alias="Access-Token")
+         ):
     """Retrieve a list of all cloud_connectors."""
     cloud_connectors = cloud_connector_management.get_all_cloud_connectors()
     if not cloud_connectors:
@@ -25,7 +27,9 @@ def read_cloud_connectors():
     return cloud_connectors
 
 @router.get("/{cloud_connector_id}", response_model=CloudConnector)
-def read_cloud_connector(cloud_connector_id: int):
+def read_cloud_connector(cloud_connector_id: int,
+               #access_token: str = Header(..., alias="Access-Token")
+               ):
     """Retrieve a single cloud_connector by ID."""
     cloud_connector = cloud_connector_management.get_cloud_connector_by_id(cloud_connector_id)
     if not cloud_connector:

@@ -142,7 +142,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
       disconnectTerminal();
     };
   }, [initialized, runnerId]);
-
+  
   const connectToTerminal = () => {
     const terminal = terminalInstance.current;
     if (!terminal) return;

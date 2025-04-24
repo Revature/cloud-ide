@@ -11,13 +11,12 @@ import Button from "../../ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { useRouter } from "next/navigation";
 import { CloudConnector } from "@/types";
-import { 
-  ChevronLeftIcon, 
-  ChevronRightIcon, 
+import {  
   PencilIcon, 
   SearchIcon // You might need to add this to your icons
 } from "@/icons";
 import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
+import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
 
 export default function CloudConnectorsTable() {
   // React Query for data fetching
@@ -80,7 +79,7 @@ export default function CloudConnectorsTable() {
   const totalPages = Math.max(1, Math.ceil(filteredConnectors.length / itemsPerPage));
 
   // Handlers for page navigation
-  const goToPage = (page: number) => {
+  const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
@@ -270,52 +269,26 @@ export default function CloudConnectorsTable() {
 
       {/* Pagination Controls */}
       {filteredConnectors.length > 0 && (
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-white/[0.05]">
-          <div className="flex items-center justify-between">
-            {/* Previous Button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeftIcon className="fill-current" width={20} height={20} />
-              <span className="hidden sm:inline">Previous</span>
-            </Button>
-            {/* Page Info */}
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-400 sm:hidden">
-              Page {currentPage} of {totalPages}
-            </span>
-            {/* Page Numbers */}
-            <ul className="hidden items-center gap-0.5 sm:flex">
-              {Array.from({ length: totalPages }).map((_, idx) => (
-                <li key={idx}>
-                  <button
-                    onClick={() => goToPage(idx + 1)}
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg text-theme-sm font-medium ${
-                      currentPage === idx + 1
-                        ? "bg-brand-500 text-white"
-                        : "text-gray-700 hover:bg-brand-500/[0.08] dark:hover:bg-brand-500 dark:hover:text-white hover:text-brand-500 dark:text-gray-400 "
-                    }`}
-                  >
-                    {idx + 1}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {/* Next Button */}
-            <Button
-              onClick={() => goToPage(currentPage + 1)}
-              size="sm"
-              variant="outline"
-              disabled={currentPage === totalPages}
-            >
-              <span className="hidden sm:inline">Next</span>
-              <ChevronRightIcon className="fill-current" width={20} height={20} />
-            </Button>
+        <div>
+          <div className="mt-4">
+            <CustomPagination
+              totalItems={filteredConnectors.length}
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              onPageChange={handlePageChange}
+              // siblingCount={1} // Optional, defaults to 1
+              className="my-custom-pagination-styles" // Optional custom styling
+            />
           </div>
-        </div>
+
+          {/* Optional: Display current range */}
+          <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
+            Showing {Math.min(filteredConnectors.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0, filteredConnectors.length)}
+            - {Math.min(currentPage * itemsPerPage, filteredConnectors.length)} of {filteredConnectors.length} items
+          </div>
+      </div>
       )}
-    </div>
+      </div>
+  
   );
 }

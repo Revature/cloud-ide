@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -13,9 +13,14 @@ import ProxyImage from "@/components/ui/images/ProxyImage";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
 import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
+import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
+import { useQueryClient } from "@tanstack/react-query";
+import { Modal } from "@/components/ui/modal";
+import ProgressBar from "@/components/ui/progress/ProgressBar";
 
 export default function ImagesTable() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   
   // State for current page and items per page
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -104,7 +109,7 @@ export default function ImagesTable() {
   const totalPages = Math.max(1, Math.ceil(filteredImages.length / itemsPerPage));
 
   // Handlers for page navigation
-  const goToPage = (page: number) => {
+  const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
@@ -128,6 +133,55 @@ export default function ImagesTable() {
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
+  };
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['images'] }); // Replace 'images' with the query key for your data
+  };
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+  const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+  const intervalId = useRef<NodeJS.Timeout | null>(null);
+
+  const handleOpenDeleteModal = (id: number) => {
+    setDeleteImageId(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteImageId !== null) {
+      try {
+        console.log(`Sending DELETE request for image ID: ${deleteImageId}`);
+        const response = await fetch(`http://localhost:8020/api/v1/images/${deleteImageId}`, {
+          method: "DELETE",
+        });
+  
+        if (!response.ok) {
+          console.error(`Failed to delete image with ID ${deleteImageId}. HTTP status: ${response.status}`);
+          return;
+        }
+  
+        const responseData = await response.json();
+        console.log("Response data:", responseData);
+  
+        console.log(`Image with ID ${deleteImageId} deleted successfully.`);
+        setDeleteModalOpen(false);
+        setDeleteImageId(null);
+        setProgress(0);
+  
+        // Optionally, refresh the images list
+        queryClient.invalidateQueries({ queryKey: ["images"] });
+      } catch (error) {
+        console.error("Error deleting image:", error);
+      }
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalOpen(false);
+    setDeleteImageId(null);
+    setProgress(0);
   };
   
   // Show loading state
@@ -176,7 +230,28 @@ export default function ImagesTable() {
           </h3>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <form onSubmit={(e) => e.preventDefault()}>
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefresh}
+            className="flex items-center justify-center w-10 h-10 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors"
+            title="Refresh"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" className="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5a9 9 0 1 1 1.5 1.5M3 16v3.5H6.5" />
+              </svg>
+            </svg>
+          </button>
+
+          {/* Search Bar */}
+          <form onSubmit={(e) => e.preventDefault()} className="flex-grow">
             <div className="relative">
               <button className="absolute -translate-y-1/2 left-4 top-1/2" type="button">
                 <svg
@@ -204,7 +279,11 @@ export default function ImagesTable() {
               />
             </div>
           </form>
-          <Button size="sm" variant="primary" onClick={navigateToAddImage}>Add Image</Button>
+
+          {/* Add Image Button */}
+          <Button size="sm" variant="primary" onClick={navigateToAddImage}>
+            Add Image
+          </Button>
         </div>
       </div>
 
@@ -332,33 +411,55 @@ export default function ImagesTable() {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
-                      <button 
-                        onClick={() => navigateToEditImage(item.id)}
-                        className="p-2 text-gray-500 hover:text-brand-500 transition-colors"
-                        title="Edit Image"
-                      >
-                          <svg 
-                          width="20" 
-                          height="20" 
-                          viewBox="0 0 24 24" 
-                          fill="none" 
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="stroke-current"
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => navigateToEditImage(item.id)}
+                          className="p-2 text-gray-500 hover:text-brand-500 transition-colors"
+                          title="Edit Image"
                         >
-                          <path 
-                            d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          />
-                          <path 
-                            d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
+                            <svg 
+                            width="20" 
+                            height="20" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="stroke-current"
+                          >
+                            <path 
+                              d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            />
+                            <path 
+                              d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleOpenDeleteModal(item.id)}
+                          className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                          title="Delete Image"
+                        >
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M6.54142 3.7915C6.54142 2.54886 7.54878 1.5415 8.79142 1.5415H11.2081C12.4507 1.5415 13.4581 2.54886 13.4581 3.7915V4.0415H15.6252H16.666C17.0802 4.0415 17.416 4.37729 17.416 4.7915C17.416 5.20572 17.0802 5.5415 16.666 5.5415H16.3752V8.24638V13.2464V16.2082C16.3752 17.4508 15.3678 18.4582 14.1252 18.4582H5.87516C4.63252 18.4582 3.62516 17.4508 3.62516 16.2082V13.2464V8.24638V5.5415H3.3335C2.91928 5.5415 2.5835 5.20572 2.5835 4.7915C2.5835 4.37729 2.91928 4.0415 3.3335 4.0415H4.37516H6.54142V3.7915ZM14.8752 13.2464V8.24638V5.5415H13.4581H12.7081H7.29142H6.54142H5.12516V8.24638V13.2464V16.2082C5.12516 16.6224 5.46095 16.9582 5.87516 16.9582H14.1252C14.5394 16.9582 14.8752 16.6224 14.8752 16.2082V13.2464ZM8.04142 4.0415H11.9581V3.7915C11.9581 3.37729 11.6223 3.0415 11.2081 3.0415H8.79142C8.37721 3.0415 8.04142 3.37729 8.04142 3.7915V4.0415ZM8.3335 7.99984C8.74771 7.99984 9.0835 8.33562 9.0835 8.74984V13.7498C9.0835 14.1641 8.74771 14.4998 8.3335 14.4998C7.91928 14.4998 7.5835 14.1641 7.5835 13.7498V8.74984C7.5835 8.33562 7.91928 7.99984 8.3335 7.99984ZM12.4168 8.74984C12.4168 8.33562 12.081 7.99984 11.6668 7.99984C11.2526 7.99984 10.9168 8.33562 10.9168 8.74984V13.7498C10.9168 14.1641 11.2526 14.4998 11.6668 14.4998C12.081 14.4998 12.4168 14.1641 12.4168 13.7498V8.74984Z"
+                              fill="currentColor"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -369,80 +470,83 @@ export default function ImagesTable() {
       </div>
 
       {/* Pagination Controls */}
-      {filteredImages.length > 0 && (
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-white/[0.05]">
-          <div className="flex items-center justify-between">
-            {/* Previous Button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <svg
-                className="fill-current"
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M2.58301 9.99868C2.58272 10.1909 2.65588 10.3833 2.80249 10.53L7.79915 15.5301C8.09194 15.8231 8.56682 15.8233 8.85981 15.5305C9.15281 15.2377 9.15297 14.7629 8.86018 14.4699L5.14009 10.7472L16.6675 10.7472C17.0817 10.7472 17.4175 10.4114 17.4175 9.99715C17.4175 9.58294 17.0817 9.24715 16.6675 9.24715L5.14554 9.24715L8.86017 5.53016C9.15297 5.23717 9.15282 4.7623 8.85983 4.4695C8.56684 4.1767 8.09197 4.17685 7.79917 4.46984L2.84167 9.43049C2.68321 9.568 2.58301 9.77087 2.58301 9.99715C2.58301 9.99766 2.58301 9.99817 2.58301 9.99868Z"
-                  fill=""
-                />
-              </svg>
-              <span className="hidden sm:inline">Previous</span>
+            {filteredImages.length > 0 && (
+              <div>
+                <div className="mt-4">
+                  <CustomPagination
+                    totalItems={filteredImages.length}
+                    itemsPerPage={itemsPerPage}
+                    currentPage={currentPage}
+                    onPageChange={handlePageChange}
+                    // siblingCount={1} // Optional, defaults to 1
+                    className="my-custom-pagination-styles" // Optional custom styling
+                  />
+                </div>
+      
+                {/* Optional: Display current range */}
+                <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
+                  Showing {Math.min(filteredImages.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0, filteredImages.length)}
+                  - {Math.min(currentPage * itemsPerPage, filteredImages.length)} of {filteredImages.length} items
+                </div>
+            </div>
+      )}
+
+      {deleteModalOpen && (
+        <Modal
+          isOpen={deleteModalOpen}
+          onClose={handleCancelDelete}
+          className="max-w-md p-6"
+        >
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            Confirm Deletion
+          </h3>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Are you sure you want to delete this image? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-4 mt-6">
+            <Button size="md" variant="secondary" onClick={handleCancelDelete}>
+              Cancel
             </Button>
-            {/* Page Info */}
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-400 sm:hidden">
-              Page {currentPage} of {totalPages}
-            </span>
-            {/* Page Numbers */}
-            <ul className="hidden items-center gap-0.5 sm:flex">
-              {Array.from({ length: totalPages }).map((_, idx) => (
-                <li key={idx}>
-                  <button
-                    onClick={() => goToPage(idx + 1)}
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg text-theme-sm font-medium ${
-                      currentPage === idx + 1
-                        ? "bg-brand-500 text-white"
-                        : "text-gray-700 hover:bg-brand-500/[0.08] dark:hover:bg-brand-500 dark:hover:text-white hover:text-brand-500 dark:text-gray-400 "
-                    }`}
-                  >
-                    {idx + 1}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {/* Next Button */}
             <Button
-              onClick={() => goToPage(currentPage + 1)}
-              size="sm"
-              variant="outline"
-              disabled={currentPage === totalPages}
+              size="md"
+              variant="destructive"
+              className="relative flex items-center justify-center w-full h-12 overflow-hidden"
+              onMouseDown={() => {
+                const interval = setInterval(() => {
+                  setProgress((prev) => {
+                    if (prev >= 100) {
+                      clearInterval(interval);
+                      handleConfirmDelete();
+                      return 0;
+                    }
+                    return prev + 10;
+                  });
+                }, 300);
+
+                intervalId.current = interval;
+              }}
+              onMouseUp={() => {
+                if (intervalId.current) {
+                  clearInterval(intervalId.current);
+                  intervalId.current = null;
+                }
+                setProgress(0);
+              }}
+              onMouseLeave={() => {
+                if (intervalId.current) {
+                  clearInterval(intervalId.current);
+                  intervalId.current = null;
+                }
+                setProgress(0);
+              }}
             >
-              <span className="hidden sm:inline">Next</span>
-              <svg
-                className="fill-current"
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M17.4175 9.9986C17.4178 10.1909 17.3446 10.3832 17.198 10.53L12.2013 15.5301C11.9085 15.8231 11.4337 15.8233 11.1407 15.5305C10.8477 15.2377 10.8475 14.7629 11.1403 14.4699L14.8604 10.7472L3.33301 10.7472C2.91879 10.7472 2.58301 10.4114 2.58301 9.99715C2.58301 9.58294 2.91879 9.24715 3.33301 9.24715L14.8549 9.24715L11.1403 5.53016C10.8475 5.23717 10.8477 4.7623 11.1407 4.4695C11.4336 4.1767 11.9085 4.17685 12.2013 4.46984L17.1588 9.43049C17.3173 9.568 17.4175 9.77087 17.4175 9.99715C17.4175 9.99763 17.4175 9.99812 17.4175 9.9986Z"
-                  fill=""
-                />
-              </svg>
+              <span className="z-10">Hold to Confirm</span>
+              <div className="absolute bottom-0 left-0 w-full h-2">
+                <ProgressBar progress={progress} className="h-full" />
+              </div>
             </Button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
