@@ -1,7 +1,7 @@
 """Runners API routes."""
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, status, Body
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -94,7 +94,7 @@ def extend_runner_session(
 @router.get("/{runner_id}/devserver")
 async def get_devserver(
     runner_id: int,
-    port: str
+    port: str = Query(...)
 ):
     destination_url = runner_management.get_devserver(runner_id, port)
     return {"destination_url":destination_url}
