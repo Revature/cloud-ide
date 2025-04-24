@@ -56,4 +56,4 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=10d'
-      - '--storage.tsdb.retention.size=10MB'
+      - '--storage.tsdb.retention.size=20MB'
