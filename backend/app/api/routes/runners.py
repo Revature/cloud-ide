@@ -23,9 +23,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session)):
-    """Retrieve a list of all Runners."""
-    runners = runner_repository.find_all_runners(session)
+def read_runners(
+    status: Optional[str] = Query(None, description="Filter by specific status"),
+    alive_only: bool = Query(False, description="Return only alive runners"),
+    session: Session = Depends(get_session)
+):
+    
+    print("status", status)
+    print("alive_only", alive_only)
+
+    """Retrieve a list of Runners with optional status filtering."""
+    if status and alive_only:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
+        )
+
+    if status:
+        runners = runner_repository.find_runners_by_status(session, status)
+    elif alive_only:
+        runners = runner_repository.find_alive_runners(session)
+    else:
+        runners = runner_repository.find_all_runners(session)
+
     if not runners:
         raise HTTPException(status_code=204, detail="No runners found")
     return runners

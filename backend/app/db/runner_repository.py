@@ -14,6 +14,21 @@ def find_all_runners(session: Session) -> list[Runner]:
     statement = select(Runner)
     return session.exec(statement).all()
 
+def find_runners_by_status(session: Session, status: str) -> list[Runner]:
+    """Find runners with a specific status."""
+    query = select(Runner).where(Runner.state == status)
+    return session.exec(query).all()
+
+def find_alive_runners(session: Session) -> list[Runner]:
+    """Find runners in 'alive' states."""
+    alive_states = [
+        "runner_starting", "app_starting", "ready",
+        "runner_starting_claimed", "ready_claimed", "setup",
+        "awaiting_client", "active", "disconnecting", "disconnected"
+    ]
+    query = select(Runner).where(Runner.state.in_(alive_states))
+    return session.exec(query).all()
+
 def find_runner_by_id(session: Session, id: int) -> Runner:
     """Retrieve the runner by its ID."""
     statement = select(Runner).where(Runner.id == id)
