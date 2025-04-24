@@ -1,8 +1,6 @@
 """Main application file for the API."""
-
-from http import HTTPStatus
 import re
-
+from http import HTTPStatus
 from fastapi import APIRouter
 from app.api.routes import auth, registration, users, runners, machines, cloud_connectors, images, app_requests
 from fastapi import FastAPI, Request, Response
@@ -66,7 +64,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # On shutdown: terminate all runners
-    shutdown_api()
+    await shutdown_api()
 
 
 def start_api():
