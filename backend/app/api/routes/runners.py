@@ -1,11 +1,7 @@
 """Runners API routes."""
 
 import os
-<<<<<<< HEAD
 from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket, WebSocketDisconnect, Query, HTTPException
-=======
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, status, Body
->>>>>>> 71a8516c8a0f025f7ce87a61f9d37f89b7331c90
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
