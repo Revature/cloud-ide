@@ -12,6 +12,7 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
+from app.business import runner_management
 from app.business.runner_management import terminate_runner as terminate_runner_function
 from app.business.runner_management import launch_runners
 from app.business.script_management import run_script_for_runner
@@ -89,6 +90,14 @@ def extend_runner_session(
     session.commit()
     session.refresh(runner)
     return "Session extended successfully"
+
+@router.get("/{runner_id}/devserver")
+async def get_devserver(
+    runner_id: int,
+    port: str
+):
+    destination_url = runner_management.get_devserver(runner_id, port)
+    return {"destination_url":destination_url}
 
 class RunnerStateUpdate(BaseModel):
     """Request model for updating the runner state."""
