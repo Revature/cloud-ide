@@ -26,11 +26,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session),
-        #access_token: str = Header(..., alias="Access-Token")
-    ):
-    """Retrieve a list of all Runners."""
-    runners = runner_repository.find_all_runners(session)
+def read_runners(
+    status: Optional[str] = Query(None, description="Filter by specific status"),
+    alive_only: bool = Query(False, description="Return only alive runners"),
+    session: Session = Depends(get_session)
+):
+    """Retrieve a list of Runners with optional status filtering."""
+    if status and alive_only:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
+        )
+
+    if status:
+        runners = runner_repository.find_runners_by_status(session, status)
+    elif alive_only:
+        runners = runner_repository.find_alive_runners(session)
+    else:
+        runners = runner_repository.find_all_runners(session)
+
     if not runners:
         raise HTTPException(status_code=204, detail="No runners found")
     return runners
@@ -403,13 +417,56 @@ async def websocket_terminal(
         if not runner or runner.state not in ["ready_claimed", "ready", "active", "awaiting_client"]:
             await websocket.close(code=1008, reason="Runner not available")
             return
-
+        
+        # Check if this runner is part of a pool before changing its state
+        image_id = runner.image_id
+        image = session.get(Image, image_id)
+        needs_replenishing = image and image.runner_pool_size > 0 and runner.state == "ready"
+        image_identifier = image.identifier if image else None
+        
+        # Update runner state to active
         runner.state = "active"
         runner_repository.update_runner(session, runner)
+
+        # If the runner was in ready state and belongs to an image with a pool,
+        # launch a new runner to replace it
+        if needs_replenishing and image_identifier:
+            try:
+                # Launch a new runner asynchronously
+                asyncio.create_task(
+                    runner_management.launch_runners(
+                        image_identifier, 
+                        1, 
+                        initiated_by="websocket_terminal_endpoint_pool_replenish"
+                    )
+                )
+                logger.info(f"Launching replacement runner for {runner_id} from pool {image_identifier}")
+            except Exception as e:
+                # If launching the replacement fails, log it but don't fail the connection
+                logger.error(f"Error launching replacement runner: {e}")
 
         # Connect terminal (delegated to service)
         await terminal_management.connect_terminal(websocket, runner)
 
+        # When the terminal connection is closed, terminate the runner
+        logger.info(f"Terminal connection closed for runner {runner_id}, initiating termination")
+        asyncio.create_task(
+            runner_management.terminate_runner(
+                runner_id, 
+                initiated_by="websocket_terminal_disconnection"
+            )
+        )
+
     except Exception as e:
         logger.error(f"Terminal connection error: {e!s}")
         await websocket.close(code=1011, reason=f"Unexpected error: {e!s}")
+        # Still try to terminate the runner even if there was an error
+        try:
+            asyncio.create_task(
+                runner_management.terminate_runner(
+                    runner_id, 
+                    initiated_by="websocket_terminal_error"
+                )
+            )
+        except Exception as term_error:
+            logger.error(f"Failed to terminate runner after error: {term_error!s}")
