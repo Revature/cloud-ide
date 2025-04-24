@@ -47,6 +47,7 @@ def delete_image(session: Session, image_id: int) -> bool:
     session.delete(db_image)
     session.commit()
     return True
+
 def find_images_with_pool(session: Session = next(get_session())):
     """Find images with a runner pool > 0."""
     stmt = select(Image).where(Image.runner_pool_size > 0)

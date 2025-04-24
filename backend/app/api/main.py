@@ -41,8 +41,6 @@ DEV_ROUTES: tuple = (
     '/openapi.json/?$'
 )
 
-
-
 def path_in_route_patterns(path: str, patterns: tuple) -> bool:
     """Check if our route matches a regex in our tuple of routes."""
     for pattern in patterns:
