@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session), 
+def read_runners(session: Session = Depends(get_session),
         #access_token: str = Header(..., alias="Access-Token")
     ):
     """Retrieve a list of all Runners."""
@@ -33,7 +33,7 @@ def read_runners(session: Session = Depends(get_session),
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session), 
+def read_runner(runner_id: int, session: Session = Depends(get_session),
         #access_token: str = Header(..., alias="Access-Token")
     ):
     """Retrieve a single Runner by ID."""
