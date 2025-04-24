@@ -301,6 +301,11 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
+    async def wait_for_image_available(self, image_id: str):
+        """Wait for an image to be in the available state."""
+        waiter = self.ec2_client.get_waiter('image_available')
+        waiter.wait(InstanceIds=[image_id])
+
     ###################
     # S3 Functionality
     ###################

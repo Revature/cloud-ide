@@ -144,15 +144,6 @@ jobs:
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
                 command: "yes | docker system prune -a"
-                
-            - name: Agent Compose Up
-              uses: D3rHase/ssh-command-action@v0.3.1
-              with:
-                host: ${{ secrets.HOST }}
-                port: 22
-                user: ${{ secrets.USER }}
-                private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose -f /home/${{ secrets.USER }}/monitoring/agent-compose.yml up --quiet-pull --force-recreate -d"
                   
             - name: Docker Compose Up
               uses: D3rHase/ssh-command-action@v0.3.1

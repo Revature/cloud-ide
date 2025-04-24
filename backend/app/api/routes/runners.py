@@ -1,7 +1,11 @@
 """Runners API routes."""
 
 import os
+<<<<<<< HEAD
 from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket, WebSocketDisconnect, Query, HTTPException
+=======
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, status, Body
+>>>>>>> 71a8516c8a0f025f7ce87a61f9d37f89b7331c90
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -12,8 +16,11 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
-from app.business import key_management, runner_management, script_management
 from app.util import terminal_management
+from app.business import runner_management
+from app.business.runner_management import terminate_runner as terminate_runner_function
+from app.business.runner_management import launch_runners
+from app.business.script_management import run_script_for_runner
 from app.db import runner_repository
 import logging
 import asyncio
@@ -92,6 +99,15 @@ def extend_runner_session(
     session.commit()
     session.refresh(runner)
     return "Session extended successfully"
+
+@router.get("/{runner_id}/devserver")
+async def get_devserver(
+    runner_id: int,
+    port: str = Query(...)
+):
+    """Get the URL of a devserver."""
+    destination_url = runner_management.get_devserver(runner_id, port)
+    return {"destination_url":destination_url}
 
 class RunnerStateUpdate(BaseModel):
     """Request model for updating the runner state."""
