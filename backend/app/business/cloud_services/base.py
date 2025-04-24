@@ -117,6 +117,12 @@ class CloudService(ABC):
         Returns the HTTP status code as a string.
         """
         pass
+    
+    @abstractmethod
+    async def wait_for_image_available(self, image_id: str):
+        """Wait for an image to be in the available state."""
+        pass
+
 
     ###################
     # S3 Functionality
