@@ -285,6 +285,7 @@ def auth_runner(runner_id: int, runner_token: str, session: Session = next(get_s
     return runner.external_hash == runner_token
 
 def get_devserver(runner_id: int, port: int, session: Session = next(get_session())):
+    """Form a devserver URL."""
     runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
     jwt = jwt_creation.create_jwt_token(runner.url, runner_id, runner.user_ip)
     destination_url = f"{constants.domain}/devserver/{port}/{jwt}/"
