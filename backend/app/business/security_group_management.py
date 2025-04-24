@@ -99,10 +99,15 @@ async def create_security_group(
             # Store backend rule in inbound rules
             inbound_rules["port_3000"] = {
                 "port": 3000,
-                "cidr": f"{backend_ip}/32",
+                "cidr": ip_rule,
                 "result": backend_result
             }
-
+            # Store backend rule in inbound rules
+            inbound_rules["port_20000"] = {
+                "port": 20000,
+                "cidr": ip_rule,
+                "result": backend_result
+            }
             # Store the security group in the database
             new_security_group = SecurityGroup(
                 name=group_name,
