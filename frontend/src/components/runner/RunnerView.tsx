@@ -2,13 +2,12 @@
 import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Button from "@/components/ui/button/Button";
-import { Runner, RunnerState } from '@/types/runner';
-import { useQuery } from '@tanstack/react-query';
-import { runnersApi } from "@/services/cloud-resources/runners";
+import { RunnerState } from '@/types/runner';
 import dynamic from 'next/dynamic';
 
 // Import the props interface from the terminal component
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
+import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
 
 // Import terminal component with ssr: false to prevent server-side rendering
 // Use the imported props type with dynamic import
@@ -64,10 +63,7 @@ const RunnerView: React.FC = () => {
   const runnerId = params.id as string;
   
   // Get runner data from API
-  const { data: runner, isLoading, error } = useQuery<Runner>({
-    queryKey: ['runner', runnerId],
-    queryFn: () => runnersApi.getById(Number(runnerId)),
-  });
+  const { data: runner, isLoading, error } = useRunnerQuery(Number(runnerId))
 
   const [confirmTerminate, setConfirmTerminate] = useState(false);
   const [terminalVisible, setTerminalVisible] = useState(false);

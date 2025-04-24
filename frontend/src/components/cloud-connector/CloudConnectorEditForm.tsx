@@ -15,8 +15,7 @@ import Toggle from "../form/input/Toggle";
 import Label from "../form/Label";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
-import { CloudConnector } from '@/types';
-import { useQuery } from '@tanstack/react-query';
+import { useCloudConnectorQuery } from '@/hooks/api/cloudConnectors/useCloudConnectorsData';
 
 type CloudProvider = 'aws' | 'azure' | 'gcp' | 'digitalocean';
 
@@ -73,9 +72,7 @@ const ConnectorEditForm: React.FC = () => {
   const connectorIndex = parseInt(params.id as string, 10) - 1;
 
    // Obtain connectors from CloudConnectorsTable ReactQuery
-   const { data:connectors = [] } = useQuery<CloudConnector[]>({
-    queryKey: ['cloudConnectors'],
-  })
+   const { data:connectors = [] } = useCloudConnectorQuery()
   
   // State for form data
   const [providerName, setProviderName] = useState('');

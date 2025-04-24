@@ -2,17 +2,14 @@
 import { useParams } from "next/navigation";
 import RunnerView from "@/components/runner/RunnerView";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
-import { Runner } from "@/types/runner";
-import { useQuery } from "@tanstack/react-query";
+import { useRunnerQuery } from "@/hooks/api/runners/useRunnersData";
 
 export default function ViewRunnerPage() {
   const params = useParams();
   const runnerIndex = parseInt(params.id as string, 10) - 1;
 
     // Obtain images from RunnersTable ReactQuery
-    const { data:runners = [] } = useQuery<Runner[]>({
-      queryKey: ['runners'],
-    })
+    const { data:runners = [] } = useRunnerQuery()
   
   // Get runner ID for the breadcrumb if available
   const runnerId = !isNaN(runnerIndex) && runners[runnerIndex] 

@@ -9,7 +9,7 @@ import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { CloudConnector, Machine, machineTypes } from "@/types";
-import { useQuery } from "@tanstack/react-query";
+import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
 
 // Define the shape of the data being submitted
 export interface ImageFormData {
@@ -30,9 +30,7 @@ const ImageForm: React.FC<ImageFormProps> = ({ onSubmit, onCancel }) => {
   const [active, setActive] = useState(true);
   
   // Obtain connectors from CloudConnectorsTable ReactQuery
-  const { data:connectors = [] } = useQuery<CloudConnector[]>({
-    queryKey: ['cloudConnectors'],
-  })
+  const { data:connectors = [] } = useCloudConnectorQuery()
 
   // Convert machine types for select dropdown
   const machineOptions = machineTypes.map(machine => ({

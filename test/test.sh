@@ -83,7 +83,7 @@ docker-compose -f "$SCRIPT_DIR/../local-compose.yml" up -d
 
 # Wait for services to be fully initialized
 echo "Waiting for services to initialize..."
-sleep 10
+sleep 20
 
 # Source the .env file from parent directory to get DB connection string
 ENV_FILE="$SCRIPT_DIR/../.env"

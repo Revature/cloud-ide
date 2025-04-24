@@ -14,6 +14,7 @@ from app.models.cloud_connector import CloudConnector
 from app.business import key_management, health_check, runner_management
 from app.db import runner_repository, image_repository, cloud_connector_repository
 from app.business.cloud_services import cloud_service_factory
+from app.business.cloud_services.cloud_service_factory import get_cloud_service
 
 logger = logging.getLogger(__name__)
 
@@ -278,6 +279,7 @@ def run_startup_script(runner_id: int):
         with Session(engine) as session:
             runner = runner_repository.find_runner_by_id(session, runner_id)
             if runner:
+                asyncio.run(script_management.runner_config_script(runner_id, runner.external_hash))
                 if runner.state == "runner_starting_claimed":
                     runner.state = "ready_claimed"
                 else:
@@ -297,6 +299,32 @@ def run_startup_script(runner_id: int):
                 session.commit()
 
         return script_result
+                # print(f"Runner {runner_id} updated to 'ready' and history record created.")
+                logger.info(f"Runner {runner_id} updated to 'ready' and history record created.")
+                # on_startup script execution
+                script_result = asyncio.run(script_management.run_script_for_runner(
+                    "on_startup",
+                    runner.id,
+                    env_vars={},
+                    initiated_by="system",
+                ))
+                if script_result:
+                    # print(f"Script executed for runner {runner.id}")
+                    logger.info(f"Script executed for runner {runner.id}")
+                    logger.info(f"Script executed for runner {runner.id}")
+                    # print(f"Script result: {script_result}")
+                    logger.info(f"Script result: {script_result}")
+                    logger.info(f"Script result: {script_result}")
+                else:
+                    # print(f"No script executed for runner {runner.id}")
+                    logger.info(f"No script executed for runner {runner.id}")
+                    logger.info(f"No script executed for runner {runner.id}")
+
+                logger.info(f"Runner {runner.id} launched with instance ID {instance_id}")
+            else:
+                # print(f"Runner {runner_id} not found in the database.")
+                logger.error(f"Runner {runner_id} not found in the database.")
+
     except Exception as e:
         logger.error(f"Error running startup script: {e}")
 
