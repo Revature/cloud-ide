@@ -217,6 +217,10 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
+    #####################
+    # EC2 Status Waiters
+    #####################
+
     async def wait_for_instance_running(self, instance_id: str):
         """Wait for the EC2 instance with the given instance_id to be in the running state."""
         waiter = self.ec2_client.get_waiter("instance_running")
@@ -251,6 +255,10 @@ class AWSCloudService(CloudService):
         waiter = self.ec2_client.get_waiter("instance_terminated")
         waiter.wait(InstanceIds=[instance_id])
         return True
+
+    ###################
+    # AMI Functionality
+    ###################
 
     async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
         """

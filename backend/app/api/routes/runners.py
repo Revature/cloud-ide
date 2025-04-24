@@ -38,12 +38,10 @@ def read_runner(runner_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=400, detail="Runner not found")
     return runner
 
-# change this to use runner id in url
-@router.put("/extend_session", response_model=str)
+@router.put("/{runner_id}/extend_session", response_model=str)
 def extend_runner_session(
     extend_req: ExtendSessionRequest,
-    session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token")
+    session: Session = Depends(get_session)
     ):
     """Update a runner's session_end by adding extra time."""
     runner = runner_repository.find_runner_by_id(session, extend_req.runner_id)
@@ -126,13 +124,6 @@ async def update_runner_state(
     runner = runner_repository.find_runner_by_id(session, update.runner_id)
     if not runner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
-
-    # Check if the request is coming from a trusted service
-    if access_token and access_token != os.getenv("JWT_SECRET"):
-        raise HTTPException(
-            status_code=401,
-            detail="Unauthorized access. This endpoint can only be accessed from trusted services."
-        )
 
     # Validate the state is one of the allowed values
     allowed_states = ["runner_starting",
