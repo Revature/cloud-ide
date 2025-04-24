@@ -78,20 +78,36 @@ async def create_security_group(
                     "cidr": "0.0.0.0/0",
                     "result": ssh_result
                 }
+            # If the .env has specified a backend url of 0.0.0.0, we assume they're trying
+            # to open the runners to all ports (this would be insecure in prod, but OK for test.)
+            ip_rule = f"{backend_ip}/32"
+            if backend_ip == "0.0.0.0" :
+                ip_rule = "0.0.0.0/0"
 
             # Add port 3000 access for the backend
             backend_result = await cloud_service.authorize_security_group_ingress(
                 cloud_group_id,
-                f"{backend_ip}/32",
+                ip_rule,
                 3000  # Backend port
             )
             # Store backend rule in inbound rules
             inbound_rules["port_3000"] = {
                 "port": 3000,
-                "cidr": f"{backend_ip}/32",
+                "cidr": ip_rule,
                 "result": backend_result
             }
-
+            # Add port 20000 access for the backend (this is for devserver proxying.)
+            backend_result = await cloud_service.authorize_security_group_ingress(
+                cloud_group_id,
+                ip_rule,
+                20000  # Backend port
+            )
+            # Store backend rule in inbound rules
+            inbound_rules["port_20000"] = {
+                "port": 20000,
+                "cidr": ip_rule,
+                "result": backend_result
+            }
             # Store the security group in the database
             new_security_group = SecurityGroup(
                 name=group_name,
