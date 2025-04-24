@@ -90,18 +90,18 @@ async def create_security_group(
                 ip_rule,
                 3000  # Backend port
             )
-            # Add port 20000 access for the backend (this is for devserver proxying.)
-            backend_result = await cloud_service.authorize_security_group_ingress(
-                cloud_group_id,
-                ip_rule,
-                20000  # Backend port
-            )
             # Store backend rule in inbound rules
             inbound_rules["port_3000"] = {
                 "port": 3000,
                 "cidr": ip_rule,
                 "result": backend_result
             }
+            # Add port 20000 access for the backend (this is for devserver proxying.)
+            backend_result = await cloud_service.authorize_security_group_ingress(
+                cloud_group_id,
+                ip_rule,
+                20000  # Backend port
+            )
             # Store backend rule in inbound rules
             inbound_rules["port_20000"] = {
                 "port": 20000,
