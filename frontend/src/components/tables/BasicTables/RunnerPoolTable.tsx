@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -14,24 +14,6 @@ import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
 import { Modal } from "@/components/ui/modal";
 import ProgressBar from "@/components/ui/progress/ProgressBar";
-
-/**
- * Represents a runner pool item.
- *
- * @property id - The unique identifier for the runner pool.
- * @property name - The name of the image.
- * @property cloudProvider - The associated cloud provider.
- * @property poolSize - The current size of the runner pool.
- */
-interface RunnerPoolItem {
-  id: number;
-  name: string;
-  cloudProvider: {
-    name: string;
-    image: string;
-  };
-  poolSize: number;
-}
 
 const updateRunnerPoolSize = async (imageId: number, poolSize: number): Promise<boolean> => {
   try {
@@ -56,29 +38,15 @@ const updateRunnerPoolSize = async (imageId: number, poolSize: number): Promise<
 };
 
 export default function RunnerPoolTable() {
-  const { data: initialImages = [], isLoading, error } = useImageQuery();
-  const { connectorsById } = useConnectorForItems(initialImages);
+  const { data: images = [], isLoading, error, refetch } = useImageQuery(); // Add `refetch` to manually refresh data
+  const { connectorsById } = useConnectorForItems(images);
 
-  const [images, setImages] = useState(initialImages); // Local state for images
   const [editingPoolId, setEditingPoolId] = useState<number | null>(null);
-  const [newPoolSize, setNewPoolSize] = useState<number>(1);
+  const [newPoolSize, setNewPoolSize] = useState<number | null>(null); // Allow null to indicate uninitialized
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
   const [deletePoolId, setDeletePoolId] = useState<number | null>(null);
   const [progress, setProgress] = useState<number>(0);
   const intervalId = useRef<NodeJS.Timeout | null>(null);
-
-  // Transform the image data into runner pool items
-  const runnerPools: RunnerPoolItem[] = useMemo(() => {
-    return images.map((image) => ({
-      id: image.id,
-      name: image.name,
-      cloudProvider: {
-        name: connectorsById[image.cloudConnectorId]?.name || "Unknown",
-        image: connectorsById[image.cloudConnectorId]?.image || "/images/brand/default-logo.svg",
-      },
-      poolSize: image.runnerPoolSize || 0,
-    }));
-  }, [images, connectorsById]);
 
   /**
    * Handles updating the pool size for a specific runner pool.
@@ -87,22 +55,22 @@ export default function RunnerPoolTable() {
    */
   const handleUpdatePoolSize = async (id: number) => {
     if (editingPoolId === id) {
-      const success = await updateRunnerPoolSize(id, newPoolSize);
-      if (success) {
-        console.log(`Runner pool size updated successfully for image ID ${id}.`);
-        // Update the local state for the images array
-        setImages((prevImages) =>
-          prevImages.map((image) =>
-            image.id === id ? { ...image, runnerPoolSize: newPoolSize } : image
-          )
-        );
-      } else {
-        console.log(`Failed to update runner pool size for image ID ${id}.`);
+      if (newPoolSize !== null) {
+        const success = await updateRunnerPoolSize(id, newPoolSize);
+        if (success) {
+          console.log(`Runner pool size updated successfully for image ID ${id}.`);
+          await refetch(); // Refresh the data after a successful update
+        } else {
+          console.log(`Failed to update runner pool size for image ID ${id}.`);
+        }
       }
       setEditingPoolId(null);
+      setNewPoolSize(null); // Reset the pool size
     } else {
       setEditingPoolId(id);
-      setNewPoolSize(runnerPools.find((pool) => pool.id === id)?.poolSize || 1);
+      const currentPoolSize = images.find((image) => image.id === id)!.runnerPoolSize;
+      console.log(`Current pool size for ${id}: ${currentPoolSize}`);
+      setNewPoolSize(currentPoolSize); 
     }
   };
 
@@ -124,12 +92,7 @@ export default function RunnerPoolTable() {
       const success = await updateRunnerPoolSize(deletePoolId, 0);
       if (success) {
         console.log(`Runner pool deleted successfully for image ID ${deletePoolId}.`);
-        // Update the local state for the images array
-        setImages((prevImages) =>
-          prevImages.map((image) =>
-            image.id === deletePoolId ? { ...image, runnerPoolSize: 0 } : image
-          )
-        );
+        await refetch(); // Refresh the data after a successful deletion
       } else {
         console.log(`Failed to delete runner pool for image ID ${deletePoolId}.`);
       }
@@ -198,42 +161,42 @@ export default function RunnerPoolTable() {
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {runnerPools.map((pool) => (
-                <TableRow key={pool.id}>
+              {images.map((image) => (
+                <TableRow key={image.id}>
                   <TableCell className="px-4 py-4">
                     <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-                      {pool.name}
+                      {image.name}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-4">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 relative flex-shrink-0">
                         <ProxyImage
-                          src={pool.cloudProvider.image}
-                          alt={pool.cloudProvider.name}
+                          src={connectorsById[image.cloudConnectorId]?.image || "/images/brand/default-logo.svg"}
+                          alt={connectorsById[image.cloudConnectorId]?.name || "Unknown"}
                           width={32}
                           height={32}
                           className="w-full h-full object-contain"
                         />
                       </div>
                       <span className="text-gray-700 text-theme-sm dark:text-gray-400">
-                        {pool.cloudProvider.name}
+                        {connectorsById[image.cloudConnectorId]?.name || "Unknown"}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-4">
-                    {editingPoolId === pool.id ? (
+                    {editingPoolId === image.id ? (
                       <input
                         type="number"
                         min={1}
                         max={10}
-                        value={newPoolSize}
+                        value={newPoolSize ?? ""}
                         onChange={(e) => setNewPoolSize(Number(e.target.value))}
                         className="w-16 border border-gray-300 rounded-md text-center dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                       />
                     ) : (
                       <span className="text-gray-700 text-theme-sm dark:text-gray-400">
-                        {pool.poolSize}
+                        {image.runnerPoolSize}
                       </span>
                     )}
                   </TableCell>
@@ -241,82 +204,82 @@ export default function RunnerPoolTable() {
                     <Button
                       size="sm"
                       variant="primary"
-                      onClick={() => handleUpdatePoolSize(pool.id)}
+                      onClick={() => handleUpdatePoolSize(image.id)}
                     >
-                      {editingPoolId === pool.id ? "Confirm" : "Update"}
+                      {editingPoolId === image.id ? "Confirm" : "Update"}
                     </Button>
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => handleOpenDeleteModal(pool.id)}
+                      onClick={() => handleOpenDeleteModal(image.id)}
                     >
                       Delete
                     </Button>
                   </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-
-        {deleteModalOpen && (
-          <Modal
-            isOpen={deleteModalOpen}
-            onClose={handleCancelDelete}
-            className="max-w-md p-6"
-          >
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Confirm Deletion
-            </h3>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Are you sure you want to delete the available runner pool?
-            </p>
-            <div className="flex justify-end gap-4 mt-6">
-              <Button size="md" variant="secondary" onClick={handleCancelDelete}>
-                Cancel
-              </Button>
-              <Button
-                size="md"
-                variant="destructive"
-                className="relative flex items-center justify-center w-full h-12 overflow-hidden"
-                onMouseDown={() => {
-                  const interval = setInterval(() => {
-                    setProgress((prev) => {
-                      if (prev >= 100) {
-                        clearInterval(interval);
-                        handleConfirmDelete();
-                        return 0;
-                      }
-                      return prev + 10;
-                    });
-                  }, 300);
-
-                  intervalId.current = interval;
-                }}
-                onMouseUp={() => {
-                  if (intervalId.current) {
-                    clearInterval(intervalId.current);
-                    intervalId.current = null;
-                  }
-                  setProgress(0);
-                }}
-                onMouseLeave={() => {
-                  if (intervalId.current) {
-                    clearInterval(intervalId.current);
-                    intervalId.current = null;
-                  }
-                  setProgress(0);
-                }}
-              >
-                <span className="z-10">Hold to Confirm</span>
-                <div className="absolute bottom-0 left-0 w-full h-2">
-                  <ProgressBar progress={progress} className="h-full" />
-                </div>
-              </Button>
-            </div>
-          </Modal>
-        )}
       </div>
-    );
-  }
+
+      {deleteModalOpen && (
+        <Modal
+          isOpen={deleteModalOpen}
+          onClose={handleCancelDelete}
+          className="max-w-md p-6"
+        >
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            Confirm Deletion
+          </h3>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Are you sure you want to delete the available runner pool?
+          </p>
+          <div className="flex justify-end gap-4 mt-6">
+            <Button size="md" variant="secondary" onClick={handleCancelDelete}>
+              Cancel
+            </Button>
+            <Button
+              size="md"
+              variant="destructive"
+              className="relative flex items-center justify-center w-full h-12 overflow-hidden"
+              onMouseDown={() => {
+                const interval = setInterval(() => {
+                  setProgress((prev) => {
+                    if (prev >= 100) {
+                      clearInterval(interval);
+                      handleConfirmDelete();
+                      return 0;
+                    }
+                    return prev + 10;
+                  });
+                }, 300);
+
+                intervalId.current = interval;
+              }}
+              onMouseUp={() => {
+                if (intervalId.current) {
+                  clearInterval(intervalId.current);
+                  intervalId.current = null;
+                }
+                setProgress(0);
+              }}
+              onMouseLeave={() => {
+                if (intervalId.current) {
+                  clearInterval(intervalId.current);
+                  intervalId.current = null;
+                }
+                setProgress(0);
+              }}
+            >
+              <span className="z-10">Hold to Confirm</span>
+              <div className="absolute bottom-0 left-0 w-full h-2">
+                <ProgressBar progress={progress} className="h-full" />
+              </div>
+            </Button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}

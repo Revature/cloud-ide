@@ -19,6 +19,8 @@ const getStateColor = (state: RunnerState) => {
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
     case "starting":
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+    case "closed":
+      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
     case "terminated":
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
@@ -31,6 +33,8 @@ const getStateLabel = (state: RunnerState) => {
       return 'Active';
     case "ready":
       return 'Ready';
+    case "closed":
+      return 'Closed';
     case "awaiting_client":
       return 'Awaiting Client';
     case "starting":
@@ -51,6 +55,40 @@ export const terminateRunner = async (runnerId: number): Promise<void> => {
     throw new Error(`Failed to terminate runner with ID ${runnerId}. HTTP status: ${response.status}`);
   }
 };
+
+const handleStart = async (runnerId: number) => {
+  try {
+    const response = await fetch(`http://localhost:8020/api/v1/runners/${runnerId}/start`, {
+      method: "PATCH",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to start runner with ID ${runnerId}. HTTP status: ${response.status}`);
+    }
+
+    console.log(`Runner with ID ${runnerId} started successfully.`);
+  } catch (error) {
+    console.error("Error starting runner:", error);
+  }
+};
+
+const handleStop = async (runnerId: number) => {
+  try {
+    const response = await fetch(`http://localhost:8020/api/v1/runners/${runnerId}/stop`, {
+      method: "PATCH",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to stop runner with ID ${runnerId}. HTTP status: ${response.status}`);
+    }
+
+    console.log(`Runner with ID ${runnerId} stopped successfully.`);
+  } catch (error) {
+    console.error("Error stopping runner:", error);
+  }
+};
+
+const canStart = (runner: Runner) => runner.state === "closed";
 
 const RunnersTable: React.FC = () => {
   const router = useRouter();
@@ -128,8 +166,8 @@ const RunnersTable: React.FC = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const visibleRunners = filteredRunners.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleViewRunner = (index: number) => {
-    router.push(`/runners/view/${index}`);
+  const handleViewRunner = (runnerId: number) => {
+    router.push(`/runners/view/${runnerId}`);
   };
 
   const handleTerminate = async (runnerId: number, e: React.MouseEvent) => {
@@ -172,12 +210,6 @@ const RunnersTable: React.FC = () => {
     }
   };
 
-  // Find the original index in the runners array
-  const getOriginalIndex = (index: number) => {
-    const runner = visibleRunners[index];
-    return runners.findIndex(r => r.id === runner.id);
-  };
-
   // Show loading state
   if (isLoading) {
     return (
@@ -201,12 +233,6 @@ const RunnersTable: React.FC = () => {
           className="mt-4"
           onClick={() => {
             queryClient.invalidateQueries({ queryKey: ['runners'] });
-            // uniqueImageIds.forEach(id => {
-            //   queryClient.invalidateQueries({ queryKey: ['images', id] });
-            // });
-            // uniqueMachineIds.forEach(id => {
-            //   queryClient.invalidateQueries({ queryKey: ['machine', id] });
-            // });
           }}
         >
           Try Again
@@ -224,7 +250,15 @@ const RunnersTable: React.FC = () => {
           </h3>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <form onSubmit={(e) => e.preventDefault()}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["runners"] })}
+            className="text-gray-600 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700"
+          >
+            Refresh
+          </Button>
+          <form onSubmit={(e) => e.preventDefault()} className="flex-grow">
             <div className="relative">
               <button className="absolute -translate-y-1/2 left-4 top-1/2" type="button">
                 <svg
@@ -294,14 +328,14 @@ const RunnersTable: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                visibleRunners.map((runner, index) => (
+                visibleRunners.map((runner) => (
                   <tr
                     key={runner.id}
                     className="hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                   >
                     <td className="px-4 py-4 text-sm font-medium">
                       <a 
-                        onClick={() => handleViewRunner(getOriginalIndex(index))}
+                        onClick={() => handleViewRunner(runner.id)} // Pass the runner.id directly
                         className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 cursor-pointer"
                       >
                         {runner.id}
@@ -327,15 +361,36 @@ const RunnersTable: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400 text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button
-                          onClick={(e) => handleConnect(runner, e)}
-                          size="sm"
-                          variant="secondary"
-                          className={canConnect(runner) ? "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30" : ""}
-                          disabled={!canConnect(runner) || loadingRunnerId === runner.id}
-                        >
-                          Connect
-                        </Button>
+                        {canConnect(runner) && (
+                          <Button
+                            onClick={(e) => handleConnect(runner, e)}
+                            size="sm"
+                            variant="secondary"
+                            className="text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+                          >
+                            Connect
+                          </Button>
+                        )}
+                        {canStart(runner) && (
+                          <Button
+                            onClick={() => handleStart(runner.id)}
+                            size="sm"
+                            variant="primary"
+                            className="text-green-600 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30"
+                          >
+                            Start
+                          </Button>
+                        )}
+                        {canConnect(runner) && (
+                          <Button
+                            onClick={() => handleStop(runner.id)}
+                            size="sm"
+                            variant="secondary"
+                            className="text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                          >
+                            Stop
+                          </Button>
+                        )}
                         <Button
                           onClick={(e) => handleTerminate(runner.id, e)}
                           size="sm"

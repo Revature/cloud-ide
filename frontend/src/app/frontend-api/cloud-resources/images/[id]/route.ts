@@ -82,7 +82,7 @@ export async function GET(
       // Only include IDs for related resources
       cloudConnectorId: imageData.cloud_connector_id,
       machineId: imageData.machine_id,
-      runnerPoolSize: 1 //TODO: edit default runnerPoolSize
+      runnerPoolSize: imageData.runner_pool_size
     };
     
     console.log('Transformed data for frontend:', transformedData);

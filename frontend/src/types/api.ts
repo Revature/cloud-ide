@@ -18,6 +18,7 @@ export interface BackendVMImage {
   description: string;
   identifier: string;
   machine_id: number;
+  runner_pool_size: number;
   cloud_connector_id: number;
   active: number | boolean;
   created_on: string;
