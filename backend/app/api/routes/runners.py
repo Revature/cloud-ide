@@ -107,6 +107,15 @@ def extend_runner_session(
     session.refresh(runner)
     return "Session extended successfully"
 
+@router.get("/{runner_id}/devserver")
+async def get_devserver(
+    runner_id: int,
+    port: str = Query(...)
+):
+    """Get the URL of a devserver."""
+    destination_url = runner_management.get_devserver(runner_id, port)
+    return {"destination_url":destination_url}
+
 class RunnerStateUpdate(BaseModel):
     """Request model for updating the runner state."""
 
