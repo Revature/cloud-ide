@@ -28,10 +28,6 @@ def read_runners(
     alive_only: bool = Query(False, description="Return only alive runners"),
     session: Session = Depends(get_session)
 ):
-    
-    print("status", status)
-    print("alive_only", alive_only)
-
     """Retrieve a list of Runners with optional status filtering."""
     if status and alive_only:
         raise HTTPException(
