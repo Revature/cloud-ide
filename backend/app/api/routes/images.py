@@ -30,7 +30,9 @@ async def create_image(
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e!s}") from e
 
 @router.get("/", response_model=list[Image])
-def read_images():
+def read_images(
+                #access_token: str = Header(..., alias="Access-Token")
+         ):
     """Retrieve a list of all Images."""
     images = image_management.get_all_images()
     if not images:
@@ -38,7 +40,9 @@ def read_images():
     return images
 
 @router.get("/{image_id}", response_model=Image)
-def read_image(image_id: int,):
+def read_image(image_id: int,
+               #access_token: str = Header(..., alias="Access-Token")
+               ):
     """Retrieve a single Image by ID."""
     image = image_management.get_image_by_id(image_id)
     if not image:
@@ -48,7 +52,8 @@ def read_image(image_id: int,):
 @router.put("/{image_id}", response_model=dict[str, str])
 def update_image(
     image_id: int,
-    updated_image: Image
+    updated_image: Image,
+    #access_token: str = Header(..., alias="Access-Token")
 ):
     """Update an existing Image record."""
     success = image_management.update_image(image_id, updated_image)

@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRunnerQuery } from "@/hooks/api/runners/useRunnersData";
 import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
 import { useImageForItems } from "@/hooks/api/images/useImageForItems";
+import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -41,60 +42,65 @@ const getStateLabel = (state: RunnerState) => {
   }
 };
 
+export const terminateRunner = async (runnerId: number): Promise<void> => {
+  const response = await fetch(`http://localhost:8020/api/v1/runners/${runnerId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to terminate runner with ID ${runnerId}. HTTP status: ${response.status}`);
+  }
+};
+
 const RunnersTable: React.FC = () => {
   const router = useRouter();
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const queryClient = useQueryClient();
-  
+  const [loadingRunnerId, setLoadingRunnerId] = useState<number | null>(null); // Track the runner being terminated
+
   // React Query for data fetching
   const { 
     data: runners = [],
     isLoading: runnersLoading,
     error: runnersError 
-  } = useRunnerQuery()
+  } = useRunnerQuery();
 
-  
-    const {
-      machinesById, 
-      isLoading: machineLoading, 
-      isError: machineError, 
-    } = useMachineForItems(runners)
-  
-    const {
-      imagesById,
-      isLoading: imageLoading, 
-      isError: imageError, 
-    } = useImageForItems(runners)
-  
+  const {
+    machinesById, 
+    isLoading: machineLoading, 
+    isError: machineError, 
+  } = useMachineForItems(runners);
+
+  const {
+    imagesById,
+    isLoading: imageLoading, 
+    isError: imageError, 
+  } = useImageForItems(runners);
+
   // Search functionality
   const [searchTerm, setSearchTerm] = useState<string>("");
-  
 
   // Join the data
   const enrichedRunners = useMemo(() => 
     runners.map(runner => {
-
       const matchingMachine = runner.machineId ? machinesById[runner.machineId] : null;
       const matchingImage = runner.imageId ? imagesById[runner.imageId] : null;
-    
-      
+
       return {
         ...runner,
         image: matchingImage || undefined,
         machine: matchingMachine || undefined
-      }
-  }).reverse(),
+      };
+    }).reverse(),
     [runners, machinesById, imagesById]
   );
 
   // Loading state for all data
-  const isLoading = runnersLoading || 
-    imageLoading || machineLoading;
-  
+  const isLoading = runnersLoading || imageLoading || machineLoading;
+
   // Error state for any query
-  const error = runnersError || imageError || 
-    machineError;
+  const error = runnersError || imageError || machineError;
 
   // Use useMemo to filter runners based on search term
   const filteredRunners = useMemo(() => {
@@ -115,33 +121,39 @@ const RunnersTable: React.FC = () => {
 
   // Reset to first page when search results change
   useEffect(() => {
-    setPage(1);
+    setCurrentPage(1);
   }, [searchTerm]);
 
-
   const totalPages = Math.max(1, Math.ceil(filteredRunners.length / itemsPerPage));
-  const startIndex = (page - 1) * itemsPerPage;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const visibleRunners = filteredRunners.slice(startIndex, startIndex + itemsPerPage);
 
   const handleViewRunner = (index: number) => {
     router.push(`/runners/view/${index}`);
   };
 
-  const handleTerminate = (id: string, e: React.MouseEvent) => {
+  const handleTerminate = async (runnerId: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent the row click from triggering
-    terminateRunner(id);
+    setLoadingRunnerId(runnerId); // Set the loading state for the runner being terminated
+
+    try {
+      await terminateRunner(runnerId);
+      console.log(`Runner with ID ${runnerId} terminated successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["runners"] }); // Refresh the runners list
+    } catch (error) {
+      console.error("Error terminating runner:", error);
+    } finally {
+      setLoadingRunnerId(null); // Reset the loading state
+    }
   };
 
   const handleConnect = (runner: Runner, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent the row click from triggering
-    if (runner.url) {
-      // In a real app, this would redirect to the runner URL or open a connection
-      window.open(runner.url, '_blank');
-    }
+    router.push(`/runners/view/${runner.id}?autoConnect=true`);
   };
 
   const canConnect = (runner: Runner) => {
-    return runner.state === 'active' || runner.state === 'awaiting_client';
+    return runner.state === 'active' || runner.state === 'ready' || runner.state === 'awaiting_client';
   };
 
   const canTerminate = (runner: Runner) => {
@@ -154,9 +166,9 @@ const RunnersTable: React.FC = () => {
   };
 
   // Handlers for page navigation
-  const goToPage = (pageNumber: number) => {
+  const handlePageChange = (pageNumber: number) => {
     if (pageNumber >= 1 && pageNumber <= totalPages) {
-      setPage(pageNumber);
+      setCurrentPage(pageNumber);
     }
   };
 
@@ -267,9 +279,6 @@ const RunnersTable: React.FC = () => {
                 <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
                   State
                 </th>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  Session
-                </th>
                 <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 text-right">
                   Actions
                 </th>
@@ -316,16 +325,6 @@ const RunnersTable: React.FC = () => {
                         {getStateLabel(runner.state)}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400">
-                      {runner.sessionStart ? (
-                        <div>
-                          <p>Start: {runner.sessionStart}</p>
-                          <p>End: {runner.sessionEnd}</p>
-                        </div>
-                      ) : (
-                        "Not started"
-                      )}
-                    </td>
                     <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400 text-right">
                       <div className="flex justify-end space-x-2">
                         <Button
@@ -333,17 +332,43 @@ const RunnersTable: React.FC = () => {
                           size="sm"
                           variant="secondary"
                           className={canConnect(runner) ? "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30" : ""}
-                          disabled={!canConnect(runner)}
+                          disabled={!canConnect(runner) || loadingRunnerId === runner.id}
                         >
                           Connect
                         </Button>
                         <Button
-                          onClick={(e) => handleTerminate(runner.id.toString(), e)}
+                          onClick={(e) => handleTerminate(runner.id, e)}
                           size="sm"
                           variant="destructive"
-                          disabled={!canTerminate(runner)}
+                          disabled={!canTerminate(runner) || loadingRunnerId === runner.id}
                         >
-                          Terminate
+                          {loadingRunnerId === runner.id ? (
+                            <div className="flex items-center">
+                              <svg
+                                className="animate-spin h-4 w-4 mr-2"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Terminating
+                            </div>
+                          ) : (
+                            "Terminate"
+                          )}
                         </Button>
                       </div>
                     </td>
@@ -355,86 +380,29 @@ const RunnersTable: React.FC = () => {
         </div>
       </div>
 
-      {/* Pagination Controls - Always show them */}
-      <div className="px-6 py-4 border-t border-gray-200 dark:border-white/[0.05]">
-        <div className="flex items-center justify-between">
-          {/* Previous Button */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => goToPage(page - 1)}
-            disabled={page === 1}
-          >
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M2.58301 9.99868C2.58272 10.1909 2.65588 10.3833 2.80249 10.53L7.79915 15.5301C8.09194 15.8231 8.56682 15.8233 8.85981 15.5305C9.15281 15.2377 9.15297 14.7629 8.86018 14.4699L5.14009 10.7472L16.6675 10.7472C17.0817 10.7472 17.4175 10.4114 17.4175 9.99715C17.4175 9.58294 17.0817 9.24715 16.6675 9.24715L5.14554 9.24715L8.86017 5.53016C9.15297 5.23717 9.15282 4.7623 8.85983 4.4695C8.56684 4.1767 8.09197 4.17685 7.79917 4.46984L2.84167 9.43049C2.68321 9.568 2.58301 9.77087 2.58301 9.99715C2.58301 9.99766 2.58301 9.99817 2.58301 9.99868Z"
-                fill=""
-              />
-            </svg>
-            <span className="hidden sm:inline">Previous</span>
-          </Button>
-          {/* Page Info */}
-          <span className="block text-sm font-medium text-gray-700 dark:text-gray-400 sm:hidden">
-            Page {page} of {totalPages}
-          </span>
-          {/* Page Numbers */}
-          <ul className="hidden items-center gap-0.5 sm:flex">
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <li key={idx}>
-                <button
-                  onClick={() => goToPage(idx + 1)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg text-theme-sm font-medium ${
-                    page === idx + 1
-                      ? "bg-brand-500 text-white"
-                      : "text-gray-700 hover:bg-brand-500/[0.08] dark:hover:bg-brand-500 dark:hover:text-white hover:text-brand-500 dark:text-gray-400 "
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {/* Next Button */}
-          <Button
-            onClick={() => goToPage(page + 1)}
-            size="sm"
-            variant="outline"
-            disabled={page === totalPages}
-          >
-            <span className="hidden sm:inline">Next</span>
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M17.4175 9.9986C17.4178 10.1909 17.3446 10.3832 17.198 10.53L12.2013 15.5301C11.9085 15.8231 11.4337 15.8233 11.1407 15.5305C10.8477 15.2377 10.8475 14.7629 11.1403 14.4699L14.8604 10.7472L3.33301 10.7472C2.91879 10.7472 2.58301 10.4114 2.58301 9.99715C2.58301 9.58294 2.91879 9.24715 3.33301 9.24715L14.8549 9.24715L11.1403 5.53016C10.8475 5.23717 10.8477 4.7623 11.1407 4.4695C11.4336 4.1767 11.9085 4.17685 12.2013 4.46984L17.1588 9.43049C17.3173 9.568 17.4175 9.77087 17.4175 9.99715C17.4175 9.99763 17.4175 9.99812 17.4175 9.9986Z"
-                fill=""
-              />
-            </svg>
-          </Button>
-        </div>
-      </div>
-    </div>
+      {/* Pagination Controls */}
+            {filteredRunners.length > 0 && (
+              <div>
+                <div className="mt-4">
+                  <CustomPagination
+                    totalItems={filteredRunners.length}
+                    itemsPerPage={itemsPerPage}
+                    currentPage={currentPage}
+                    onPageChange={handlePageChange}
+                    // siblingCount={1} // Optional, defaults to 1
+                    className="my-custom-pagination-styles" // Optional custom styling
+                  />
+                </div>
+      
+                {/* Optional: Display current range */}
+                <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
+                  Showing {Math.min(filteredRunners.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0, filteredRunners.length)}
+                  - {Math.min(currentPage * itemsPerPage, filteredRunners.length)} of {filteredRunners.length} items
+                </div>
+            </div>
+            )}
+            </div>
   );
 };
 
 export default RunnersTable;
-
-function terminateRunner(id: string) {
-    throw new Error("Function not implemented." + id);
-}

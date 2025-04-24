@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import ImageFormWithTerminal from "@/components/image/ImageFormWithTerminal";
 import Button from "@/components/ui/button/Button";
-import { ImageFormData } from "@/components/image/ImageFormWithTerminal";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
 
 export default function AddImagePage() {
@@ -14,14 +13,6 @@ export default function AddImagePage() {
     { label: "Images", href: "/images" },
     { label: "Add Image" }
   ];
-  
-  const handleSubmit = (imageData: ImageFormData) => {
-    console.log("Submitting image data:", imageData);
-    // Here you would handle the API call to add the image
-    
-    // Navigate back to the images list page
-    router.push("/images");
-  };
   
   const handleCancel = () => {
     router.push("/images");
@@ -65,10 +56,7 @@ export default function AddImagePage() {
           </div>
           
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
-            <ImageFormWithTerminal 
-              onSubmit={handleSubmit} 
-              onCancel={handleCancel} 
-            />
+            <ImageFormWithTerminal />
           </div>
         </div>
       </div>

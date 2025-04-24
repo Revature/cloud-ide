@@ -47,7 +47,9 @@ def read_runners(
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session)):
+def read_runner(runner_id: int, session: Session = Depends(get_session),
+        #access_token: str = Header(..., alias="Access-Token")
+    ):
     """Retrieve a single Runner by ID."""
     runner = runner_repository.find_runner_by_id(session, runner_id)
     if not runner:
@@ -116,7 +118,7 @@ class RunnerStateUpdate(BaseModel):
 async def update_runner_state(
     update: RunnerStateUpdate = Body(...),
     session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token"),
+    #access_token: str = Header(..., alias="Access-Token"),
     x_forwarded_for: Optional[str] = Header(None),
     client_ip: Optional[str] = Header(None)
 ):

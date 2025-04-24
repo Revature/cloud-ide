@@ -72,3 +72,14 @@ export interface BackendRunner{
   modified_by: string,
   created_by: string,
 }
+
+export interface BackendAppRequest{
+  image_id: number,
+  user_email: string,
+  session_time: number,
+  runner_type: "temporary" | "permanent", 
+  env_data: { 
+      script_vars: JSON,
+      env_vars: JSON
+  }
+}

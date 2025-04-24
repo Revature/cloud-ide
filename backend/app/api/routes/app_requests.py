@@ -33,7 +33,7 @@ class RunnerRequest(BaseModel):
 @router.post("/", response_model=dict[str, str])
 async def get_ready_runner(
     request: RunnerRequest,
-    access_token: str = Header(..., alias="Access-Token"),
+    #access_token: str = Header(..., alias="Access-Token"),
     x_forwarded_for: Optional[str] = Header(None),
     client_ip: Optional[str] = Header(None)
 ):
