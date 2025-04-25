@@ -21,9 +21,6 @@ logger = get_task_logger(__name__)
 async def launch_runners(
         image_identifier: str, runner_count: int, initiated_by: str = "system", claimed: bool = False, request_id: Optional[int] = None
     ) -> list[Runner]:
-    print(f"Launching {runner_count} runners for image {image_identifier} with initiated_by={initiated_by}")
-    print("")
-    print("")
     """
     Launch instances concurrently and create Runner records.
 

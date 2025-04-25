@@ -417,13 +417,13 @@ async def websocket_terminal(
         if not runner or runner.state not in ["ready_claimed", "ready", "active", "awaiting_client"]:
             await websocket.close(code=1008, reason="Runner not available")
             return
-        
+
         # Check if this runner is part of a pool before changing its state
         image_id = runner.image_id
         image = session.get(Image, image_id)
         needs_replenishing = image and image.runner_pool_size > 0 and runner.state == "ready"
         image_identifier = image.identifier if image else None
-        
+
         # Update runner state to active
         runner.state = "active"
         runner_repository.update_runner(session, runner)
@@ -435,8 +435,8 @@ async def websocket_terminal(
                 # Launch a new runner asynchronously
                 asyncio.create_task(
                     runner_management.launch_runners(
-                        image_identifier, 
-                        1, 
+                        image_identifier,
+                        1,
                         initiated_by="websocket_terminal_endpoint_pool_replenish"
                     )
                 )
@@ -452,7 +452,7 @@ async def websocket_terminal(
         logger.info(f"Terminal connection closed for runner {runner_id}, initiating termination")
         # asyncio.create_task(
         #     runner_management.terminate_runner(
-        #         runner_id, 
+        #         runner_id,
         #         initiated_by="websocket_terminal_disconnection"
         #     )
         # )
@@ -465,7 +465,7 @@ async def websocket_terminal(
             logger.info(f"Attempting to terminate runner {runner_id} after error")
             # asyncio.create_task(
             #     runner_management.terminate_runner(
-            #         runner_id, 
+            #         runner_id,
             #         initiated_by="websocket_terminal_error"
             #     )
             # )
