@@ -5,6 +5,7 @@ import RunnerForm, { RunnerFormData } from "./RunnerForm";
 import ConnectingStatusDisplay from "@/components/ui/connection/ConnectingStatusDisplay";
 import { useRouter } from "next/navigation";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
+import { runnersApi } from '@/services/cloud-resources/runners';
 
 const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
 
@@ -40,57 +41,36 @@ const RunnerFormWithTerminal: React.FC = () => {
    */
   const handleFormSubmitAndConnect = useCallback(async (data: RunnerFormData, e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
-    console.log("handleFormSubmitAndConnect called");
-
     cleanupConnections();
     setErrorMessage(null);
-    setWorkflowStage("webSocketSetup");
+    setWorkflowStage('webSocketSetup');
 
     try {
-      // Enrich scriptVars and envVars with user IP
       const enrichedEnvData = await enrichEnvDataWithUserIp({
         script_vars: JSON.stringify(data.scriptVars || {}),
         env_vars: JSON.stringify(data.envVars || {}),
       });
 
-      // Construct the request payload
       const appRequest = {
         image_id: data.image.id,
         session_time: data.durationMinutes,
         runner_type: "temporary",
-        user_email: "ashoka.shringla@revature.com", // Replace with dynamic user email
+        user_email: 'ashoka.shringla@revature.com', // Replace with dynamic user email
         env_data: {
           script_vars: JSON.parse(enrichedEnvData.script_vars),
           env_vars: JSON.parse(enrichedEnvData.env_vars),
         },
       };
 
-      // Call the withStatus API endpoint
-      const apiResponseWithStatus = await fetch("http://localhost:8020/api/v1/app_requests/with_status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appRequest),
-      });
+      const { request_id } = await runnersApi.createWithStatus(appRequest);
 
-      if (!apiResponseWithStatus.ok) {
-        throw new Error(`HTTP error ${apiResponseWithStatus.status}`);
-      }
-
-      const withStatusResponse = await apiResponseWithStatus.json();
-      const webSocketRequestId = withStatusResponse.request_id;
-
-      if (!webSocketRequestId) {
-        throw new Error("Invalid requestId received from API.");
-      }
-
-      // Establish WebSocket connection
-      const wsUrl = `${SETUP_WS_URL}/${webSocketRequestId}`;
+      const wsUrl = `${SETUP_WS_URL}/${request_id}`;
       const ws = new WebSocket(wsUrl);
       setSetupWebSocket(ws);
-      setWorkflowStage("connecting");
+      setWorkflowStage('connecting');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to initiate runner creation.");
-      setWorkflowStage("error");
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to initiate runner creation.');
+      setWorkflowStage('error');
       cleanupConnections();
     }
   }, [cleanupConnections, enrichEnvDataWithUserIp]);

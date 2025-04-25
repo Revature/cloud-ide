@@ -78,7 +78,7 @@ export interface BackendAppRequest{
   image_id: number,
   user_email: string,
   session_time: number,
-  runner_type: "temporary" | "permanent", 
+  runner_type: string, 
   env_data: { 
       script_vars: JSON,
       env_vars: JSON

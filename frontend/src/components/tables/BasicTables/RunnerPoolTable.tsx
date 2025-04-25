@@ -14,25 +14,15 @@ import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
 import { Modal } from "@/components/ui/modal";
 import ProgressBar from "@/components/ui/progress/ProgressBar";
+import { imagesApi } from "@/services/cloud-resources/images";
 
 const updateRunnerPoolSize = async (imageId: number, poolSize: number): Promise<boolean> => {
   try {
-    const response = await fetch(`http://localhost:8020/api/v1/images/${imageId}/runner_pool`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ runner_pool_size: poolSize }),
-    });
-
-    if (!response.ok) {
-      console.error(`Failed to update runner pool size for image ID ${imageId}. HTTP status: ${response.status}`);
-      return false;
-    }
-
-    const responseData = await response.json();
-    console.log("Response data:", responseData);
+    await imagesApi.patchRunnerPoolSize(imageId, poolSize);
+    console.log(`Runner pool size updated successfully for image ID ${imageId}.`);
     return true;
   } catch (error) {
-    console.error("Error updating runner pool size:", error);
+    console.error(`Error updating runner pool size for image ID ${imageId}:`, error);
     return false;
   }
 };
@@ -201,19 +191,74 @@ export default function RunnerPoolTable() {
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-4 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => handleUpdatePoolSize(image.id)}
-                    >
-                      {editingPoolId === image.id ? "Confirm" : "Update"}
-                    </Button>
+                    {editingPoolId === image.id ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleUpdatePoolSize(image.id)}
+                        className="flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+                        title="Confirm Update"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+                          />
+                        </svg>
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleUpdatePoolSize(image.id)}
+                        className="flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+                        title="Update Runner Pool Size"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+                          />
+                        </svg>
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"
                       onClick={() => handleOpenDeleteModal(image.id)}
+                      className="flex items-center justify-center text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                      title="Delete Runner Pool"
                     >
-                      Delete
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6.541 3.792C6.541 2.549 7.549 1.542 8.791 1.542h2.417c1.242 0 2.25 1.007 2.25 2.25v.25h2.167h1.041c.414 0 .75.336.75.75s-.336.75-.75.75h-.291v2.705v5v2.962c0 1.242-1.007 2.25-2.25 2.25H5.875c-1.242 0-2.25-1.007-2.25-2.25v-2.962v-5V5.542h-.291c-.414 0-.75-.336-.75-.75s.336-.75.75-.75h1.042h2.166v-.25Zm8.334 9.455v-5V5.542h-1.417h-.75H7.291h-.75H5.125v2.705v5v2.962c0 .414.336.75.75.75h8.25c.414 0 .75-.336.75-.75v-2.962ZM8.041 4.042h3.917v-.25c0-.414-.336-.75-.75-.75H8.791c-.414 0-.75.336-.75.75v.25Zm.292 3.958c.414 0 .75.336.75.75v5c0 .414-.336.75-.75.75s-.75-.336-.75-.75v-5c0-.414.336-.75.75-.75Zm4.084.75c0-.414-.336-.75-.75-.75s-.75.336-.75.75v5c0 .414.336.75.75.75s.75-.336.75-.75v-5Z"
+                        />
+                      </svg>
                     </Button>
                   </TableCell>
                 </TableRow>

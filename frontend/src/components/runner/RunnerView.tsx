@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 // Import the props interface from the terminal component
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
 import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
-import { terminateRunner } from '../tables/BasicTables/RunnersTable';
+import { runnersApi } from '@/services/cloud-resources/runners';
 
 // Import terminal component with ssr: false to prevent server-side rendering
 // Use the imported props type with dynamic import
@@ -112,11 +112,11 @@ const RunnerView: React.FC = () => {
       setIsTerminating(true);
       setUiMessage(null); // Clear any previous messages
       try {
-        await terminateRunner(runner.id);
+        await runnersApi.terminate(runner.id);
         setUiMessage({ type: 'success', message: `Runner with ID ${runner.id} terminated successfully.` });
-        router.push("/runners"); // Redirect to the runners list
+        router.push('/runners'); // Redirect to the runners list
       } catch (error) {
-        console.error("Error terminating runner:", error);
+        console.error('Error terminating runner:', error);
         setUiMessage({ type: 'error', message: `Failed to terminate runner with ID ${runner.id}.` });
       } finally {
         setIsTerminating(false);
