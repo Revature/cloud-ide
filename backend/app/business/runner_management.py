@@ -279,17 +279,19 @@ async def claim_runner(runner: Runner, requested_session_time, user: User, user_
 
         return destination_url
 
-def auth_runner(runner_id: int, runner_token: str, session: Session = next(get_session())):
+def auth_runner(runner_id: int, runner_token: str):
     """Check the runner's hash against a provided auth token."""
-    runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
-    return runner.external_hash == runner_token
+    with Session(engine) as session:
+        runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
+        return runner.external_hash == runner_token
 
-def get_devserver(runner_id: int, port: int, session: Session = next(get_session())):
+def get_devserver(runner_id: int, port: int):
     """Form a devserver URL."""
-    runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
-    jwt = jwt_creation.create_jwt_token(runner.url, runner_id, runner.user_ip)
-    destination_url = f"{constants.domain}/devserver/{port}/{jwt}/"
-    return destination_url
+    with Session(engine) as session:
+        runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
+        jwt = jwt_creation.create_jwt_token(runner.url, runner_id, runner.user_ip)
+        destination_url = f"{constants.domain}/devserver/{port}/{jwt}/"
+        return destination_url
 
 async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict:
     """
