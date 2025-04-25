@@ -450,23 +450,24 @@ async def websocket_terminal(
 
         # When the terminal connection is closed, terminate the runner
         logger.info(f"Terminal connection closed for runner {runner_id}, initiating termination")
-        asyncio.create_task(
-            runner_management.terminate_runner(
-                runner_id, 
-                initiated_by="websocket_terminal_disconnection"
-            )
-        )
+        # asyncio.create_task(
+        #     runner_management.terminate_runner(
+        #         runner_id, 
+        #         initiated_by="websocket_terminal_disconnection"
+        #     )
+        # )
 
     except Exception as e:
         logger.error(f"Terminal connection error: {e!s}")
         await websocket.close(code=1011, reason=f"Unexpected error: {e!s}")
         # Still try to terminate the runner even if there was an error
         try:
-            asyncio.create_task(
-                runner_management.terminate_runner(
-                    runner_id, 
-                    initiated_by="websocket_terminal_error"
-                )
-            )
+            logger.info(f"Attempting to terminate runner {runner_id} after error")
+            # asyncio.create_task(
+            #     runner_management.terminate_runner(
+            #         runner_id, 
+            #         initiated_by="websocket_terminal_error"
+            #     )
+            # )
         except Exception as term_error:
             logger.error(f"Failed to terminate runner after error: {term_error!s}")
