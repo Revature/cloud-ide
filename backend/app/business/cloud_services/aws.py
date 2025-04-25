@@ -27,10 +27,78 @@ class AWSCloudService(CloudService):
             aws_secret_access_key=connector.get_decrypted_secret_key(),
             region_name=connector.region
         )
+        self.sts_client = boto3.client(
+            'sts',
+            aws_access_key_id=connector.get_decrypted_access_key(),
+            aws_secret_access_key=connector.get_decrypted_secret_key(),
+            region_name=connector.region
+        )
+        self.iam_client = boto3.client(
+            'iam',
+            aws_access_key_id=connector.get_decrypted_access_key(),
+            aws_secret_access_key=connector.get_decrypted_secret_key(),
+            region_name=connector.region
+        )
 
-    ###################
+    ########################
+    # Account Functionality
+    ########################
+
+    async def validate_account(self) -> list[str]:
+        """
+        Verify the AWS account by checking the IAM user.
+
+        Returns a list of denied actions strings, or an error message if the account is invalid.
+        """
+        try:
+            denied_actions = []
+
+            identity = self.sts_client.get_caller_identity()
+            principal_arn = identity['Arn']
+
+            response = self.iam_client.get_user()
+            username = response['User']['UserName']
+
+            response = self.iam_client.simulate_principal_policy(
+                PolicySourceArn=principal_arn,
+                ActionNames=[
+                    'ec2:RunInstances',
+                    'ec2:DescribeInstances',
+                    'ec2:TerminateInstances',
+                    'ec2:StopInstances',
+                    'ec2:StartInstances',
+                    'ec2:CreateTags',
+                    'ec2:DescribeTags',
+                    'ec2:CreateImage',
+                    'ec2:DeregisterImage',
+                    'ec2:CreateKeyPair',
+                    'ec2:DeleteKeyPair',
+                    'ec2:DescribeKeyPairs',
+                    'ec2:CreateSecurityGroup',
+                    'ec2:DeleteSecurityGroup',
+                    'ec2:AuthorizeSecurityGroupIngress',
+                    's3:CreateBucket',
+                    's3:DeleteBucket',
+                    's3:ListBuckets',
+                    's3:ListObjectsV2',
+                    's3:GetObject',
+                    's3:PutObject',
+                    's3:DeleteObject'
+                ]
+            )
+
+            for result in response['EvaluationResults']:
+                if result['EvalDecision'] != 'allowed':
+                    denied_actions.append(result['EvalActionName'])
+
+            return denied_actions
+
+        except Exception as e:
+            return str(e)
+
+    ########################
     # Keypair Functionality
-    ###################
+    ########################
 
     async def create_keypair(self, key_name: str) -> dict[str, str]:
         """

@@ -12,9 +12,21 @@ class CloudService(ABC):
         self.connector = connector
         self.region = connector.region
 
-    ###################
+    ########################
+    # Account Functionality
+    ########################
+
+    @abstractmethod
+    async def validate_account(self) -> list[str]:
+        """
+        Verify the AWS account by checking the IAM user.
+
+        Returns a list of denied actions strings, or an error message if the account is invalid.
+        """
+
+    ########################
     # Keypair Functionality
-    ###################
+    ########################
 
     @abstractmethod
     async def create_keypair(self, key_name: str) -> dict[str, str]:
