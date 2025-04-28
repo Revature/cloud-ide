@@ -16,7 +16,7 @@ export default function AddCloudConnectorPage() {
   const handleCancel = () => {
     router.push("/cloud-connectors");
   };
-  
+
   return (
     <div className="space-y-6">
       <div>
