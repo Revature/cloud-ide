@@ -15,10 +15,18 @@ export async function GET(
 
     console.log(`Fetching individual runner from backend: ${apiUrl}${endpoint}`);
 
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
+
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': process.env.API_ACCESS_TOKEN || '',
+        'Access-Token': accessToken,
       },
     });
 
@@ -118,13 +126,21 @@ export async function PATCH(
     const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
     const endpoint = `/api/v1/runners/${id}/${action}`;
 
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
+
     console.log(`Performing ${action} action on runner ${id}: ${apiUrl}${endpoint}`);
 
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': process.env.API_ACCESS_TOKEN || '',
+        'Access-Token': accessToken,
       },
     });
 
@@ -157,11 +173,19 @@ export async function DELETE(
 
     console.log(`Terminating runner ${id}: ${apiUrl}${endpoint}`);
 
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
+
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': process.env.API_ACCESS_TOKEN || '',
+        'Access-Token': accessToken,
       },
     });
 
