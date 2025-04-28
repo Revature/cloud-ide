@@ -8,7 +8,8 @@ import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 import { appRequestsApi } from '@/services/cloud-resources/appRequests'
 
 // const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
-const SETUP_WS_URL = "ws://devide.revature.com/api/v1/app_requests/runner_status";
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
 
 type WorkflowStage = "form" | "webSocketSetup" | "connecting" | "error";
 
@@ -63,7 +64,7 @@ const RunnerFormWithTerminal: React.FC = () => {
         },
       };
 
-      const { request_id } = await appRequestsApi.createWithStatus(appRequest);
+      const { request_id, url } = await appRequestsApi.createWithStatus(appRequest);
 
       const wsUrl = `${SETUP_WS_URL}/${request_id}`;
       const ws = new WebSocket(wsUrl);
@@ -84,7 +85,7 @@ const RunnerFormWithTerminal: React.FC = () => {
   const handleConnectionComplete = useCallback(
     (result: { status: "succeeded"; runnerId: number; url: string } | { status: "failed"; message: string }) => {
       if (result.status === "succeeded") {
-        router.push(`/runners/view/${result.runnerId}?autoConnect=true`); // Navigate to RunnerView
+        router.push(`/runners/view/${result.runnerId}?autoConnect=true&url=${encodeURIComponent(result.url)}`); // Pass the URL as a query parameter
       } else {
         setErrorMessage(result.message);
         setWorkflowStage("error");
