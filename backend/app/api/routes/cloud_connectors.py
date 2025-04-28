@@ -1,6 +1,6 @@
 """Cloud Connector API routes."""
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from app.models.cloud_connector import CloudConnector
 from app.business import cloud_connector_management
 from pydantic import BaseModel

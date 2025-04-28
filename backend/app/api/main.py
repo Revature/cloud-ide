@@ -116,6 +116,12 @@ def start_api():
         access_token = request.headers.get("Access-Token")
 
         print(f"Access-Token: {access_token}")
+        print(f"Request Headers:")
+        for header_name, header_value in request.headers.items():
+            print(f"  {header_name}: {header_value}")
+        print(f"Request Body:")
+        print(await request.body())
+        print(f"Request Path: {request.url.path}")
 
         try:
             # Check exact matches for bypassing middleware
