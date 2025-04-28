@@ -180,7 +180,7 @@ const RunnersTable: React.FC = () => {
 
   const handleStart = async (runnerId: number) => {
     try {
-      await runnersApi.start(runnerId);
+      await runnersApi.changeState(runnerId, "start");
       console.log(`Runner with ID ${runnerId} started successfully.`);
       queryClient.invalidateQueries({ queryKey: ["runners"] });
     } catch (error) {
@@ -190,7 +190,7 @@ const RunnersTable: React.FC = () => {
 
   const handleStop = async (runnerId: number) => {
     try {
-      await runnersApi.stop(runnerId);
+      await runnersApi.changeState(runnerId, "stop");
       console.log(`Runner with ID ${runnerId} stopped successfully.`);
       queryClient.invalidateQueries({ queryKey: ["runners"] });
     } catch (error) {

@@ -14,7 +14,7 @@ import { SuccessIcon } from "../ui/icons/CustomIcons";
 import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 
-const SETUP_WS_URL = 'ws://localhost:8000/api/v1/app_requests/runner_status';
+const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
 
 type WorkflowStage = 'form' | 'webSocketSetup' | 'connecting' | 'terminal' | 'readyToSubmit' | 'submitting' | 'success' | 'error';
 

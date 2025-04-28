@@ -107,18 +107,18 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string, action: string }> }
 ) {
   const awaitedParams = await params;
   const id = awaitedParams.id;
-
-  try {
-    const body = await request.json();
-    const action = body.action; // Expecting "start" or "stop"
-
-    if (!['start', 'stop'].includes(action)) {
+  try{
+    const url = new URL(request.url);
+    const action = url.searchParams.get('action');
+    
+    // Validate the action
+    if (!action || !['start', 'stop'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be "start" or "stop".' },
+        { error: 'Invalid or missing action. Must be "start" or "stop".' },
         { status: 400 }
       );
     }

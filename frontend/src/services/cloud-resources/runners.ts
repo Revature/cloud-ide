@@ -30,13 +30,9 @@ export const runnersApi = {
       method: 'DELETE',
     }),
 
-  start: (id: number) =>
-    apiRequest<void>(`/cloud-resources/runners/${id}/start`, {
+  changeState: (id: number, action: 'start' | 'stop') =>
+    apiRequest<void>(`/cloud-resources/runners/${id}?action=${action}`, {
       method: 'PATCH',
     }),
 
-  stop: (id: number) =>
-    apiRequest<void>(`/cloud-resources/runners/${id}/stop`, {
-      method: 'PATCH',
-    }),
 };
