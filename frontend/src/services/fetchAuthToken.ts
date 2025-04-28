@@ -28,11 +28,16 @@ export const fetchAuthToken = async (
       return ''; // Return an empty string as a fallback
     }
 
-    const data = await response.json();
-    authToken = data.token; // Assume the token is returned as `data.token`
+    const token = response.headers.get('Access-Token');
+    if (!token) {
+      console.error('Access-Token header is missing in the response.');
+      return ''; 
+    }
+
+    authToken = token; 
     return authToken;
-  } catch {
-    // console.error('Error fetching auth token:', error);
+  } catch (error) {
+    console.error('Error fetching auth token:', error);
     return ''; // Return an empty string as a fallback
   }
 };
