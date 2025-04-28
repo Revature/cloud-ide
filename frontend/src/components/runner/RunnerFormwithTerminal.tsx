@@ -7,9 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 import { appRequestsApi } from '@/services/cloud-resources/appRequests'
 
-// const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
+
 
 type WorkflowStage = "form" | "webSocketSetup" | "connecting" | "error";
 
@@ -18,6 +16,10 @@ const RunnerFormWithTerminal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
   const router = useRouter();
+
+  // const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
 
   const workflowStageRef = useRef(workflowStage);
   useEffect(() => {

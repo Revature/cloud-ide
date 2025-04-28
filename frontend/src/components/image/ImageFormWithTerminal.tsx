@@ -14,9 +14,6 @@ import { SuccessIcon } from "../ui/icons/CustomIcons";
 import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 
-// const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
 
 type WorkflowStage = 'form' | 'webSocketSetup' | 'connecting' | 'terminal' | 'readyToSubmit' | 'submitting' | 'success' | 'error';
 
@@ -33,6 +30,11 @@ const ImageFormWithTerminal: React.FC = () => {
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
   const runnerIdReceivedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  
+  // const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
 
   const router = useRouter();
 
