@@ -104,7 +104,7 @@ export default function CloudConnectorsTable() {
           </h3>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <RefreshButton queryKeys={["cloudConnectors"]} />
+          <RefreshButton queryKeys={["cloud-connectors"]} />
           <form onSubmit={(e) => e.preventDefault()} className="flex-grow">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">

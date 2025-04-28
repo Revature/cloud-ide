@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 import { appRequestsApi } from '@/services/cloud-resources/appRequests'
 
-const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
+const SETUP_WS_URL = "ws://devide.revature.com/api/v1/app_requests/runner_status";
 
 type WorkflowStage = "form" | "webSocketSetup" | "connecting" | "error";
 
