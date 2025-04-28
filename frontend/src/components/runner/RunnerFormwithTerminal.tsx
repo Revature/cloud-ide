@@ -5,7 +5,7 @@ import RunnerForm, { RunnerFormData } from "./RunnerForm";
 import ConnectingStatusDisplay from "@/components/ui/connection/ConnectingStatusDisplay";
 import { useRouter } from "next/navigation";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
-import { runnersApi } from '@/services/cloud-resources/runners';
+import { appRequestsApi } from '@/services/cloud-resources/appRequests'
 
 const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
 
@@ -62,7 +62,7 @@ const RunnerFormWithTerminal: React.FC = () => {
         },
       };
 
-      const { request_id } = await runnersApi.createWithStatus(appRequest);
+      const { request_id } = await appRequestsApi.createWithStatus(appRequest);
 
       const wsUrl = `${SETUP_WS_URL}/${request_id}`;
       const ws = new WebSocket(wsUrl);

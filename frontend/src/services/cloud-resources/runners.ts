@@ -1,7 +1,6 @@
 // src/services/cloud-resources/images.ts
 import { Runner } from '@/types/runner';
 import { apiRequest } from '../base';
-import { BackendAppRequest } from '@/types';
 
 export interface NewRunner {
   imageId: number;
@@ -24,18 +23,7 @@ export const runnersApi = {
     
   getById: (id: number) => 
     apiRequest<Runner>(`/cloud-resources/runners/${id}`),
-    
-  create: (data: BackendAppRequest) => 
-    apiRequest<BackendAppRequest>('/cloud-resources/runners/', {
-      method: 'POST',
-      body: data
-    }),
-    
-  createWithStatus: (data: BackendAppRequest) =>
-    apiRequest<{ request_id: string }>(`/cloud-resources/runners/with_status`, {
-      method: 'POST',
-      body: data,
-    }),
+
 
   terminate: (id: number) =>
     apiRequest<void>(`/cloud-resources/runners/${id}`, {

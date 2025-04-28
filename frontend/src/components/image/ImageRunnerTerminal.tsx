@@ -1,18 +1,17 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 // Import the shared component and its props
-import TerminalComponent from '../terminal/TerminalComponent'; // Adjust path as needed
+import TerminalComponent from "../terminal/TerminalComponent"; // Adjust path as needed
 
-// Props required by this Host/Wrapper component from the
-export interface ImageRunnerTerminalalProps {
+// Props required by this Host/Wrapper component
+export interface ImageRunnerTerminalProps {
   runnerId: number; // The ID needed by TerminalComponent
   onInteractionComplete: () => void; // Callback for when the workflow should proceed
-  // Optional: Propagate errors if needed by the workflow container
-  onWorkflowError?: (error: string) => void;
+  onWorkflowError?: (error: string) => void; // Optional: Propagate errors if needed by the workflow container
 }
 
-const ImageRunnerTerminal: React.FC<ImageRunnerTerminalalProps> = ({
+const ImageRunnerTerminal: React.FC<ImageRunnerTerminalProps> = ({
   runnerId,
   onInteractionComplete,
   onWorkflowError,
@@ -21,75 +20,108 @@ const ImageRunnerTerminal: React.FC<ImageRunnerTerminalalProps> = ({
   const [internalError, setInternalError] = useState<string | null>(null);
 
   // Callback for TerminalComponent's connection status changes
-  const handleConnectionChange = useCallback((connected: boolean) => {
-    console.log(`ImageFormWithTerminal: Connection status from TerminalComponent = ${connected}`);
-    setIsConnected(connected);
+  const handleConnectionChange = useCallback(
+    (connected: boolean) => {
+      console.log(
+        `ImageFormWithTerminal: Connection status from TerminalComponent = ${connected}`
+      );
+      setIsConnected(connected);
 
-    if (!connected && isConnected) { // Check previous state to avoid triggering initially
-      console.log('ImageFormWithTerminal: Inferring interaction complete due to disconnection.');
-      // TODO: Delay this slightly? Check error state?
-      // Decide if *any* disconnection means the step is complete.
-      // onInteractionComplete(); // <--- Uncomment to use this strategy
-    }
-    // --- End Strategy A ---
-
-  }, [isConnected]); // Added isConnected dependency
+      if (!connected && isConnected) {
+        console.log(
+          "ImageFormWithTerminal: Inferring interaction complete due to disconnection."
+        );
+      }
+    },
+    [isConnected]
+  );
 
   // Callback for TerminalComponent's errors
-  const handleError = useCallback((error: string) => {
-    console.error(`ImageFormWithTerminal: Error received from TerminalComponent = ${error}`);
-    setInternalError(error);
-    if (onWorkflowError) {
-      onWorkflowError(error); // Pass the error up to the workflow container
-    }
-    // Potentially trigger workflow exit on certain errors
-    // e.g., if (error.includes('authentication failed')) onInteractionComplete();
-  }, [onWorkflowError]);
+  const handleError = useCallback(
+    (error: string) => {
+      console.error(
+        `ImageFormWithTerminal: Error received from TerminalComponent = ${error}`
+      );
+      setInternalError(error);
+      if (onWorkflowError) {
+        onWorkflowError(error); // Pass the error up to the workflow container
+      }
+    },
+    [onWorkflowError]
+  );
 
-  // --- Strategy B: External "Continue" Button ---
-  // This button is controlled by this host/wrapper, not the inner TerminalComponent.
-  // It relies on the *user* deciding they are done.
+  // Handle the "Continue" button click
   const handleUserContinue = () => {
-     console.log("ImageFormWithTerminal: User clicked 'Continue', triggering interaction complete.");
-     // We ideally might want to tell TerminalComponent to disconnect here,
-     // but it doesn't expose a disconnect method via props. It will disconnect on unmount.
-     onInteractionComplete();
-  }
-  // --- End Strategy B ---
-
+    console.log(
+      "ImageFormWithTerminal: User clicked 'Continue', triggering interaction complete."
+    );
+    onInteractionComplete();
+  };
 
   return (
-    <div style={{ border: '1px solid # BDBDBD', padding: '1rem', backgroundColor: '#f5f5f5' }}>
-      <h3 style={{ marginTop: 0 }}>Interactive Session</h3>
-      {internalError && <p style={{ color: 'red', border: '1px solid red', padding: '0.5rem' }}>Terminal Error: {internalError}</p>}
+    <div className="mb-6 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+        Interactive Session
+      </h3>
 
-      {/* Container for the actual TerminalComponent */}
-      <div style={{ height: '450px', width: '100%', marginBottom: '1rem', border: '1px solid #ccc' }}>
-        <TerminalComponent
-          // Use runnerId as key to force reinitialization if the ID changes
-          // Might be important if the user could switch runners within the same workflow instance
-          key={runnerId}
-          runnerId={runnerId}
-          onConnectionChange={handleConnectionChange}
-          onError={handleError}
-        />
+      {/* Display error if any */}
+      {internalError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 dark:bg-red-900/20 dark:border-red-800/20 dark:text-red-400">
+          <div className="flex items-start">
+            <svg
+              className="w-4 h-4 mt-0.5 mr-2 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{internalError}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Terminal Container */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="h-96 w-full bg-gray-50 dark:bg-gray-900">
+          <TerminalComponent
+            key={runnerId}
+            runnerId={runnerId}
+            onConnectionChange={handleConnectionChange}
+            onError={handleError}
+          />
+        </div>
       </div>
 
-      {/* Render Strategy B: External Continue Button */}
-      {/* Show button only when connected? Or always? Depends on workflow. */}
-      {/* You might want to disable it if internalError is set */}
-      <div>
-          <button
-            onClick={handleUserContinue}
-            disabled={!!internalError} // Disable if there was an error
-            style={{ padding: '8px 15px', cursor: 'pointer' }}
-           >
-             Continue to Final Submission
-           </button>
-           {!isConnected && !internalError && <span style={{marginLeft: '1rem'}}>Status: Connecting...</span>}
-           {isConnected && <span style={{marginLeft: '1rem', color: 'green'}}>Status: Connected</span>}
+      {/* Continue Button */}
+      <div className="mt-4 flex items-center">
+        <button
+          onClick={handleUserContinue}
+          disabled={!!internalError} // Disable if there was an error
+          className={`px-4 py-2 rounded-lg text-white ${
+            internalError
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+          }`}
+        >
+          Continue to Final Submission
+        </button>
+        {!isConnected && !internalError && (
+          <span className="ml-4 text-gray-600 dark:text-gray-400">
+            Status: Connecting...
+          </span>
+        )}
+        {isConnected && (
+          <span className="ml-4 text-green-600 dark:text-green-400">
+            Status: Connected
+          </span>
+        )}
       </div>
-
     </div>
   );
 };

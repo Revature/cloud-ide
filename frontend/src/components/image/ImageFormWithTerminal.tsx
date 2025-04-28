@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageForm, { ImageFormData } from "./ImageForm";
 import { runnersApi } from "@/services/cloud-resources/runners";
 import { imagesApi } from '@/services/cloud-resources/images';
+import { appRequestsApi } from '@/services/cloud-resources/appRequests'
 import ImageRunnerTerminal from "./ImageRunnerTerminal";
 import ConnectingStatusDisplay from '../ui/connection/ConnectingStatusDisplay'; 
 import type { ConnectingStatusDisplayProps } from '../ui/connection/ConnectingStatusDisplay';
@@ -87,7 +88,7 @@ const ImageFormWithTerminal: React.FC = () => {
         },
       };
 
-      const { request_id } = await imagesApi.createWithStatus(appRequest);
+      const { request_id } = await appRequestsApi.createWithStatus(appRequest);
 
       if (!request_id) {
         throw new Error("Invalid requestId received from API.");

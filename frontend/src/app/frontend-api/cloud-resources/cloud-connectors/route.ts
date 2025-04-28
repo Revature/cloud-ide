@@ -1,7 +1,7 @@
 // src/app/frontend-api/cloud-resources/cloud-connectors/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudConnector } from '@/types/cloudConnectors';
-import { BackendCloudConnector, BackendCloudConnectorRequest } from '@/types/api';
+import { BackendCloudConnector } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
     const endpoint = '/api/v1/cloud_connectors/';
 
-    const body = await request.json() as BackendCloudConnectorRequest;
+    const body = await request.json();
 
     console.log(`Creating new cloud connector at ${apiUrl}${endpoint}`);
     console.log('Request body:', body);
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body,
     });
 
     const responseData = await response.json();

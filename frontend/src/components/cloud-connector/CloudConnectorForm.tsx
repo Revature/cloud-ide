@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Form from "../form/Form";
 import Input from "../form/input/InputField";
 import {
@@ -14,6 +14,7 @@ import Button from "../ui/button/Button";
 import Select from "../form/Select";
 import { BackendCloudConnectorRequest } from "@/types";
 import { cloudConnectorsApi } from "@/services/cloud-resources/cloudConnectors";
+import { useRouter } from "next/navigation";
 
 type CloudProvider = "aws" | "azure" | "gcp";
 
@@ -31,9 +32,11 @@ interface CloudConnectorFormProps {
   onCancel: () => void;
 }
 
-const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({onCancel }) => {
-  const [showAccessKey, setShowAccessKey] = React.useState(false);
-  const [showSecretKey, setShowSecretKey] = React.useState(false);
+const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onCancel }) => {
+  const [showAccessKey, setShowAccessKey] = useState(false);
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [buttonState, setButtonState] = useState<"idle" | "testing" | "failed" | "success">("idle");
+  const router = useRouter();
 
   const cloudProviders: ProviderOption[] = [
     { value: "aws", label: "Amazon Web Services" },
@@ -44,9 +47,31 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({onCancel }) => {
   const regions: Record<CloudProvider, RegionOption[]> = {
     aws: [
       { value: "us-east-1", label: "US East (N. Virginia)" },
+      { value: "us-east-2", label: "US East (Ohio)" },
+      { value: "us-west-1", label: "US West (N. California)" },
       { value: "us-west-2", label: "US West (Oregon)" },
-      { value: "eu-west-1", label: "EU (Ireland)" },
+      { value: "af-south-1", label: "Africa (Cape Town)" },
+      { value: "ap-east-1", label: "Asia Pacific (Hong Kong)" },
+      { value: "ap-south-1", label: "Asia Pacific (Mumbai)" },
+      { value: "ap-south-2", label: "Asia Pacific (Hyderabad)" },
+      { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
+      { value: "ap-southeast-2", label: "Asia Pacific (Sydney)" },
+      { value: "ap-southeast-3", label: "Asia Pacific (Jakarta)" },
       { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" },
+      { value: "ap-northeast-2", label: "Asia Pacific (Seoul)" },
+      { value: "ap-northeast-3", label: "Asia Pacific (Osaka)" },
+      { value: "ca-central-1", label: "Canada (Central)" },
+      { value: "eu-central-1", label: "Europe (Frankfurt)" },
+      { value: "eu-central-2", label: "Europe (Zurich)" },
+      { value: "eu-west-1", label: "Europe (Ireland)" },
+      { value: "eu-west-2", label: "Europe (London)" },
+      { value: "eu-west-3", label: "Europe (Paris)" },
+      { value: "eu-north-1", label: "Europe (Stockholm)" },
+      { value: "eu-south-1", label: "Europe (Milan)" },
+      { value: "eu-south-2", label: "Europe (Spain)" },
+      { value: "me-central-1", label: "Middle East (UAE)" },
+      { value: "me-south-1", label: "Middle East (Bahrain)" },
+      { value: "sa-east-1", label: "South America (São Paulo)" },
     ],
     azure: [
       { value: "eastus", label: "East US" },
@@ -60,11 +85,13 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({onCancel }) => {
     ],
   };
 
-  const [selectedProvider, setSelectedProvider] = React.useState(cloudProviders[0].value);
-  const [selectedRegion, setSelectedRegion] = React.useState(regions.aws[0].value);
+  const [selectedProvider, setSelectedProvider] = useState(cloudProviders[0].value);
+  const [selectedRegion, setSelectedRegion] = useState(regions.aws[0].value);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setButtonState("testing");
+
     const form = e.currentTarget;
     const formElements = form.elements as HTMLFormControlsCollection;
 
@@ -78,20 +105,19 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({onCancel }) => {
       secret_key: secretKeyInput?.value || "",
     };
 
-    // TODO: Add cloudConnectorsApi.create method to send POST request to the backend
-    console.log("Connector Data:", connectorData);
     try {
       const response = await cloudConnectorsApi.create(connectorData);
       if (response) {
-        console.log("Connector created successfully:", response);
-        // Optionally, you can call a callback function to refresh the list of connectors or close the form
+        setButtonState("success");
+        setTimeout(() => {
+          router.push("/cloud-connectors");
+        }, 2000);
+      } else {
+        setButtonState("failed");
       }
-      else {
-        console.error("Failed to create connector");
-      }
-    }
-    catch (error) {
+    } catch (error) {
       console.error("Error creating connector:", error);
+      setButtonState("failed");
     }
   };
 
@@ -177,8 +203,28 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({onCancel }) => {
           <Button size="sm" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary" type="submit">
-            Create Connector
+          <Button
+            size="sm"
+            variant={
+              buttonState === "idle"
+                ? "primary"
+                : buttonState === "testing"
+                ? "secondary"
+                : buttonState === "failed"
+                ? "destructive"
+                : "success"
+            }
+            type="submit"
+            disabled={buttonState === "testing"}
+          >
+            {buttonState === "idle" && "Create Connector"}
+            {buttonState === "testing" && (
+              <>
+                <span className="spinner mr-2"></span> Testing Connection...
+              </>
+            )}
+            {buttonState === "failed" && "Connection Failed"}
+            {buttonState === "success" && "Created"}
           </Button>
         </div>
       </div>

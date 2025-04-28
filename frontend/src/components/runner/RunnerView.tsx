@@ -331,23 +331,19 @@ const RunnerView: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Machine Details Section */}
-      <div className="mt-8 bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
-        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Details</h4>
-        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-          <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-300">Machine Name</span>
-            <span className="text-gray-800 dark:text-white">{runner.machine?.name || 'N/A'}</span>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Details</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Machine Name</span>
+                <span className="text-gray-800 dark:text-white">{runner.machine?.name || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-300">Machine Identifier</span>
+              <span className="text-gray-800 dark:text-white">{runner.machine?.identifier || 'N/A'}</span>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-300">Machine Identifier</span>
-            <span className="text-gray-800 dark:text-white">{runner.machine?.identifier || 'N/A'}</span>
-          </div>
-        </div>
-      </div>
+        </div>   
+      </div>      
     </>
   );
 };

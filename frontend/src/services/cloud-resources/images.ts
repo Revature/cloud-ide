@@ -1,7 +1,6 @@
 // src/services/cloud-resources/images.ts
 import { apiRequest } from '../base';
 import { VMImage } from '@/types/images';
-import { BackendAppRequest } from '@/types';
 
 export const imagesApi = {
   getAll: () => 
@@ -34,12 +33,6 @@ export const imagesApi = {
       body: { runner_pool_size: poolSize },
     }),
 
-  createWithStatus: (data: BackendAppRequest) =>
-    apiRequest<{ request_id: string }>(`/cloud-resources/images/with_status`, {
-      method: 'POST',
-      body: data,
-    }),
-
   create: (data: {
     name: string;
     description: string;
@@ -49,6 +42,6 @@ export const imagesApi = {
   }) =>
     apiRequest<void>(`/cloud-resources/images/`, {
       method: 'POST',
-      body: data,
+      body: JSON.stringify(data),
     }),
 };
