@@ -14,8 +14,6 @@ import { SuccessIcon } from "../ui/icons/CustomIcons";
 import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 
-// const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
-const SETUP_WS_URL = 'ws://devide.revature.com/api/v1/app_requests/runner_status';
 
 type WorkflowStage = 'form' | 'webSocketSetup' | 'connecting' | 'terminal' | 'readyToSubmit' | 'submitting' | 'success' | 'error';
 
@@ -71,6 +69,10 @@ const ImageFormWithTerminal: React.FC = () => {
     runnerIdReceivedRef.current = false;
     setRunnerId(0);
     setWorkflowStage('webSocketSetup');
+
+    // const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
 
     try {
       const enrichedEnvData = await enrichEnvDataWithUserIp({
