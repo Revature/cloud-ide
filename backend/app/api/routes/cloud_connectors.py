@@ -8,14 +8,45 @@ from pydantic import BaseModel
 router = APIRouter()
 
 @router.get("/", response_model=list[CloudConnector])
-def read_cloud_connectors(
-                #access_token: str = Header(..., alias="Access-Token")
-         ):
+async def read_cloud_connectors(request: Request):
     """Retrieve a list of all cloud_connectors."""
-    cloud_connectors = cloud_connector_management.get_all_cloud_connectors()
-    if not cloud_connectors:
-        raise HTTPException(status_code=204, detail="No cloud connectors found")
-    return cloud_connectors
+    # Log request details
+    print(f"Request received for cloud_connectors endpoint")
+    print(f"Client host: {request.client.host}")
+
+    # Log all headers to see what's being sent
+    print("Request headers:")
+    for header_name, header_value in request.headers.items():
+        print(f"  {header_name}: {header_value}")
+
+    # Log query parameters if any
+    print("Query parameters:")
+    for param_name, param_value in request.query_params.items():
+        print(f"  {param_name}: {param_value}")
+
+    try:
+        # Log before the database call
+        print("Attempting to fetch cloud connectors from database")
+        cloud_connectors = cloud_connector_management.get_all_cloud_connectors()
+
+        # Log the result
+        if not cloud_connectors:
+            print("No cloud connectors found in database")
+            raise HTTPException(status_code=204, detail="No cloud connectors found")
+
+        print(f"Successfully retrieved {len(cloud_connectors)} cloud connectors")
+
+        # Optionally log some data about what's being returned
+        for i, connector in enumerate(cloud_connectors):
+            print(f"Connector {i+1}: ID={connector.id}, Provider={connector.provider}")
+
+        return cloud_connectors
+
+    except Exception as e:
+        # Log any exceptions that occur
+        print(f"Error fetching cloud connectors: {e!s}")
+        print("Detailed exception information:")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e!s}") from e
 
 @router.get("/{cloud_connector_id}", response_model=CloudConnector)
 def read_cloud_connector(cloud_connector_id: int,
