@@ -69,7 +69,7 @@ async def validate_cloud_connector(cloud_connector: CloudConnector) -> dict:
     except Exception as e:
         return {
             "success": False,
-            "message": f"Error validating cloud connector: {str(e)}",
+            "message": f"Error validating cloud connector: {e!s}",
             "denied_actions": []
         }
 

@@ -28,9 +28,8 @@ def read_cloud_connector(cloud_connector_id: int,
     return cloud_connector
 
 class CloudConnectorCreate(BaseModel):
-    """
-    Data model for creating a new cloud connector.
-    """
+    """Data model for creating a new cloud connector."""
+
     provider: str
     region: str
     access_key: str

@@ -134,7 +134,7 @@ class AWSCloudService(CloudService):
                     error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
                     error_msg = str(e)
                     print(f"Testing {op['action']}: Error code: {error_code}, Message: {error_msg}")
-                    
+
                     # DryRunOperation means success (we have permission)
                     if error_code == "DryRunOperation":
                         # This is a success - we have permission
@@ -143,11 +143,11 @@ class AWSCloudService(CloudService):
                         # Check if this is a resource-not-found error
                         error_msg_lower = str(e).lower()
                         resource_not_found = (
-                            "notfound" in error_msg_lower or 
+                            "notfound" in error_msg_lower or
                             "not found" in error_msg_lower or
                             "does not exist" in error_msg_lower
                         )
-    
+
                         if resource_not_found:
                             print(f"{op['action']} resource not found, but permission is likely OK")
                         else:
