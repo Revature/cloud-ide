@@ -7,9 +7,7 @@ import { BackendCloudConnectorRequest } from '@/types/api';
 
 export const cloudConnectorsApi = {
   getAll: () => 
-    apiRequest<CloudConnector[]>('/cloud-resources/cloud-connectors/', {
-      
-    }),
+    apiRequest<CloudConnector[]>('/cloud-resources/cloud-connectors/'),
     
   getById: (id: number) => 
     apiRequest<CloudConnector>(`/cloud-resources/cloud-connectors/${id}`),
