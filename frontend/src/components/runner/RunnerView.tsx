@@ -4,7 +4,7 @@ import { RunnerState } from '@/types/runner';
 import dynamic from 'next/dynamic';
 import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
 import { runnersApi } from '@/services/cloud-resources/runners';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 // Import the props interface from the terminal component
@@ -57,13 +57,11 @@ const getStateLabel = (state: RunnerState) => {
   }
 };
 
-interface RunnerViewProps {
-  runnerId: number;
-}
-
-const RunnerView: React.FC<RunnerViewProps> = ({ runnerId }) => {
+const RunnerView: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const runnerId = params.id as string;
   const autoConnect = searchParams.get('autoConnect') === 'true';
   const cloudIdeUrl = searchParams.get('url'); // Extract the URL from query parameters
 
@@ -288,7 +286,7 @@ const RunnerView: React.FC<RunnerViewProps> = ({ runnerId }) => {
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <div className="h-96 w-full">
               <TerminalComponent 
-                runnerId={runnerId} 
+                runnerId={parseInt(runnerId)} 
                 onConnectionChange={handleTerminalConnectionChange}
                 onError={handleTerminalError}
               />
