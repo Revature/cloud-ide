@@ -114,7 +114,7 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        
+
         print(f"Access-Token: {access_token}")
 
         try:
