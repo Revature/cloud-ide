@@ -1,35 +1,50 @@
 "use client";
+
 import { useRouter } from "next/navigation";
-import CloudConnectorForm from "@/components/cloud-connector/CloudConnectorForm";
+import RunnerPoolForm from "@/components/runner-pool/RunnerPoolForm";
 import Button from "@/components/ui/button/Button";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
+import { imagesApi } from '@/services/cloud-resources/images';
 
-export default function AddCloudConnectorPage() {
+export default function AddRunnerPoolPage() {
   const router = useRouter();
-  
+
   const breadcrumbItems = [
     { label: "Home", href: "/" },
-    { label: "Cloud Connectors", href: "/cloud-connectors" },
-    { label: "Add Connector" }
+    { label: "Runner Pools", href: "/runner-pools" },
+    { label: "Add Runner Pool" },
   ];
-  
+
   const handleCancel = () => {
-    router.push("/cloud-connectors");
+    router.push("/runner-pools");
   };
-  
+
+  const handleSubmit = async (imageId: number, poolSize: number) => {
+    try {
+      // Use the imagesApi to patch the runner pool size
+      await imagesApi.patchRunnerPoolSize(imageId, poolSize);
+
+      console.log(`Runner pool size updated to ${poolSize} for image ID ${imageId}.`);
+      router.push("/runner-pools");
+    } catch (error) {
+      console.error("Error updating runner pool size:", error);
+      console.log("Failed to update runner pool size.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <Breadcrumb items={breadcrumbItems} variant="withIcon" />
       </div>
-      
+
       <div className="grid grid-cols-12 gap-4 md:gap-6">
         <div className="col-span-12">
           <div className="flex items-center mb-6">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleCancel} 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancel}
               className="mr-4"
             >
               <svg
@@ -50,14 +65,12 @@ export default function AddCloudConnectorPage() {
               Back
             </Button>
             <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Add New Cloud Connector
+              Add New Runner Pool
             </h1>
           </div>
-          
+
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
-            <CloudConnectorForm 
-              onCancel={handleCancel} 
-            />
+            <RunnerPoolForm onSubmit={handleSubmit} onCancel={handleCancel} />
           </div>
         </div>
       </div>

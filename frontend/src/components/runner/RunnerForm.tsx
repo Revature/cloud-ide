@@ -164,17 +164,17 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
           <div className="col-span-full">
             <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Add any script-specific variables required for your runner. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
+              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
             </p>
             <textarea
               id="scriptVars"
               name="scriptVars"
               placeholder='e.g., {"git_url": "https://github.com/user/repo", "git_username": "your-username"}'
-              defaultValue={JSON.stringify(scriptVars, null, 2)}
+              defaultValue={JSON.stringify(scriptVars || {}, null, 2)}
               onChange={(e) => handleJsonChange("scriptVars", e.target.value)}
               className={`dark:bg-dark-900 h-24 w-full rounded-lg border ${
                 scriptVarsError ? "border-red-500" : "border-gray-300"
-              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none dark:placeholder:text-gray-400`}
+              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
             />
             {scriptVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
@@ -188,11 +188,11 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
               id="envVars"
               name="envVars"
               placeholder='e.g., {"key": "value"}'
-              defaultValue={JSON.stringify(envVars, null, 2)}
+              defaultValue={JSON.stringify(envVars || {}, null, 2)}
               onChange={(e) => handleJsonChange("envVars", e.target.value)}
               className={`dark:bg-dark-900 h-24 w-full rounded-lg border ${
                 envVarsError ? "border-red-500" : "border-gray-300"
-              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none dark:placeholder:text-gray-400`}
+              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
             />
             {envVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>

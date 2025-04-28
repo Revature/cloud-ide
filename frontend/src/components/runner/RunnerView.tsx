@@ -1,17 +1,16 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Button from "@/components/ui/button/Button";
 import { RunnerState } from '@/types/runner';
 import dynamic from 'next/dynamic';
+import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
+import { runnersApi } from '@/services/cloud-resources/runners';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 // Import the props interface from the terminal component
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
-import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
-import { runnersApi } from '@/services/cloud-resources/runners';
 
 // Import terminal component with ssr: false to prevent server-side rendering
-// Use the imported props type with dynamic import
 const TerminalComponent = dynamic<TerminalComponentProps>(
   () => import('../terminal/TerminalComponent'),
   { ssr: false }
@@ -140,17 +139,11 @@ const RunnerView: React.FC = () => {
 
   if (error || !runner) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/20 dark:border-red-800/20 dark:text-red-400">
-        <h3 className="text-lg font-semibold mb-2">Error Loading Runner</h3>
-        <p>Unable to load runner details. Please try again later.</p>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={goBack}
-          className="mt-4"
-        >
-          Return to Runners
-        </Button>
+      <div className="flex flex-col items-center">
+        <p className="text-red-500 dark:text-red-400 mb-4">
+          {error ? `Error loading data: ${error instanceof Error ? error.message : 'Unknown error'}` : 'Runner not found'}
+        </p>
+        <Button onClick={goBack}>Back to Runners</Button>
       </div>
     );
   }
@@ -196,40 +189,10 @@ const RunnerView: React.FC = () => {
             >
               {terminalVisible ? (
                 <>
-                  <svg 
-                    width="20" 
-                    height="20" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="stroke-current mr-2"
-                  >
-                    <path 
-                      d="M18 6L6 18M6 6L18 18" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    />
-                  </svg>
                   Disconnect
                 </>
               ) : (
                 <>
-                  <svg 
-                    width="20" 
-                    height="20" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="stroke-current mr-2"
-                  >
-                    <path 
-                      d="M5 12H19M19 12L12 5M19 12L12 19" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    />
-                  </svg>
                   Connect
                 </>
               )}
@@ -244,26 +207,6 @@ const RunnerView: React.FC = () => {
             >
               {isTerminating ? (
                 <div className="flex items-center">
-                  <svg
-                    className="animate-spin h-4 w-4 mr-2"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
                   Terminating
                 </div>
               ) : (
@@ -287,7 +230,7 @@ const RunnerView: React.FC = () => {
         </div>
       )}
 
-      {/* Terminal Section - Visible when connected */}
+      {/* Terminal Section */}
       {terminalVisible && (
         <div className="mb-6 bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
           <div className="flex justify-between items-center mb-4">
@@ -327,25 +270,82 @@ const RunnerView: React.FC = () => {
         </div>
       )}
 
+      {/* Runner Details Section */}
       <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
-        {/* Runner details section remains the same */}
         <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-4">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">Runner {runner.id}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Created on {runner.createdOn}</p>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">Runner Information</h3>
+            <p className="text-gray-500 dark:text-gray-400">ID: {runner.id}</p>
+          </div>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStateColor(runner.state)}`}>
+            {getStateLabel(runner.state)}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Basic Information */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">State</span>
+                <span className="text-gray-800 dark:text-white">{getStateLabel(runner.state)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Created On</span>
+                <span className="text-gray-800 dark:text-white">{runner.createdOn}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Session Start</span>
+                <span className="text-gray-800 dark:text-white">{runner.sessionStart || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Session End</span>
+                <span className="text-gray-800 dark:text-white">{runner.sessionEnd || 'N/A'}</span>
+              </div>
             </div>
           </div>
-          <div className="flex gap-3">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStateColor(runner.state)}`}>
-              {getStateLabel(runner.state)}
-            </span>
+
+          {/* Usage Statistics */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex items-center justify-center">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No usage data available</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Usage statistics will appear here once the runner becomes active.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-          {/* Rest of the component remains the same */}
-          {/* ... */}
+      {/* Machine Details Section */}
+      <div className="mt-8 bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
+        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Details</h4>
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+          <div className="flex justify-between">
+            <span className="text-gray-600 dark:text-gray-300">Machine Name</span>
+            <span className="text-gray-800 dark:text-white">{runner.machine?.name || 'N/A'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600 dark:text-gray-300">Machine Identifier</span>
+            <span className="text-gray-800 dark:text-white">{runner.machine?.identifier || 'N/A'}</span>
+          </div>
         </div>
       </div>
     </>

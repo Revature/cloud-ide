@@ -84,3 +84,10 @@ export interface BackendAppRequest{
       env_vars: JSON
   }
 }
+
+export interface BackendCloudConnectorRequest{
+  provider: string; // "aws", "gcp", "azure", etc.
+  region: string;
+  access_key: string;
+  secret_key: string;
+}

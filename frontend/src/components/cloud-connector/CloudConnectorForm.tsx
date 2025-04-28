@@ -10,12 +10,12 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from "../../icons";
-import Toggle from "../form/input/Toggle";
-import Label from "../form/Label";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
+import { BackendCloudConnectorRequest } from "@/types";
+import { cloudConnectorsApi } from "@/services/cloud-resources/cloudConnectors";
 
-type CloudProvider = 'aws' | 'azure' | 'gcp';
+type CloudProvider = "aws" | "azure" | "gcp";
 
 interface RegionOption {
   value: string;
@@ -27,93 +27,78 @@ interface ProviderOption {
   label: string;
 }
 
-// Define a more specific type for the connector data
-interface ConnectorFormData {
-  provider: string;
-  region: string;
-  type: string;
-  accessKey: string;
-  secretKey: string;
-  status: boolean;
-  added: string;
-}
-
 interface CloudConnectorFormProps {
-  onSubmit?: (data: ConnectorFormData) => void;
   onCancel: () => void;
 }
 
-const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCancel }) => {
-  const [status, setStatus] = React.useState(false);
+const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({onCancel }) => {
   const [showAccessKey, setShowAccessKey] = React.useState(false);
   const [showSecretKey, setShowSecretKey] = React.useState(false);
-  
+
   const cloudProviders: ProviderOption[] = [
     { value: "aws", label: "Amazon Web Services" },
     { value: "azure", label: "Microsoft Azure" },
-    { value: "gcp", label: "Google Cloud Platform" }
+    { value: "gcp", label: "Google Cloud Platform" },
   ];
-  
+
   const regions: Record<CloudProvider, RegionOption[]> = {
     aws: [
       { value: "us-east-1", label: "US East (N. Virginia)" },
       { value: "us-west-2", label: "US West (Oregon)" },
       { value: "eu-west-1", label: "EU (Ireland)" },
-      { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" }
+      { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" },
     ],
     azure: [
       { value: "eastus", label: "East US" },
       { value: "westeurope", label: "West Europe" },
-      { value: "southeastasia", label: "Southeast Asia" }
+      { value: "southeastasia", label: "Southeast Asia" },
     ],
     gcp: [
       { value: "us-central1", label: "Iowa (us-central1)" },
       { value: "europe-west1", label: "Belgium (europe-west1)" },
-      { value: "asia-east1", label: "Taiwan (asia-east1)" }
-    ]
-  };
-
-  const types: Record<CloudProvider, string[]> = {
-    aws: ["S3", "EC2", "RDS", "DynamoDB"],
-    azure: ["Blob Storage", "Virtual Machines", "SQL Database", "Cosmos DB"],
-    gcp: ["Cloud Storage", "Compute Engine", "Cloud SQL", "Firestore"]
+      { value: "asia-east1", label: "Taiwan (asia-east1)" },
+    ],
   };
 
   const [selectedProvider, setSelectedProvider] = React.useState(cloudProviders[0].value);
   const [selectedRegion, setSelectedRegion] = React.useState(regions.aws[0].value);
-  const [selectedType, setSelectedType] = React.useState(types.aws[0]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const formElements = form.elements as HTMLFormControlsCollection;
-    
-    const accessKeyInput = formElements.namedItem('accessKey') as HTMLInputElement;
-    const secretKeyInput = formElements.namedItem('secretKey') as HTMLInputElement;
-    
-    const connectorData: ConnectorFormData = {
+
+    const accessKeyInput = formElements.namedItem("accessKey") as HTMLInputElement;
+    const secretKeyInput = formElements.namedItem("secretKey") as HTMLInputElement;
+
+    const connectorData: BackendCloudConnectorRequest = {
       provider: selectedProvider,
       region: selectedRegion,
-      type: selectedType,
-      accessKey: accessKeyInput?.value || '',
-      secretKey: secretKeyInput?.value || '',
-      status: status,
-      added: new Date().toLocaleDateString('en-US', {
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric'
-      })
+      access_key: accessKeyInput?.value || "",
+      secret_key: secretKeyInput?.value || "",
     };
-    
-    // Call the onSubmit prop if provided
-    if (onSubmit) {
-      onSubmit(connectorData);
+
+    // TODO: Add cloudConnectorsApi.create method to send POST request to the backend
+    console.log("Connector Data:", connectorData);
+    try {
+      const response = await cloudConnectorsApi.create(connectorData);
+      if (response) {
+        console.log("Connector created successfully:", response);
+        // Optionally, you can call a callback function to refresh the list of connectors or close the form
+      }
+      else {
+        console.error("Failed to create connector");
+      }
+    }
+    catch (error) {
+      console.error("Error creating connector:", error);
     }
   };
 
   return (
     <Form onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 gap-6">
+        {/* Cloud Provider Selection */}
         <div className="relative">
           <Select
             options={cloudProviders}
@@ -122,7 +107,6 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
               const provider = value as CloudProvider;
               setSelectedProvider(provider);
               setSelectedRegion(regions[provider][0].value);
-              setSelectedType(types[provider][0]);
             }}
             className="pl-11"
             placeholder="Select Cloud Provider"
@@ -131,7 +115,8 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
             <CloudIcon />
           </span>
         </div>
-        
+
+        {/* Region Selection */}
         <div className="relative">
           <Select
             options={regions[selectedProvider]}
@@ -145,19 +130,7 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
           </span>
         </div>
 
-        <div className="relative">
-          <Select
-            options={types[selectedProvider].map((type) => ({ value: type, label: type }))}
-            defaultValue={selectedType}
-            onChange={(value) => setSelectedType(value)}
-            className="pl-11"
-            placeholder="Select Service Type"
-          />
-          <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none left-4 top-1/2 dark:text-gray-400">
-            <GlobeIcon />
-          </span>
-        </div>
-        
+        {/* Access Key Input */}
         <div className="relative">
           <Input
             type={showAccessKey ? "text" : "password"}
@@ -177,7 +150,8 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
             {showAccessKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
           </button>
         </div>
-        
+
+        {/* Secret Key Input */}
         <div className="relative">
           <Input
             type={showSecretKey ? "text" : "password"}
@@ -197,16 +171,8 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
             {showSecretKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
           </button>
         </div>
-        
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <Toggle enabled={status} setEnabled={setStatus} />
-            <Label className="mb-0">
-              {status ? "Active" : "Inactive"}
-            </Label>
-          </div>
-        </div>
 
+        {/* Form Actions */}
         <div className="flex justify-end gap-3 mt-4">
           <Button size="sm" variant="outline" onClick={onCancel}>
             Cancel
@@ -218,6 +184,6 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onSubmit, onCan
       </div>
     </Form>
   );
-}
+};
 
 export default CloudConnectorForm;
