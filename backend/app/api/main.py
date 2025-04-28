@@ -114,14 +114,17 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-
-        print(f"Access-Token: {access_token}")
-        print(f"Request Headers:")
-        for header_name, header_value in request.headers.items():
-            print(f"  {header_name}: {header_value}")
-        print(f"Request Body:")
-        print(await request.body())
+        
+        #print route
+        print()
+        print()
         print(f"Request Path: {request.url.path}")
+        print()
+        print()
+        
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            logger.info(f"WebSocket connection detected, bypassing auth middleware")
+            return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
@@ -151,15 +154,7 @@ def start_api():
                     refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
                     refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
                     access_token = refresh_response.access_token
-                print("Access-Token is valid, continuing with request.")
-                print("Request Headers:")
-                for header_name, header_value in request.headers.items():
-                    print(f"  {header_name}: {header_value}")
-                print("Request Body:")
-                print(await request.body())
                 response: Response = await call_next(request)
-                print("Response:")
-                print(response)
                 response.headers['Access-Token'] = access_token
                 final_response = response
 
