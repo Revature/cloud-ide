@@ -1,13 +1,23 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+
+import React, { useMemo, useState, useRef, useEffect } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../../ui/table";
+import Button from "../../ui/button/Button";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button/Button";
 import { Runner, RunnerState } from "@/types/runner";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { runnersApi } from "@/services/cloud-resources/runners";
-import { Machine, VMImage } from "@/types";
-import { machinesApi } from "@/services/cloud-resources/machines";
-import { imagesApi } from "@/services/cloud-resources/images";
+import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
+import { useImageForItems } from "@/hooks/api/images/useImageForItems";
+import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRunnerQuery } from "@/hooks/api/runners/useRunnersData";
+import RefreshButton from "@/components/ui/button/RefreshButton";
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -19,6 +29,8 @@ const getStateColor = (state: RunnerState) => {
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
     case "starting":
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+    case "closed":
+      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
     case "terminated":
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
@@ -31,6 +43,8 @@ const getStateLabel = (state: RunnerState) => {
       return 'Active';
     case "ready":
       return 'Ready';
+    case "closed":
+      return 'Closed';
     case "awaiting_client":
       return 'Awaiting Client';
     case "starting":
@@ -42,107 +56,85 @@ const getStateLabel = (state: RunnerState) => {
   }
 };
 
+export const terminateRunner = async (runnerId: number): Promise<void> => {
+  const response = await fetch(`http://localhost:8020/api/v1/runners/${runnerId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to terminate runner with ID ${runnerId}. HTTP status: ${response.status}`);
+  }
+};
+
+
+const canStart = (runner: Runner) => runner.state === "closed";
+const canStop = (runner: Runner) => runner.state === "ready" ||  runner.state === "active" || runner.state === "awaiting_client" ;
+
 const RunnersTable: React.FC = () => {
   const router = useRouter();
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const queryClient = useQueryClient();
-  
+  const [activeDropdown, setActiveDropdown] = useState<number | null>(null); // Track which dropdown is active
+  const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleDropdownToggle = (runnerId: number) => {
+    if (activeDropdown === runnerId) {
+      setActiveDropdown(null); // Close the dropdown if it's already open
+    } else {
+      setActiveDropdown(runnerId); // Open the dropdown for the clicked runner
+    }
+  };
+
+  const handleMouseLeave = () => {
+    // Set a timeout to close the dropdown after 5 seconds
+    dropdownTimeoutRef.current = setTimeout(() => {
+      setActiveDropdown(null);
+    }, 5000);
+  };
+
+  const handleMouseEnter = () => {
+    // Clear the timeout if the mouse re-enters the dropdown
+    if (dropdownTimeoutRef.current) {
+      clearTimeout(dropdownTimeoutRef.current);
+      dropdownTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    // Cleanup timeout on component unmount
+    return () => {
+      if (dropdownTimeoutRef.current) {
+        clearTimeout(dropdownTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // React Query for data fetching
-  const { 
-    data: runners = [],
-    isLoading: runnersLoading,
-    error: runnersError 
-  } = useQuery({
-    queryKey: ['runners'],
-    queryFn: runnersApi.getAll,
-  });
-  
+  const { data: runners = [], isLoading, error } = useRunnerQuery();
+  const { machinesById } = useMachineForItems(runners);
+  const { imagesById } = useImageForItems(runners);
+
   // Search functionality
   const [searchTerm, setSearchTerm] = useState<string>("");
-  
-  // Extract unique IDs for related resources
-  const uniqueImageIds = useMemo(() => 
-    [...new Set(runners
-      .map(rnr => rnr.imageId)
-      .filter((id): id is number => id !== undefined && id !== null)
-    )],
-    [runners]
-  );
-
-  // TODO: Check for why this infomration seems to be missing
-  const uniqueMachineIds = useMemo(() => 
-    [...new Set(runners
-      .map(rnr => rnr.machineId)
-      .filter((id): id is number => id !== undefined && id !== null)
-    )],
-    [runners]
-  );
-
-  // Fetch all  in parallel
-  const imageQueries = useQueries({
-    queries: uniqueImageIds.map(id => ({
-      queryKey: ['images', id],
-      queryFn: () => imagesApi.getById(id),
-      // enabled: id !== undefined && id !== null
-    }))
-  });
-
-  // Fetch all machines in parallel
-  const machineQueries = useQueries({
-    queries: uniqueMachineIds.map(id => ({
-      queryKey: ['machine', id],
-      queryFn: () => machinesApi.getById(id),
-      // enabled: id !== undefined && id !== null
-    }))
-  });
-  
-  // Create lookup maps for faster access
-  const imagesMap = useMemo(() => {
-    const map: Record<number, VMImage> = {};
-    imageQueries
-      .filter(q => q.data)
-      .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data as VMImage; 
-      });
-    return map;
-  }, [imageQueries]);
-
-  const machinesMap = useMemo(() => {
-    const map: Record<number, Machine> = {};
-    machineQueries
-      .filter(q => q.data)
-      .forEach(q => { 
-        if (q.data && q.data.id) map[q.data.id] = q.data as Machine; 
-      });
-    return map;
-  }, [machineQueries]);
 
   // Join the data
-  const enrichedRunners = useMemo(() => 
-    runners.map(runner => ({
-      ...runner,
-      image: runner.imageId && imagesMap[runner.imageId] 
-        ? imagesMap[runner.imageId] 
-        : undefined,
-      machine: runner.machineId && machinesMap[runner.machineId] 
-        ? machinesMap[runner.machineId] 
-        : undefined
-    })),
-    [runners, imagesMap, machinesMap]
-  );
-  
-  // Loading state for all data
-  const isLoading = runnersLoading || 
-    imageQueries.some(q => q.isLoading) || 
-    machineQueries.some(q => q.isLoading);
-  
-  // Error state for any query
-  const error = runnersError || 
-    imageQueries.some(q => q.error) || 
-    machineQueries.some(q => q.error);
+  const enrichedRunners = useMemo(
+    () =>
+      runners.map((runner) => {
+        const matchingMachine = runner.machineId ? machinesById[runner.machineId] : null;
+        const matchingImage = runner.imageId ? imagesById[runner.imageId] : null;
 
-  // Use useMemo to filter runners based on search term
+        return {
+          ...runner,
+          image: matchingImage || undefined,
+          machine: matchingMachine || undefined,
+        };
+      }).reverse(),
+    [runners, machinesById, imagesById]
+  );
+
+  // Filter runners based on search term
   const filteredRunners = useMemo(() => {
     if (searchTerm.trim() === "") {
       return enrichedRunners;
@@ -159,60 +151,59 @@ const RunnersTable: React.FC = () => {
     }
   }, [searchTerm, enrichedRunners]);
 
-  // Reset to first page when search results change
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm]);
-
-
+  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredRunners.length / itemsPerPage));
-  const startIndex = (page - 1) * itemsPerPage;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const visibleRunners = filteredRunners.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleViewRunner = (index: number) => {
-    router.push(`/runners/view/${index}`);
-  };
-
-  const handleTerminate = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent the row click from triggering
-    terminateRunner(id);
-  };
-
-  const handleConnect = (runner: Runner, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent the row click from triggering
-    if (runner.url) {
-      // In a real app, this would redirect to the runner URL or open a connection
-      window.open(runner.url, '_blank');
+  const handlePageChange = (pageNumber: number) => {
+    if (pageNumber >= 1 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
     }
   };
 
-  const canConnect = (runner: Runner) => {
-    return runner.state === 'active' || runner.state === 'awaiting_client';
+  const handleViewRunner = (runnerId: number) => {
+    router.push(`/runners/view/${runnerId}`);
   };
 
-  const canTerminate = (runner: Runner) => {
-    return runner.state !== 'terminated';
+  const handleTerminate = async (runnerId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      await runnersApi.terminate(runnerId);
+      console.log(`Runner with ID ${runnerId} terminated successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["runners"] });
+    } catch (error) {
+      console.error("Error terminating runner:", error);
+    } 
   };
 
-  // Handle search input change
+  const handleStart = async (runnerId: number) => {
+    try {
+      await runnersApi.start(runnerId);
+      console.log(`Runner with ID ${runnerId} started successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["runners"] });
+    } catch (error) {
+      console.error("Error starting runner:", error);
+    }
+  };
+
+  const handleStop = async (runnerId: number) => {
+    try {
+      await runnersApi.stop(runnerId);
+      console.log(`Runner with ID ${runnerId} stopped successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["runners"] });
+    } catch (error) {
+      console.error("Error stopping runner:", error);
+    }
+  };
+
+  const canTerminate = (runner: Runner) => runner.state !== "terminated";
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
-  // Handlers for page navigation
-  const goToPage = (pageNumber: number) => {
-    if (pageNumber >= 1 && pageNumber <= totalPages) {
-      setPage(pageNumber);
-    }
-  };
-
-  // Find the original index in the runners array
-  const getOriginalIndex = (index: number) => {
-    const runner = visibleRunners[index];
-    return runners.findIndex(r => r.id === runner.id);
-  };
-
-  // Show loading state
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -221,8 +212,7 @@ const RunnersTable: React.FC = () => {
       </div>
     );
   }
-  
-  // Show error state
+
   if (error) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800/30 dark:bg-red-900/20">
@@ -233,15 +223,7 @@ const RunnersTable: React.FC = () => {
           variant="primary"
           size="sm"
           className="mt-4"
-          onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ['runners'] });
-            uniqueImageIds.forEach(id => {
-              queryClient.invalidateQueries({ queryKey: ['images', id] });
-            });
-            uniqueMachineIds.forEach(id => {
-              queryClient.invalidateQueries({ queryKey: ['machine', id] });
-            });
-          }}
+          onClick={() => queryClient.invalidateQueries({ queryKey: ["runners"] })}
         >
           Try Again
         </Button>
@@ -253,12 +235,14 @@ const RunnersTable: React.FC = () => {
     <div className="rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="flex flex-col gap-2 px-5 mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Runners
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Runners</h3>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <form onSubmit={(e) => e.preventDefault()}>
+          {/* Refresh Button */}
+          <RefreshButton queryKeys={["runners"]} />
+
+          {/* Search Bar */}
+<form onSubmit={(e) => e.preventDefault()} className="flex-grow">
             <div className="relative">
               <button className="absolute -translate-y-1/2 left-4 top-1/2" type="button">
                 <svg
@@ -286,11 +270,7 @@ const RunnersTable: React.FC = () => {
               />
             </div>
           </form>
-          <Button 
-            size="sm" 
-            variant="primary" 
-            onClick={() => router.push('/runners/add')}
-          >
+          <Button size="sm" variant="primary" onClick={() => router.push("/runners/add")}>
             Add Runner
           </Button>
         </div>
@@ -298,189 +278,173 @@ const RunnersTable: React.FC = () => {
 
       <div className="overflow-hidden">
         <div className="max-w-full px-5 overflow-x-auto sm:px-6">
-          <table className="w-full border-collapse text-left">
-            <thead className="border-gray-100 border-y dark:border-white/[0.05]">
-              <tr>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
+          <Table>
+            <TableHeader className="border-gray-100 border-y dark:border-white/[0.05]">
+              <TableRow>
+                <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
                   ID
-                </th>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                </TableCell>
+                <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
                   Image
-                </th>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                </TableCell>
+                <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
                   User
-                </th>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                </TableCell>
+                <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
                   State
-                </th>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  Session
-                </th>
-                <th className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 text-right">
+                </TableCell>
+                <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 text-right">
                   Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {visibleRunners.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                    {searchTerm 
-                      ? "No runners found matching your search." 
-                      : "No runners found."}
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    {searchTerm ? "No runners found matching your search." : "No runners found."}
+                  </TableCell>
+                </TableRow>
               ) : (
-                visibleRunners.map((runner, index) => (
-                  <tr
-                    key={runner.id}
-                    className="hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                  >
-                    <td className="px-4 py-4 text-sm font-medium">
-                      <a 
-                        onClick={() => handleViewRunner(getOriginalIndex(index))}
+                visibleRunners.map((runner) => (
+                  <TableRow key={runner.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                    <TableCell className="px-4 py-4 text-sm font-medium">
+                      <a
+                        onClick={() => handleViewRunner(runner.id)}
                         className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 cursor-pointer"
                       >
                         {runner.id}
                       </a>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-900 dark:text-white">
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">
                         <div>
-                          <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400">{runner.image ? runner.image.name : "NO NAME"}</p>
+                          <p className="font-medium text-gray-700 text-theme-sm dark:text-gray-400">
+                            {runner.image ? runner.image.name : "NO NAME"}
+                          </p>
                           <p className="text-xs text-gray-500 dark:text-gray-500">
-                            {runner.machine ? runner.machine.name : "N/A"} ({runner.machine ? runner.machine.cpuCount : 0} CPU, {runner.machine ? runner.machine.memorySize : 0} GB)
+                            {runner.machine ? runner.machine.name : "N/A"} (CPU, GB)
                           </p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400">
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400">
                       {runner.userId || "In pool (no user assigned)"}
-                    </td>
-                    <td className="px-4 py-4 text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStateColor(runner.state)}`}>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-sm">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStateColor(
+                          runner.state
+                        )}`}
+                      >
                         {getStateLabel(runner.state)}
                       </span>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400">
-                      {runner.sessionStart ? (
-                        <div>
-                          <p>Start: {runner.sessionStart}</p>
-                          <p>End: {runner.sessionEnd}</p>
-                        </div>
-                      ) : (
-                        "Not started"
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400 text-right">
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-700 text-theme-sm dark:text-gray-400 text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button
-                          onClick={(e) => handleConnect(runner, e)}
-                          size="sm"
-                          variant="secondary"
-                          className={canConnect(runner) ? "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30" : ""}
-                          disabled={!canConnect(runner)}
-                        >
-                          Connect
-                        </Button>
-                        <Button
-                          onClick={(e) => handleTerminate(runner.id.toString(), e)}
-                          size="sm"
-                          variant="destructive"
-                          disabled={!canTerminate(runner)}
-                        >
-                          Terminate
-                        </Button>
+                        {/* Edit Dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={() => handleDropdownToggle(runner.id)}
+                            className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
+                            title="Edit Runner"
+                          >
+                          <svg 
+                            width="20" 
+                            height="20" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="stroke-current"
+                          >
+                            <path 
+                              d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            />
+                            <path 
+                              d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          </button>
+                          {activeDropdown === runner.id && (
+                            <div
+                              className="absolute right-0 mt-2 w-48 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10"
+                              onMouseEnter={handleMouseEnter}
+                              onMouseLeave={handleMouseLeave}
+                            >
+                              <button
+                                disabled={!canStart(runner)}
+                                onClick={() => handleStart(runner.id)}
+                                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                              >
+                                Start Runner
+                              </button>
+                              <button
+                                disabled={!canStop(runner)}
+                                onClick={() => handleStop(runner.id)}
+                                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                              >
+                                Stop Runner
+                              </button>
+                              <button
+                                onClick={() => handleViewRunner(runner.id)}
+                                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delete Button */}
+                          <button
+                            disabled={!canTerminate(runner)}
+                            onClick={(e) => handleTerminate(runner.id, e)}
+                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                            title="Delete Runner"
+                          >
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M6.54142 3.7915C6.54142 2.54886 7.54878 1.5415 8.79142 1.5415H11.2081C12.4507 1.5415 13.4581 2.54886 13.4581 3.7915V4.0415H15.6252H16.666C17.0802 4.0415 17.416 4.37729 17.416 4.7915C17.416 5.20572 17.0802 5.5415 16.666 5.5415H16.3752V8.24638V13.2464V16.2082C16.3752 17.4508 15.3678 18.4582 14.1252 18.4582H5.87516C4.63252 18.4582 3.62516 17.4508 3.62516 16.2082V13.2464V8.24638V5.5415H3.3335C2.91928 5.5415 2.5835 5.20572 2.5835 4.7915C2.5835 4.37729 2.91928 4.0415 3.3335 4.0415H4.37516H6.54142V3.7915ZM14.8752 13.2464V8.24638V5.5415H13.4581H12.7081H7.29142H6.54142H5.12516V8.24638V13.2464V16.2082C5.12516 16.6224 5.46095 16.9582 5.87516 16.9582H14.1252C14.5394 16.9582 14.8752 16.6224 14.8752 16.2082V13.2464ZM8.04142 4.0415H11.9581V3.7915C11.9581 3.37729 11.6223 3.0415 11.2081 3.0415H8.79142C8.37721 3.0415 8.04142 3.37729 8.04142 3.7915V4.0415ZM8.3335 7.99984C8.74771 7.99984 9.0835 8.33562 9.0835 8.74984V13.7498C9.0835 14.1641 8.74771 14.4998 8.3335 14.4998C7.91928 14.4998 7.5835 14.1641 7.5835 13.7498V8.74984C7.5835 8.33562 7.91928 7.99984 8.3335 7.99984ZM12.4168 8.74984C12.4168 8.33562 12.081 7.99984 11.6668 7.99984C11.2526 7.99984 10.9168 8.33562 10.9168 8.74984V13.7498C10.9168 14.1641 11.2526 14.4998 11.6668 14.4998C12.081 14.4998 12.4168 14.1641 12.4168 13.7498V8.74984Z"
+                            fill="currentColor"
+                          />
+                          </svg>
+                          </button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
-      {/* Pagination Controls - Always show them */}
-      <div className="px-6 py-4 border-t border-gray-200 dark:border-white/[0.05]">
-        <div className="flex items-center justify-between">
-          {/* Previous Button */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => goToPage(page - 1)}
-            disabled={page === 1}
-          >
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M2.58301 9.99868C2.58272 10.1909 2.65588 10.3833 2.80249 10.53L7.79915 15.5301C8.09194 15.8231 8.56682 15.8233 8.85981 15.5305C9.15281 15.2377 9.15297 14.7629 8.86018 14.4699L5.14009 10.7472L16.6675 10.7472C17.0817 10.7472 17.4175 10.4114 17.4175 9.99715C17.4175 9.58294 17.0817 9.24715 16.6675 9.24715L5.14554 9.24715L8.86017 5.53016C9.15297 5.23717 9.15282 4.7623 8.85983 4.4695C8.56684 4.1767 8.09197 4.17685 7.79917 4.46984L2.84167 9.43049C2.68321 9.568 2.58301 9.77087 2.58301 9.99715C2.58301 9.99766 2.58301 9.99817 2.58301 9.99868Z"
-                fill=""
-              />
-            </svg>
-            <span className="hidden sm:inline">Previous</span>
-          </Button>
-          {/* Page Info */}
-          <span className="block text-sm font-medium text-gray-700 dark:text-gray-400 sm:hidden">
-            Page {page} of {totalPages}
-          </span>
-          {/* Page Numbers */}
-          <ul className="hidden items-center gap-0.5 sm:flex">
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <li key={idx}>
-                <button
-                  onClick={() => goToPage(idx + 1)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg text-theme-sm font-medium ${
-                    page === idx + 1
-                      ? "bg-brand-500 text-white"
-                      : "text-gray-700 hover:bg-brand-500/[0.08] dark:hover:bg-brand-500 dark:hover:text-white hover:text-brand-500 dark:text-gray-400 "
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {/* Next Button */}
-          <Button
-            onClick={() => goToPage(page + 1)}
-            size="sm"
-            variant="outline"
-            disabled={page === totalPages}
-          >
-            <span className="hidden sm:inline">Next</span>
-            <svg
-              className="fill-current"
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M17.4175 9.9986C17.4178 10.1909 17.3446 10.3832 17.198 10.53L12.2013 15.5301C11.9085 15.8231 11.4337 15.8233 11.1407 15.5305C10.8477 15.2377 10.8475 14.7629 11.1403 14.4699L14.8604 10.7472L3.33301 10.7472C2.91879 10.7472 2.58301 10.4114 2.58301 9.99715C2.58301 9.58294 2.91879 9.24715 3.33301 9.24715L14.8549 9.24715L11.1403 5.53016C10.8475 5.23717 10.8477 4.7623 11.1407 4.4695C11.4336 4.1767 11.9085 4.17685 12.2013 4.46984L17.1588 9.43049C17.3173 9.568 17.4175 9.77087 17.4175 9.99715C17.4175 9.99763 17.4175 9.99812 17.4175 9.9986Z"
-                fill=""
-              />
-            </svg>
-          </Button>
+      {filteredRunners.length > 0 && (
+        <div className="mt-4">
+          <CustomPagination
+            totalItems={filteredRunners.length}
+            itemsPerPage={itemsPerPage}
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 export default RunnersTable;
-
-function terminateRunner(id: string) {
-    throw new Error("Function not implemented." + id);
-}

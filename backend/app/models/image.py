@@ -22,7 +22,7 @@ class Image(TimestampMixin, SQLModel, table=True):
     name: str
     description: str
     identifier: str
-    runner_pool_size: int = Field(default=1)
+    runner_pool_size: int = Field(default=0)
     machine_id: int | None = Field(default=None, foreign_key="machine.id")
     cloud_connector_id: int = Field(foreign_key="cloud_connector.id")
 

@@ -61,8 +61,10 @@ def manage_runner_pool():
 
             # 2) Get the current number of "ready" runners for the image
             stmt_ready_runners = select(Runner).where(Runner.state == "ready", Runner.image_id == image.id)
+            stmt_runner_starting_runners = select(Runner).where(Runner.state == "runner_starting", Runner.image_id == image.id)
             ready_runners = session.exec(stmt_ready_runners).all()
-            ready_runners_count = len(ready_runners)
+            starting_runners = session.exec(stmt_runner_starting_runners).all()
+            ready_runners_count = len(ready_runners) + len(starting_runners)
 
             image_stat["ready_runners_before"] = ready_runners_count
 

@@ -18,6 +18,7 @@ export interface BackendVMImage {
   description: string;
   identifier: string;
   machine_id: number;
+  runner_pool_size: number;
   cloud_connector_id: number;
   active: number | boolean;
   created_on: string;
@@ -71,4 +72,22 @@ export interface BackendRunner{
   updated_on: string,
   modified_by: string,
   created_by: string,
+}
+
+export interface BackendAppRequest{
+  image_id: number,
+  user_email: string,
+  session_time: number,
+  runner_type: string, 
+  env_data: { 
+      script_vars: JSON,
+      env_vars: JSON
+  }
+}
+
+export interface BackendCloudConnectorRequest{
+  provider: string; // "aws", "gcp", "azure", etc.
+  region: string;
+  access_key: string;
+  secret_key: string;
 }

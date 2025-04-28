@@ -3,7 +3,6 @@ import { useRouter } from "next/navigation";
 import CloudConnectorForm from "@/components/cloud-connector/CloudConnectorForm";
 import Button from "@/components/ui/button/Button";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
-import { NewCloudConnector } from "@/types";
 
 export default function AddCloudConnectorPage() {
   const router = useRouter();
@@ -13,14 +12,6 @@ export default function AddCloudConnectorPage() {
     { label: "Cloud Connectors", href: "/cloud-connectors" },
     { label: "Add Connector" }
   ];
-  
-  const handleSubmit = (connectorData: NewCloudConnector) => {
-    console.log("Submitting connector data:", connectorData);
-    // Here you would handle the API call to add the connector
-    
-    // Navigate back to the connectors list page
-    router.push("/cloud-connectors");
-  };
   
   const handleCancel = () => {
     router.push("/cloud-connectors");
@@ -65,7 +56,6 @@ export default function AddCloudConnectorPage() {
           
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
             <CloudConnectorForm 
-              onSubmit={handleSubmit} 
               onCancel={handleCancel} 
             />
           </div>

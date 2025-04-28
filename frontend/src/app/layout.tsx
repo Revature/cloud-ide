@@ -8,6 +8,7 @@ import "flatpickr/dist/flatpickr.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { QueryProvider } from "@/context/QueryContext";
+import { MachineAuthButton } from "@/components/temp_auth/MachineAuthButton";
 
 const outfit = Outfit({
   variable: "--font-outfit-sans",
@@ -26,6 +27,7 @@ export default function RootLayout({
           <ThemeProvider>
             <SidebarProvider>
                     {children}
+                    <MachineAuthButton />
             </SidebarProvider>
           </ThemeProvider>
         </QueryProvider>

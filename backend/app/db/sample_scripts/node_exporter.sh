@@ -105,7 +105,7 @@ if [ -z "\$RUNNER_IP" ]; then
     exit 1
 fi
 
-MONITOR_VM="54.188.253.144"
+MONITOR_VM="34.223.156.189"
 PUSHGATEWAY_URL="http://\$MONITOR_VM:9091/metrics/job/\$RUNNER_IP"
 
 echo "Starting metrics push loop to \$PUSHGATEWAY_URL..."
@@ -151,7 +151,7 @@ fi
 # Test push connection to Pushgateway
 echo "Testing connection to Pushgateway..."
 RUNNER_IP=$(curl -s icanhazip.com)
-MONITOR_VM="54.188.253.144"
+MONITOR_VM="34.223.156.189"
 PUSHGATEWAY_URL="http://$MONITOR_VM:9091/metrics/job/$RUNNER_IP"
 
 if ! curl -s -m 5 "$PUSHGATEWAY_URL" >/dev/null; then

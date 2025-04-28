@@ -23,27 +23,20 @@ export const runnersApi = {
     
   getById: (id: number) => 
     apiRequest<Runner>(`/cloud-resources/runners/${id}`),
-    
-  // create: (data: NewRunner) => 
-  //   apiRequest<NewRunner>('/cloud-resources/runners/', {
-  //     method: 'POST',
-  //     body: JSON.stringify(data)
-  //   }),
-    
-  // update: (id: number, data: UpdateRunner) => 
-  //   apiRequest<Runner>(`/cloud-resources/runners/${id}`, {
-  //     method: 'PUT',
-  //     body: JSON.stringify(data)
-  //   }),
-    
-  // delete: (id: number) => 
-  //   apiRequest<void>(`/cloud-resources/runners/${id}`, {
-  //     method: 'DELETE'
-  //   }),
-    
-  // toggleActive: (id: number, active: boolean) => 
-  //   apiRequest<VMImage>(`/cloud-resources/runners/${id}/toggle-active`, {
-  //     method: 'POST',
-  //     body: JSON.stringify({ active })
-  //   })
+
+
+  terminate: (id: number) =>
+    apiRequest<void>(`/cloud-resources/runners/${id}`, {
+      method: 'DELETE',
+    }),
+
+  start: (id: number) =>
+    apiRequest<void>(`/cloud-resources/runners/${id}/start`, {
+      method: 'PATCH',
+    }),
+
+  stop: (id: number) =>
+    apiRequest<void>(`/cloud-resources/runners/${id}/stop`, {
+      method: 'PATCH',
+    }),
 };

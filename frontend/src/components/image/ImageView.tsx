@@ -1,12 +1,11 @@
 "use client";
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { imagesApi } from '@/services/cloud-resources/images';
-import { machinesApi } from '@/services/cloud-resources/machines';
-import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
+import { useImageQuery } from '@/hooks/api/images/useImageQuery';
+import { useMachineQuery } from '@/hooks/api/machines/useMachinesData';
+import { useCloudConnectorQuery } from '@/hooks/api/cloudConnectors/useCloudConnectorsData';
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
@@ -18,36 +17,21 @@ const ViewImage: React.FC = () => {
     data: image, 
     isLoading: imageLoading, 
     error: imageError 
-  } = useQuery({
-    queryKey: ['image', imageId],
-    queryFn: () => imagesApi.getById(imageId),
-    enabled: !isNaN(imageId),
-    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
-  });
+  } = useImageQuery(imageId)
 
   // Fetch machine data if image is loaded and has machine_id
   const {
     data: machine,
     isLoading: machineLoading,
     error: machineError
-  } = useQuery({
-    queryKey: ['machine', image?.machineId],
-    queryFn: () => machinesApi.getById(image!.machineId as number),
-    enabled: !!image?.machineId,
-    staleTime: 1000 * 60 * 5
-  });
+  } = useMachineQuery(image?.machineId || 0)
 
   // Fetch cloud connector data if image is loaded and has cloudConnector_id
   const {
     data: cloudConnector,
     isLoading: connectorLoading,
     error: connectorError
-  } = useQuery({
-    queryKey: ['cloudConnector', image?.cloudConnectorId],
-    queryFn: () => cloudConnectorsApi.getById(image!.cloudConnectorId as number),
-    enabled: !!image?.cloudConnectorId,
-    staleTime: 1000 * 60 * 5
-  });
+  } = useCloudConnectorQuery(image?.cloudConnectorId || 0)
 
   const goBack = () => {
     router.push('/images');
