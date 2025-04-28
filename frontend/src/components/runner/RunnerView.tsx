@@ -4,7 +4,7 @@ import { RunnerState } from '@/types/runner';
 import dynamic from 'next/dynamic';
 import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
 import { runnersApi } from '@/services/cloud-resources/runners';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 // Import the props interface from the terminal component

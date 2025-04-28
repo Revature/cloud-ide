@@ -64,7 +64,7 @@ const RunnerFormWithTerminal: React.FC = () => {
         },
       };
 
-      const { request_id, url } = await appRequestsApi.createWithStatus(appRequest);
+      const { request_id } = await appRequestsApi.createWithStatus(appRequest);
 
       const wsUrl = `${SETUP_WS_URL}/${request_id}`;
       const ws = new WebSocket(wsUrl);
