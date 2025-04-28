@@ -15,8 +15,8 @@ export const MachineAuthButton: React.FC = () => {
     setSuccessMessage(null);
 
     try {
-      const response = await fetchAuthToken(username, password); // Pass username and password
-      if (response.status === 200) {
+      const token = await fetchAuthToken(username, password); // Pass username and password
+      if (token !== '') {
         setSuccessMessage("Token successfully set!");
         setIsModalOpen(false);
       } else {
