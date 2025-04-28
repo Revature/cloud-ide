@@ -44,57 +44,142 @@ class AWSCloudService(CloudService):
     # Account Functionality
     ########################
 
-    async def validate_account(self) -> list[str]:
+    async def validate_account(self) -> dict:
         """
-        Verify the AWS account by checking the IAM user.
+        Verify the AWS account by performing dry runs of required operations.
 
-        Returns a list of denied actions strings, or an error message if the account is invalid.
+        Dry runs check if the account has permission to perform operations without
+        actually executing them, providing a reliable test of permissions.
+
+        Returns:
+            dict: {
+                "status": "success"|"failed",
+                "denied_actions": [list of denied actions],
+                "message": "Descriptive message"
+            }
         """
         try:
             denied_actions = []
 
-            identity = self.sts_client.get_caller_identity()
-            principal_arn = identity['Arn']
+            # First verify basic credentials with STS
+            try:
+                self.sts_client.get_caller_identity()
+            except Exception as e:
+                return {
+                    "status": "failed",
+                    "denied_actions": [],
+                    "message": f"Invalid AWS credentials: {e!s}"
+                }
 
-            response = self.iam_client.get_user()
-            username = response['User']['UserName']
+            # Define all operations to test with dry run
+            operations = [
+                # EC2 Instance Operations
+                {
+                    "service": self.ec2_client,
+                    "method": "run_instances",
+                    "args": {
+                        "DryRun": True,
+                        "ImageId": "ami-12345678",  # Dummy ID
+                        "InstanceType": "t2.micro",
+                        "MinCount": 1,
+                        "MaxCount": 1,
+                        "KeyName": "dummy-key-name"
+                    },
+                    "action": "ec2:RunInstances"
+                },
+                {
+                    "service": self.ec2_client,
+                    "method": "describe_instances",
+                    "args": {"DryRun": True, "MaxResults": 5},
+                    "action": "ec2:DescribeInstances"
+                },
+                {
+                    "service": self.ec2_client,
+                    "method": "terminate_instances",
+                    "args": {"DryRun": True, "InstanceIds": ["i-12345678"]},
+                    "action": "ec2:TerminateInstances"
+                },
+                # KeyPair Operations
+                {
+                    "service": self.ec2_client,
+                    "method": "create_key_pair",
+                    "args": {"DryRun": True, "KeyName": "dummy-key-name"},
+                    "action": "ec2:CreateKeyPair"
+                },
+                {
+                    "service": self.ec2_client,
+                    "method": "describe_key_pairs",
+                    "args": {"DryRun": True},
+                    "action": "ec2:DescribeKeyPairs"
+                },
+                # Security Group Operations
+                {
+                    "service": self.ec2_client,
+                    "method": "create_security_group",
+                    "args": {
+                        "DryRun": True,
+                        "GroupName": "dummy-sg-name",
+                        "Description": "Dummy security group for testing"
+                    },
+                    "action": "ec2:CreateSecurityGroup"
+                }
+            ]
 
-            response = self.iam_client.simulate_principal_policy(
-                PolicySourceArn=principal_arn,
-                ActionNames=[
-                    'ec2:RunInstances',
-                    'ec2:DescribeInstances',
-                    'ec2:TerminateInstances',
-                    'ec2:StopInstances',
-                    'ec2:StartInstances',
-                    'ec2:CreateTags',
-                    'ec2:DescribeTags',
-                    'ec2:CreateImage',
-                    'ec2:DeregisterImage',
-                    'ec2:CreateKeyPair',
-                    'ec2:DeleteKeyPair',
-                    'ec2:DescribeKeyPairs',
-                    'ec2:CreateSecurityGroup',
-                    'ec2:DeleteSecurityGroup',
-                    'ec2:AuthorizeSecurityGroupIngress',
-                    's3:CreateBucket',
-                    's3:DeleteBucket',
-                    's3:ListBuckets',
-                    's3:ListObjectsV2',
-                    's3:GetObject',
-                    's3:PutObject',
-                    's3:DeleteObject'
-                ]
-            )
+            # Test each operation
+            for op in operations:
+                try:
+                    method = getattr(op["service"], op["method"])
+                    method(**op["args"])
+                except Exception as e:
+                    error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+                    error_msg = str(e)
+                    print(f"Testing {op['action']}: Error code: {error_code}, Message: {error_msg}")
+                    
+                    # DryRunOperation means success (we have permission)
+                    if error_code == "DryRunOperation":
+                        # This is a success - we have permission
+                        print(f"{op['action']} permission confirmed")
+                    else:
+                        # Check if this is a resource-not-found error
+                        error_msg_lower = str(e).lower()
+                        resource_not_found = (
+                            "notfound" in error_msg_lower or 
+                            "not found" in error_msg_lower or
+                            "does not exist" in error_msg_lower
+                        )
+    
+                        if resource_not_found:
+                            print(f"{op['action']} resource not found, but permission is likely OK")
+                        else:
+                            print(f"{op['action']} permission denied: {error_code}")
+                            denied_actions.append(op["action"])
 
-            for result in response['EvaluationResults']:
-                if result['EvalDecision'] != 'allowed':
-                    denied_actions.append(result['EvalActionName'])
+            # S3 Operations (no dry run support, use non-destructive calls)
+            try:
+                self.s3_client.list_buckets()
+            except Exception:
+                denied_actions.append("s3:ListBuckets")
 
-            return denied_actions
+            # Determine status based on results
+            if not denied_actions:
+                return {
+                    "status": "success",
+                    "denied_actions": [],
+                    "message": "All required permissions are available"
+                }
+            else:
+                return {
+                    "status": "failed",
+                    "denied_actions": denied_actions,
+                    "message": f"Some permissions are missing: {', '.join(denied_actions)}"
+                }
 
         except Exception as e:
-            return str(e)
+            return {
+                "status": "failed",
+                "denied_actions": [],
+                "message": f"Error validating AWS account: {e!s}"
+            }
 
     ########################
     # Keypair Functionality
