@@ -111,10 +111,7 @@ def start_api():
         different response objects, at the end of the method just respond with whichever is assigned to this ref.
         We shouldn't ever see this default response, it should always be replaced with an actual response.
         """
-        final_response: Response = Response(
-            status_code = HTTPStatus.SERVICE_UNAVAILABLE,
-            content = '{"response":"Default response."}'
-        )
+        final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
 
@@ -126,7 +123,7 @@ def start_api():
                     final_response = await call_next(request)
 
             # Check for runner access paths
-            elif (path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
+            if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
                 if (access_token and access_token == constants.jwt_secret):
                     final_response = await call_next(request)
                 elif (request.headers.get("Runner-Token")):
@@ -136,11 +133,12 @@ def start_api():
                         final_response = await call_next(request)
 
             # If none of the above, we must find an access token
-            elif not access_token:
+            if not final_response and not access_token:
                 final_response = Response(status_code = 400, content = "Missing Access Token")
 
             # Verify expiration on access token, if expired try to refresh
-            else:
+            # TODO: Rethink this, what if workos fails to raise an exception when the token is bad - don't depend on exceptions from workos
+            if not final_response and access_token:
                 if not verify_token_exp(access_token):
                     refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
                     refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)

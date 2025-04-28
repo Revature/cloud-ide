@@ -580,7 +580,7 @@ async def handle_new_runner_launch(
             runner = await runner_management.wait_for_runner_state(
                 runner,
                 "ready_claimed",
-                120
+                240
             )
 
             if not runner or runner.state != "ready_claimed":
