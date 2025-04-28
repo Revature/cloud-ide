@@ -1,5 +1,5 @@
 let authToken: string = '';
-const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+const apiUrl = process.env.BACKEND_API_URL || 'https://devide.revature.com';
 const endpoint = '/api/v1/machine_auth';
 // const AUTH_MODE = 'ON'
 
