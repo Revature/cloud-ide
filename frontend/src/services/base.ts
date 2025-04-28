@@ -23,7 +23,7 @@ export async function apiRequest<TResponse, TBody = unknown>(
 
   const requestHeaders: HeadersInit = {
     'Content-Type': 'application/json',
-    'Auth-Token': authToken, // Add the Auth-Token to the headers
+    'Access-Token': authToken, // Add the Auth-Token to the headers
     ...headers,
   };
 
