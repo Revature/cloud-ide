@@ -1,14 +1,14 @@
 let authToken: string = '';
 const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
 const endpoint = '/api/v1/machine_auth';
-const AUTH_MODE = 'ON'
+// const AUTH_MODE = 'ON'
 
 export const fetchAuthToken = async (
   username?: string,
   password?: string
 ): Promise<string> => {
-  if (authToken || AUTH_MODE === 'OFF') {
-    return authToken  || "auth_off"; // Return the cached token if it exists
+  if (authToken) {
+    return authToken; // Return the cached token if it exists
   }
 
   try {
