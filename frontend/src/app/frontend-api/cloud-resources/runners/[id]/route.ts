@@ -4,19 +4,17 @@ import { BackendRunner } from '@/types/api';
 
 export async function GET(
   request: NextRequest,
-  { params } : { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const awaitedParams = await params;
   try {
     const id = awaitedParams.id;
-    
-    // Backend API URL
+
     const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
     const endpoint = `/api/v1/runners/${id}`;
-    
+
     console.log(`Fetching individual runner from backend: ${apiUrl}${endpoint}`);
-    
-    // Make the actual request to the backend
+
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -29,29 +27,29 @@ export async function GET(
       throw new Error(`Backend API error: ${response.status}`);
     }
 
-    // Parse the JSON response
-    const runnerData = await response.json() as BackendRunner;
-    
-    // Validate that we have the expected fields
+// Parse the JSON response
+    const runnerData = await response.json// Validate that we have the expected fields
+() as BackendRunner;
+
+// Validate that we have the expected fields
     if (!runnerData || !runnerData.id) {
       console.error('Invalid runner data:', runnerData);
       throw new Error('Invalid runner data returned from backend');
     }
-    
-    // Transform the backend data to our frontend model
+
     const transformedData: Runner = {
-        id: runnerData.id,
-        userId: runnerData.user_id,
-        imageId: runnerData.image_id,
-        machineId: runnerData.machine_id,
-        keyId: runnerData.key_id,
-        state: runnerData.state,
-        identifier: runnerData.identifier,
-        externalHash: runnerData.external_hash,
-        url: runnerData.url,
-        userIP: runnerData.user_ip,
-        envData: runnerData.env_data,
-        sessionStart: new Date(runnerData.session_start).toLocaleDateString('en-US', {
+      id: runnerData.id,
+      userId: runnerData.user_id,
+      imageId: runnerData.image_id,
+      machineId: runnerData.machine_id,
+      keyId: runnerData.key_id,
+      state: runnerData.state,
+      identifier: runnerData.identifier,
+      externalHash: runnerData.external_hash,
+      url: runnerData.url,
+      userIP: runnerData.user_ip,
+      envData: runnerData.env_data,
+      sessionStart: new Date(runnerData.session_start).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -80,21 +78,104 @@ export async function GET(
             month: 'short',
             day: 'numeric'
           }),
-        updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US', {
+      updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric'
           }),
-        modifiedBy: runnerData.modified_by,
+      modifiedBy: runnerData.modified_by,
     };
-    
-    // Return the transformed data
+
     return NextResponse.json(transformedData);
   } catch (error) {
     console.error(`Error fetching runner with ID ${awaitedParams.id}:`, error);
-    
+
     return NextResponse.json(
       { error: `Failed to fetch runner with ID ${awaitedParams.id}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const awaitedParams = await params;
+  const id = awaitedParams.id;
+
+  try {
+    const body = await request.json();
+    const action = body.action; // Expecting "start" or "stop"
+
+    if (!['start', 'stop'].includes(action)) {
+      return NextResponse.json(
+        { error: 'Invalid action. Must be "start" or "stop".' },
+        { status: 400 }
+      );
+    }
+
+    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const endpoint = `/api/v1/runners/${id}/${action}`;
+
+    console.log(`Performing ${action} action on runner ${id}: ${apiUrl}${endpoint}`);
+
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Token': process.env.API_ACCESS_TOKEN || '',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+
+    return NextResponse.json({ message: `Runner ${id} ${action}ed successfully.` });
+  } catch (error) {
+    console.error(`Error performing action on runner ${id}:`, error);
+
+    return NextResponse.json(
+      { error: `Failed to perform action on runner ${id}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const awaitedParams = await params;
+  const id = awaitedParams.id;
+
+  try {
+    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const endpoint = `/api/v1/runners/${id}`;
+
+    console.log(`Terminating runner ${id}: ${apiUrl}${endpoint}`);
+
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Token': process.env.API_ACCESS_TOKEN || '',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+
+    return NextResponse.json({ message: `Runner ${id} terminated successfully.` });
+  } catch (error) {
+    console.error(`Error terminating runner ${id}:`, error);
+
+    return NextResponse.json(
+      { error: `Failed to terminate runner ${id}` },
       { status: 500 }
     );
   }

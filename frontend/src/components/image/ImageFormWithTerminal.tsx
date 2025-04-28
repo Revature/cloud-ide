@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageForm, { ImageFormData } from "./ImageForm";
 import { runnersApi } from "@/services/cloud-resources/runners";
+import { imagesApi } from '@/services/cloud-resources/images';
 import ImageRunnerTerminal from "./ImageRunnerTerminal";
 import ConnectingStatusDisplay from '../ui/connection/ConnectingStatusDisplay'; 
 import type { ConnectingStatusDisplayProps } from '../ui/connection/ConnectingStatusDisplay';
@@ -69,16 +70,12 @@ const ImageFormWithTerminal: React.FC = () => {
     setRunnerId(0);
     setWorkflowStage('webSocketSetup');
 
-    let webSocketRequestId: string | null = null;
-
     try {
-      // Use the enriched env_data
       const enrichedEnvData = await enrichEnvDataWithUserIp({
         script_vars: JSON.stringify(data.scriptVars || {}),
         env_vars: JSON.stringify(data.envVars || {}),
       });
 
-      // Construct the BackendAppRequest object
       const appRequest: BackendAppRequest = {
         image_id: data.baseImageIdentifier || 0,
         user_email: "ashoka.shringla@revature.com", // Replace with dynamic user email if available
@@ -90,31 +87,20 @@ const ImageFormWithTerminal: React.FC = () => {
         },
       };
 
-      const apiResponseWithStatus = await fetch("http://localhost:8020/api/v1/app_requests/with_status", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(appRequest),
-      });
+      const { request_id } = await imagesApi.createWithStatus(appRequest);
 
-      if (!apiResponseWithStatus.ok) {
-        throw new Error(`HTTP error ${apiResponseWithStatus.status}`);
-      }
-
-      const withStatusResponse = await apiResponseWithStatus.json();
-      webSocketRequestId = withStatusResponse.request_id;
-
-      if (!webSocketRequestId) {
+      if (!request_id) {
         throw new Error("Invalid requestId received from API.");
       }
 
-      const wsUrl = `${SETUP_WS_URL}/${webSocketRequestId}`;
+      const wsUrl = `${SETUP_WS_URL}/${request_id}`;
       const ws = new WebSocket(wsUrl);
       setSetupWebSocket(ws);
       setWorkflowStage('connecting');
 
       ws.onopen = () => {
         if (workflowStageRef.current === 'connecting') {
-          console.log(`Setup WS Opened (Req ID: ${webSocketRequestId}).`);
+          console.log(`Setup WS Opened (Req ID: ${request_id}).`);
         } else {
           ws.close(1000, "Stale connection attempt");
         }
@@ -175,14 +161,7 @@ const ImageFormWithTerminal: React.FC = () => {
 
       console.log("Payload being sent to the API:", payload);
 
-      const apiCreateImage = await fetch("http://localhost:8020/api/v1/images/", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const response = await apiCreateImage.json();
-      if (!response) throw new Error('Failed to submit Image.');
+      await imagesApi.create(payload);
 
       setWorkflowStage('success');
     } catch (error) {

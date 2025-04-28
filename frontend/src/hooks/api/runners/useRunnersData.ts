@@ -19,6 +19,7 @@ function useRunnerQuery(id?:number):UseQueryResult<Runner | Runner[], Error>{
         queryKey: queryKey,
         queryFn: queryFn,
         enabled: id ? !!id : true,
+        refetchInterval: 10000,
     })
 
     return queryResult;

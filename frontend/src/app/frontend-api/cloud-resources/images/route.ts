@@ -94,3 +94,34 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const endpoint = `/api/v1/images/`;
+
+    const body = await request.json();
+
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    return NextResponse.json(responseData);
+  } catch (error) {
+    console.error('Error creating image:', error);
+    return NextResponse.json(
+      { error: 'Failed to create image' },
+      { status: 500 }
+    );
+  }
+}
