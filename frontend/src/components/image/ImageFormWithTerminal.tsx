@@ -31,11 +31,6 @@ const ImageFormWithTerminal: React.FC = () => {
   const runnerIdReceivedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  
-  // const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
-
   const router = useRouter();
 
   const workflowStageRef = useRef(workflowStage);
@@ -74,6 +69,10 @@ const ImageFormWithTerminal: React.FC = () => {
     runnerIdReceivedRef.current = false;
     setRunnerId(0);
     setWorkflowStage('webSocketSetup');
+
+    // const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
 
     try {
       const enrichedEnvData = await enrichEnvDataWithUserIp({
