@@ -11,11 +11,20 @@ export async function GET(request: NextRequest) {
     
     console.log(request);
     console.log(`Fetching images from backend: ${apiUrl}${endpoint}`);
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
     
     // Make the actual request to your backend
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken,
       },
     });
 
@@ -102,10 +111,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
+
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken,
       },
       body,
     });
