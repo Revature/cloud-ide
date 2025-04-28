@@ -1,7 +1,7 @@
 let authToken: string = '';
 const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
 const endpoint = '/api/v1/machine_auth';
-const AUTH_MODE = 'OFF'
+const AUTH_MODE = 'ON'
 
 export const fetchAuthToken = async (
   username?: string,
