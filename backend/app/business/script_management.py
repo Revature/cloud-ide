@@ -20,6 +20,14 @@ import re
 
 logger = get_task_logger(__name__)
 
+VALID_EVENTS = [
+    "on_create",
+    "on_awaiting_client",
+    "on_connect",
+    "on_disconnect",
+    "on_terminate"
+]
+
 def render_script(template: str, context: dict) -> str:
     """
     Render the script template using the provided context.
@@ -295,3 +303,78 @@ echo '{config_json}' > /home/ubuntu/.cloudide.config
 echo 'Setup config'
 """
     await execute_script_for_runner("config", runner_id, write_config_script)
+
+def get_all_scripts() -> list[Script]:
+    """Get all scripts."""
+    with Session(engine) as session:
+        return script_repository.find_all_scripts(session)
+
+def get_script_by_id(script_id: int) -> Optional[Script]:
+    """Get a script by ID."""
+    with Session(engine) as session:
+        return script_repository.find_script_by_id(session, script_id)
+
+def get_scripts_by_image_id(image_id: int) -> list[Script]:
+    """Get all scripts associated with a specific image."""
+    with Session(engine) as session:
+        return script_repository.find_scripts_by_image_id(session, image_id)
+
+def create_script(
+    name: str,
+    description: str,
+    event: str,
+    image_id: int,
+    script: str
+) -> Script:
+    """Create a new script."""
+    # Validation
+    if not name:
+        raise ValueError("Script name is required")
+
+    if event not in VALID_EVENTS:
+        valid_events_str = ", ".join(VALID_EVENTS)
+        raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
+
+    with Session(engine) as session:
+        image = image_repository.find_image_by_id(session, image_id)
+        if not image:
+            raise ValueError(f"Image with ID {image_id} not found")
+
+        # Check if a script with the same event already exists for this image
+        existing_script = script_repository.find_script_by_event_and_image_id(session, event, image_id)
+        if existing_script:
+            raise ValueError(f"A script for event '{event}' already exists for this image")
+
+        # Create new script object
+        new_script = Script(
+            name=name,
+            description=description,
+            event=event,
+            image_id=image_id,
+            script=script
+        )
+
+        # Save to database
+        return script_repository.create_script(session, new_script)
+
+
+def update_script(script_id: int, update_data: dict[str, Any]) -> Script:
+    """Update an existing script."""
+    with Session(engine) as session:
+        # Get existing script
+        script = script_repository.find_script_by_id(session, script_id)
+        if not script:
+            raise ValueError(f"Script with ID {script_id} not found")
+
+        # Validate event if it's being updated
+        if 'event' in update_data and update_data['event'] not in VALID_EVENTS:
+            valid_events_str = ", ".join(VALID_EVENTS)
+            raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
+
+        # Update script
+        return script_repository.update_script(session, script_id, update_data)
+
+def delete_script(script_id: int) -> bool:
+    """Delete a script."""
+    with Session(engine) as session:
+        return script_repository.delete_script(session, script_id)

@@ -2,7 +2,9 @@
 import re
 from http import HTTPStatus
 from fastapi import APIRouter
-from app.api.routes import auth, registration, users, runners, machines, cloud_connectors, images, app_requests
+from app.api.routes import auth, registration, users
+from app.api.routes import runners, machines, cloud_connectors, images, scripts
+from app.api.routes import app_requests
 from fastapi import FastAPI, Request, Response
 from app.business import runner_management
 from contextlib import asynccontextmanager
@@ -81,6 +83,7 @@ def start_api():
     api.include_router(machines.router, prefix=f"{API_VERSION}/machines", tags=["machines"])
     api.include_router(cloud_connectors.router, prefix=f"{API_VERSION}/cloud_connectors", tags=["cloud_connectors"])
     api.include_router(app_requests.router, prefix=f"{API_VERSION}/app_requests", tags=["app_requests"])
+    api.include_router(scripts.router, prefix=f"{API_VERSION}/scripts", tags=["scripts"])
 
     # Middleware to protect all routes, passes unsecure route requests through
     @api.middleware("http")

@@ -993,6 +993,10 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             "initiated_by": initiated_by
         }
 
+# async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") -> dict:
+#     # curl -X DELETE http://34.223.156.189:9091/metrics/job/{runner_ip}
+#     print("reached terminate_runner_logs")
+
 async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> list:
     """
     Queue up runner shutdown tasks for Celery to process.
