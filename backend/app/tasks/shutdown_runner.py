@@ -501,7 +501,7 @@ def process_runner_shutdown(self, runner_id: int, instance_id: str, initiated_by
     # Step 3: Run termination script if needed
     if should_run_termination_script(resources["runner"], initiated_by, result):
         run_termination_script(runner_id, initiated_by, result)
-    
+
     # ip = resources["runner"].url
     #curl -X DELETE http://34.223.156.189:9091/metrics/job/{runner_ip}
 
