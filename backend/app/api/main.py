@@ -30,7 +30,7 @@ UNSECURE_ROUTES: tuple = (
 RUNNER_ACCESS_ROUTES: tuple = (
     f'{API_VERSION}/runners/\\d+/state/?$',
     f'{API_VERSION}/runners/\\d+/devserver/?$',
-    f'{API_VERSION}/runners/\\d+/extend-time/?$',
+    f'{API_VERSION}/runners/\\d+/extend_session/?$',
     f'{API_VERSION}/runners/\\d+/?$'
     )
 
