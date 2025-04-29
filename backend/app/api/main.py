@@ -120,7 +120,7 @@ def start_api():
 
         access_token = request.headers.get("Access-Token")
         wos_cookie = request.cookies.get("wos_session")
-        
+
         try:
             # Check exact matches for bypassing middleware
             if (path_in_route_patterns(path, UNSECURE_ROUTES) or

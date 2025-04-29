@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 @router.get('/authkit_url/', status_code=status.HTTP_200_OK)
 def get_auth_url():
+    """Generate an authkit URL for login."""
     auth_url = generate_auth_url()
     return Response(
         status_code = status.HTTP_200_OK,
@@ -22,6 +23,7 @@ def get_auth_url():
 
 @router.get('/authkit_redirect/')
 def auth_redirect():
+    """Redirect user to authkit for login."""
     auth_url = generate_auth_url()
     return RedirectResponse(auth_url)
 
