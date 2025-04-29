@@ -14,6 +14,7 @@ from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
 from app.util import terminal_management
 from app.business import runner_management
+from app.business import script_management
 from app.business.runner_management import terminate_runner as terminate_runner_function
 from app.business.runner_management import launch_runners
 from app.business.script_management import run_script_for_runner
