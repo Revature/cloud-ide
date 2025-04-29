@@ -1,6 +1,7 @@
 """User authorization route."""
 
 import logging
+import os
 
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -11,6 +12,7 @@ from app.business.workos import generate_auth_url, get_workos_client, handle_cal
 workos = get_workos_client()
 router = APIRouter()
 logger = logging.getLogger(__name__)
+auth_landing_url = os.getenv('AUTH_LANDING_URL')
 
 @router.get('/authkit_url/', status_code=status.HTTP_200_OK)
 def get_auth_url():
@@ -33,7 +35,7 @@ def authkit_callback(request: Request, code: str):
     try:
         auth_result = handle_callback_code(code = code)
         response = RedirectResponse(
-            url = '', #send to /ui frontend route
+            url = auth_landing_url,
             status_code=status.HTTP_200_OK,
             content='{"response":"Session cookie granted. Redirecting..."}'
         )

@@ -118,7 +118,6 @@ def start_api():
 
         access_token = request.headers.get("Access-Token")
         wos_cookie = request.cookies.get("wos_session")
-
         #print route
         print()
         print()
