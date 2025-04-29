@@ -72,7 +72,7 @@ const ImageFormWithTerminal: React.FC = () => {
 
     // const SETUP_WS_URL = 'ws://localhost:8020/api/v1/app_requests/runner_status';
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const SETUP_WS_URL = `${wsProtocol}://devide.revature.com/api/v1/app_requests/runner_status`;
+    const SETUP_WS_URL = `${wsProtocol}//devide.revature.com/api/v1/app_requests/runner_status`;
 
     try {
       const enrichedEnvData = await enrichEnvDataWithUserIp({
