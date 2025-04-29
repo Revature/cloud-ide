@@ -5,6 +5,7 @@ class RunnerRetrievalException(Exception):
 
     def __init__(self, message):
         """Construct an exception."""
+        self.message = message
         super().__init__(message)
 
     def __str__(self):
@@ -16,6 +17,7 @@ class RunnerExecException(Exception):
 
     def __init__(self, message):
         """Construct an exception."""
+        self.message = message
         super().__init__(message)
 
     def __str__(self):
@@ -27,6 +29,7 @@ class RunnerDefinitionException(Exception):
 
     def __init__(self, message):
         """Construct an exception."""
+        self.message = message
         super().__init__(message)
 
     def __str__(self):
@@ -38,6 +41,7 @@ class ScriptExecutionException(Exception):
 
     def __init__(self, message):
         """Construct an exception."""
+        self.message = message
         super().__init__(message)
 
     def __str__(self):
