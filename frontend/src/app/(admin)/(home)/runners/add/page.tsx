@@ -1,9 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
-import RunnerForm from "@/components/runner/RunnerForm";
 import Button from "@/components/ui/button/Button";
-import { RunnerFormData } from "@/components/runner/RunnerForm";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
+import RunnerFormWithTerminal from "@/components/runner/RunnerFormwithTerminal";
 
 export default function AddRunnerPage() {
   const router = useRouter();
@@ -13,14 +12,6 @@ export default function AddRunnerPage() {
     { label: "Runners", href: "/runners" },
     { label: "Add Runner" }
   ];
-  
-  const handleSubmit = (runnerData: RunnerFormData) => {
-    console.log("Submitting runner data:", runnerData);
-    // Here you would handle the API call to add the runner
-    
-    // Navigate back to the runners list page
-    router.push("/runners");
-  };
   
   const handleCancel = () => {
     router.push("/runners");
@@ -64,10 +55,7 @@ export default function AddRunnerPage() {
           </div>
           
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
-            <RunnerForm 
-              onSubmit={handleSubmit} 
-              onCancel={handleCancel} 
-            />
+            <RunnerFormWithTerminal />
           </div>
         </div>
       </div>

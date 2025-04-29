@@ -9,8 +9,8 @@ import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import Toggle from "@/components/form/input/Toggle";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { machineTypes, VMImage } from "@/types";
-import { useQuery } from "@tanstack/react-query";
+import { machineTypes } from "@/types";
+import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 
 // Convert machine types for select dropdown
 const machineOptions = machineTypes.map(machine => ({
@@ -24,11 +24,8 @@ const EditImageForm: React.FC = () => {
   const imageIndex = parseInt(params.id as string, 10);
 
   // Obtain images from ImagesTable ReactQuery
-  const { data:images = [] } = useQuery<VMImage[]>({
-    queryKey: ['images'],
-  })
+  const { data:images = [] } = useImageQuery()
 
-  
   // State for form data
   const [formData, setFormData] = useState<{
     name: string;

@@ -75,7 +75,7 @@ async def create_security_group(
                 # Store SSH rule in inbound rules
                 inbound_rules["port_22"] = {
                     "port": 22,
-                    "cidr": "0.0.0.0/0",
+                    "cidr": "{backend_ip}/32",
                     "result": ssh_result
                 }
             # If the .env has specified a backend url of 0.0.0.0, we assume they're trying

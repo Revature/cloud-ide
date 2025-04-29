@@ -12,3 +12,4 @@ celery
 Jinja2
 redis
 ruff
+websockets
