@@ -114,14 +114,14 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        
+
         #print route
         print()
         print()
         print(f"Request Path: {request.url.path}")
         print()
         print()
-        
+
         if request.headers.get("upgrade", "").lower() == "websocket":
             logger.info(f"WebSocket connection detected, bypassing auth middleware")
             return await call_next(request)
