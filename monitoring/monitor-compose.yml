@@ -64,15 +64,15 @@ services:
     container_name: grafana
     image: grafana/grafana:latest
     pull_policy: always
-    environment:
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-      - DS_PROMETHEUS=prometheus
     ports:
       - "3000:3000"
     logging:
       options:
         max-size: "100m"
         max-file: "3"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - DS_PROMETHEUS=prometheus
     volumes: 
       - "grafana-data:/var/lib/grafana"
       - "./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"

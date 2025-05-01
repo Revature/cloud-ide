@@ -10,11 +10,20 @@ export async function GET(request: NextRequest) {
 
     console.log(request);
     console.log(`Fetching from backend: ${apiUrl}${endpoint}`);
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
     
     // Make the actual request to your backend
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken,
       },
     });
 

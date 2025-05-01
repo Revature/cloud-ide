@@ -2,17 +2,15 @@
 import { useParams } from "next/navigation";
 import ViewConnector from "@/components/cloud-connector/CloudConnectorView";
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
-import { CloudConnector } from "@/types";
-import { useQuery } from "@tanstack/react-query";
+
+import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
 
 export default function ViewConnectorPage() {
   const params = useParams();
   const connectorIndex = parseInt(params.id as string, 10) - 1;
   
   // Obtain connectors from CloudConnectorsTable ReactQuery
-  const { data:connectors = [] } = useQuery<CloudConnector[]>({
-    queryKey: ['cloudConnectors'],
-  })
+  const { data:connectors = [] } = useCloudConnectorQuery()
 
   // Get connector name for the breadcrumb if available
   const connectorName = !isNaN(connectorIndex) && connectors[connectorIndex] && connectors[connectorIndex].name

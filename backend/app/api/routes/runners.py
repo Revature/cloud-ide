@@ -1,7 +1,7 @@
 """Runners API routes."""
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket, WebSocketDisconnect, Query, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -12,10 +12,8 @@ from app.models.runner import Runner
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
-from app.business import runner_management
-from app.business.runner_management import terminate_runner as terminate_runner_function
-from app.business.runner_management import launch_runners
-from app.business.script_management import run_script_for_runner
+from app.util import terminal_management
+from app.business import runner_management, script_management
 from app.db import runner_repository
 import logging
 import asyncio
@@ -25,15 +23,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
-def read_runners(session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
-    """Retrieve a list of all Runners."""
-    runners = runner_repository.find_all_runners(session)
+def read_runners(
+    status: Optional[str] = Query(None, description="Filter by specific status"),
+    alive_only: bool = Query(False, description="Return only alive runners"),
+    session: Session = Depends(get_session)
+):
+    """Retrieve a list of Runners with optional status filtering."""
+    if status and alive_only:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
+        )
+
+    if status:
+        runners = runner_repository.find_runners_by_status(session, status)
+    elif alive_only:
+        runners = runner_repository.find_alive_runners(session)
+    else:
+        runners = runner_repository.find_all_runners(session)
+
     if not runners:
         raise HTTPException(status_code=204, detail="No runners found")
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session), access_token: str = Header(..., alias="Access-Token")):
+def read_runner(runner_id: int, session: Session = Depends(get_session),
+        #access_token: str = Header(..., alias="Access-Token")
+    ):
     """Retrieve a single Runner by ID."""
     runner = runner_repository.find_runner_by_id(session, runner_id)
     if not runner:
@@ -111,7 +127,7 @@ class RunnerStateUpdate(BaseModel):
 async def update_runner_state(
     update: RunnerStateUpdate = Body(...),
     session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token"),
+    #access_token: str = Header(..., alias="Access-Token"),
     x_forwarded_for: Optional[str] = Header(None),
     client_ip: Optional[str] = Header(None)
 ):
@@ -212,7 +228,9 @@ async def update_runner_state(
         try:
             # For on_awaiting_client, we need env_vars which we don't have here
             # For other events, empty env_vars is fine
-            script_result = await run_script_for_runner(script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint")
+            script_result = await script_management.run_script_for_runner(
+                                        script_event, runner.id, env_vars={}, initiated_by="update_runner_state_endpoint"
+                                    )
             if script_result:
                 logger.info(f"Script executed for runner {runner.id}: {script_result}")
         except Exception as e:
@@ -247,11 +265,76 @@ async def update_runner_state(
 
     return f"State for runner {runner.id} updated to {runner.state}"
 
+
+@router.patch("/{runner_id}/stop", response_model=dict)
+async def stop_runner_endpoint(
+    runner_id: int,
+    session: Session = Depends(get_session),
+):
+    """Stop a runner in an alive state."""
+    # Check if the runner exists
+    runner = runner_repository.find_runner_by_id(session, runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+
+    # Only allow stopping runners in active states
+    valid_states = ["ready", "awaiting_client", "active"]
+    if runner.state not in valid_states:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot stop a runner in {runner.state} state. Runner must be in one of {valid_states}"
+        )
+
+    # Call the runner_management function to stop the runner
+    result = await runner_management.stop_runner(
+        runner_id=runner_id,
+        initiated_by=f"stop_runner_endpoint"
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+
+    return result
+
+@router.patch("/{runner_id}/start", response_model=dict)
+async def start_runner_endpoint(
+    runner_id: int,
+    session: Session = Depends(get_session),
+):
+    """Start a runner in closed state."""
+    # Check if the runner exists
+    runner = runner_repository.find_runner_by_id(session, runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+
+    # Only allow starting runners in closed state
+    if runner.state != "closed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot start a runner in {runner.state} state. Runner must be in 'closed' state"
+        )
+
+    # Call the runner_management function to start the runner
+    result = await runner_management.start_runner(
+        runner_id=runner_id,
+        initiated_by=f"start_runner_endpoint"
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+
+    return result
+
 @router.delete("/{runner_id}", response_model=dict[str, str])
 async def terminate_runner(
     runner_id: int,
     session: Session = Depends(get_session),
-    access_token: str = Header(..., alias="Access-Token")
 ):
     """
     Manually terminate a runner.
@@ -276,7 +359,7 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
-    result = await terminate_runner_function(runner_id, initiated_by="manual_termination_endpoint")
+    result = await runner_management.terminate_runner(runner_id, initiated_by="manual_termination_endpoint")
 
     # Check for various error conditions with specific messages
     if result["status"] == "error":
@@ -298,7 +381,7 @@ async def terminate_runner(
     if needs_replenishing and image_identifier:
         try:
             # Launch a new runner asynchronously
-            asyncio.create_task(launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
+            asyncio.create_task(runner_management.launch_runners(image_identifier, 1, initiated_by="manual_termination_endpoint_pool_replenish"))
             return {"status": "success", "message": "Runner termination queued and replacement launched"}
         except Exception as e:
             # If launching the replacement fails, log it but don't fail the termination
@@ -306,3 +389,82 @@ async def terminate_runner(
             return {"status": "partial_success", "message": "Runner termination queued but failed to launch replacement"}
 
     return {"status": "success", "message": "Runner termination queued"}
+
+# Store active connections
+active_connections: dict[int, dict] = {}
+
+@router.websocket("/connect/{runner_id}")
+async def websocket_terminal(
+    websocket: WebSocket,
+    runner_id: int,
+    session: Session = Depends(get_session),
+):
+    """WebSocket endpoint for terminal connection to a runner.
+
+    Args:
+        websocket (WebSocket): WebSocket connection object.
+        runner_id (int): ID of the runner to connect to.
+        session (Session, optional): Database session. Defaults to Depends(get_session).
+    """
+    await websocket.accept()
+
+    try:
+        # Get runner and validate it's available
+        runner = runner_repository.find_runner_by_id(session, runner_id)
+        if not runner or runner.state not in ["ready_claimed", "ready", "active", "awaiting_client"]:
+            await websocket.close(code=1008, reason="Runner not available")
+            return
+
+        # Check if this runner is part of a pool before changing its state
+        image_id = runner.image_id
+        image = session.get(Image, image_id)
+        needs_replenishing = image and image.runner_pool_size > 0 and runner.state == "ready"
+        image_identifier = image.identifier if image else None
+
+        # Update runner state to active
+        runner.state = "active"
+        runner_repository.update_runner(session, runner)
+
+        # If the runner was in ready state and belongs to an image with a pool,
+        # launch a new runner to replace it
+        if needs_replenishing and image_identifier:
+            try:
+                # Launch a new runner asynchronously
+                asyncio.create_task(
+                    runner_management.launch_runners(
+                        image_identifier,
+                        1,
+                        initiated_by="websocket_terminal_endpoint_pool_replenish"
+                    )
+                )
+                logger.info(f"Launching replacement runner for {runner_id} from pool {image_identifier}")
+            except Exception as e:
+                # If launching the replacement fails, log it but don't fail the connection
+                logger.error(f"Error launching replacement runner: {e}")
+
+        # Connect terminal (delegated to service)
+        await terminal_management.connect_terminal(websocket, runner)
+
+        # When the terminal connection is closed, terminate the runner
+        logger.info(f"Terminal connection closed for runner {runner_id}, initiating termination")
+        # asyncio.create_task(
+        #     runner_management.terminate_runner(
+        #         runner_id,
+        #         initiated_by="websocket_terminal_disconnection"
+        #     )
+        # )
+
+    except Exception as e:
+        logger.error(f"Terminal connection error: {e!s}")
+        await websocket.close(code=1011, reason=f"Unexpected error: {e!s}")
+        # Still try to terminate the runner even if there was an error
+        try:
+            logger.info(f"Attempting to terminate runner {runner_id} after error")
+            # asyncio.create_task(
+            #     runner_management.terminate_runner(
+            #         runner_id,
+            #         initiated_by="websocket_terminal_error"
+            #     )
+            # )
+        except Exception as term_error:
+            logger.error(f"Failed to terminate runner after error: {term_error!s}")

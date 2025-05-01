@@ -1,9 +1,20 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
 import Button from "@/components/ui/button/Button";
-import { Runner, RunnerState } from '@/types/runner';
-import { useQuery } from '@tanstack/react-query';
+import { RunnerState } from '@/types/runner';
+import dynamic from 'next/dynamic';
+import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
+import { runnersApi } from '@/services/cloud-resources/runners';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+
+// Import the props interface from the terminal component
+import type { TerminalComponentProps } from '../terminal/TerminalComponent';
+
+// Import terminal component with ssr: false to prevent server-side rendering
+const TerminalComponent = dynamic<TerminalComponentProps>(
+  () => import('../terminal/TerminalComponent'),
+  { ssr: false }
+);
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -15,6 +26,10 @@ const getStateColor = (state: RunnerState) => {
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
     case "starting":
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+    case "runner_starting":
+      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+    case "ready_claimed":
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
     case "terminated":
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
@@ -31,6 +46,10 @@ const getStateLabel = (state: RunnerState) => {
       return 'Awaiting Client';
     case "starting":
       return 'Starting';
+    case "runner_starting":
+      return 'Starting';
+    case "ready_claimed":
+      return 'Ready';
     case "terminated":
       return 'Terminated';
     default:
@@ -40,53 +59,92 @@ const getStateLabel = (state: RunnerState) => {
 
 const RunnerView: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams();
-  const runnerIndex = parseInt(params.id as string, 10);
-  
-    // Obtain images from RunnersTable ReactQuery
-    const { data:runners = [] } = useQuery<Runner[]>({
-      queryKey: ['runners'],
-    })
+  const runnerId = params.id as string;
+  const autoConnect = searchParams.get('autoConnect') === 'true';
+  const cloudIdeUrl = searchParams.get('url'); // Extract the URL from query parameters
 
-  const [runner, setRunner] = useState<Runner | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: runner, isLoading, error } = useRunnerQuery(Number(runnerId));
+
+  const [terminalVisible, setTerminalVisible] = useState(false);
+  const [terminalConnected, setTerminalConnected] = useState(false);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
   const [confirmTerminate, setConfirmTerminate] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const autoConnectExecutedRef = useRef(false);
 
   useEffect(() => {
-    if (!isNaN(runnerIndex) && runners[runnerIndex]) {
-      setRunner(runners[runnerIndex]);
-      setLoading(false);
-    } else {
-      // Handle invalid index
-      router.push('/runners');
+    if (autoConnect && !autoConnectExecutedRef.current) {
+      setTerminalVisible(true);
+      autoConnectExecutedRef.current = true; // Ensure this runs only once
     }
-  }, [runnerIndex, runners, router]);
+  }, [autoConnect]);
+
+  const toggleTerminal = () => {
+    if (terminalVisible) {
+      setTerminalVisible(false);
+      setTerminalConnected(false);
+    } else {
+      setTerminalVisible(true);
+    }
+  };
+
+  const handleTerminalConnectionChange = (connected: boolean) => {
+    setTerminalConnected(connected);
+  };
+
+  const handleTerminalError = (error: string) => {
+    setTerminalError(error);
+    console.error("Terminal error:", error);
+  };
 
   const goBack = () => {
     router.push('/runners');
   };
 
-  const handleConnect = () => {
-    // In a real app, this would redirect to the runner URL or open a connection
-    alert(`Connecting to runner: ${runner?.url}`);
-  };
+  const handleTerminate = async () => {
+    if (!runner) return;
 
-  const handleTerminate = () => {
-    if (confirmTerminate && runner) {
-      // TODO: IMPLEMENT TERMINATE RUNNER
-      setConfirmTerminate(false);
+    if (confirmTerminate) {
+      setIsTerminating(true);
+      setUiMessage(null); // Clear any previous messages
+      try {
+        await runnersApi.terminate(runner.id);
+        setUiMessage({ type: 'success', message: `Runner with ID ${runner.id} terminated successfully.` });
+        router.push('/runners'); // Redirect to the runners list
+      } catch (error) {
+        console.error('Error terminating runner:', error);
+        setUiMessage({ type: 'error', message: `Failed to terminate runner with ID ${runner.id}.` });
+      } finally {
+        setIsTerminating(false);
+        setConfirmTerminate(false);
+      }
     } else {
       setConfirmTerminate(true);
     }
   };
 
-  const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client';
+  const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client' || runner?.state === 'ready' || runner?.state === 'ready_claimed' || runner?.state === 'starting' || runner?.state === 'runner_starting';
   const canTerminate = runner?.state !== 'terminated';
 
-  if (loading || !runner) {
+  if (isLoading) {
     return (
       <div className="flex justify-center">
         <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error || !runner) {
+    return (
+      <div className="flex flex-col items-center">
+        <p className="text-red-500 dark:text-red-400 mb-4">
+          {error ? `Error loading data: ${error instanceof Error ? error.message : 'Unknown error'}` : 'Runner not found'}
+        </p>
+        <Button onClick={goBack}>Back to Runners</Button>
       </div>
     );
   }
@@ -120,29 +178,49 @@ const RunnerView: React.FC = () => {
         </Button>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Runner Details</h2>
         <div className="ml-auto flex space-x-3">
+          {cloudIdeUrl && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => window.open(cloudIdeUrl, '_blank')}
+              className="text-green-600 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke-width="1.5" 
+                stroke="currentColor" 
+                className="size-6"
+              >
+                <path 
+                  stroke-linecap="round" 
+                  stroke-linejoin="round" 
+                  d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" 
+                />
+              </svg>
+              Open Cloud IDE
+            </Button>
+          )}
           {canConnect && (
             <Button 
               size="sm" 
               variant="secondary"
-              onClick={handleConnect}
-              className="text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+              onClick={toggleTerminal}
+              className={terminalVisible 
+                ? "text-yellow-600 bg-yellow-50 hover:bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/30"
+                : "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+              }
             >
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-                className="stroke-current mr-2"
-              >
-                <path 
-                  d="M5 12H19M19 12L12 5M19 12L12 19" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Connect
+              {terminalVisible ? (
+                <>
+                  Disconnect
+                </>
+              ) : (
+                <>
+                  Connect
+                </>
+              )}
             </Button>
           )}
           {canTerminate && (
@@ -150,189 +228,147 @@ const RunnerView: React.FC = () => {
               size="sm" 
               variant="destructive"
               onClick={handleTerminate}
+              disabled={isTerminating}
             >
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-                className="stroke-current mr-2"
-              >
-                <path 
-                  d="M18 6L6 18M6 6L18 18" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {confirmTerminate ? "Confirm Termination" : "Terminate"}
+              {isTerminating ? (
+                <div className="flex items-center">
+                  Terminating
+                </div>
+              ) : (
+                confirmTerminate ? "Confirm Termination" : "Terminate"
+              )}
             </Button>
           )}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
-        <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-4">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">Runner {runner.id}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Created on {runner.createdOn}</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStateColor(runner.state)}`}>
-              {getStateLabel(runner.state)}
+      {/* UI Message Section */}
+      {uiMessage && (
+        <div
+          className={`p-4 rounded-lg ${
+            uiMessage.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          {uiMessage.message}
+        </div>
+      )}
+
+      {/* Terminal Section */}
+      {terminalVisible && (
+        <div className="mb-6 bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+              Terminal Connection
+            </h3>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+              terminalConnected 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+            }`}>
+              {terminalConnected ? 'Connected' : 'Connecting...'}
             </span>
           </div>
+          
+          {terminalError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 dark:bg-red-900/20 dark:border-red-800/20 dark:text-red-400">
+              <div className="flex items-start">
+                <svg className="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>{terminalError}</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="h-96 w-full">
+              <TerminalComponent 
+                runnerId={parseInt(runnerId)} 
+                onConnectionChange={handleTerminalConnectionChange}
+                onError={handleTerminalError}
+              />
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                {runner.userId ? (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">User</span>
-                    <span className="text-gray-800 dark:text-white">{runner.userId}</span>
-                  </div>
-                ) : (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">User</span>
-                    <span className="text-gray-800 dark:text-white">In pool (no user assigned)</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Key Pair</span>
-                  <span className="text-gray-800 dark:text-white">{runner.keyId}</span>
-                </div>
-                {runner.url && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">URL</span>
-                    <span className="text-gray-800 dark:text-white">{runner.url}</span>
-                  </div>
-                )}
-                {runner.sessionStart && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Session Start</span>
-                    <span className="text-gray-800 dark:text-white">{runner.sessionStart}</span>
-                  </div>
-                )}
-                {runner.sessionEnd && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Session End</span>
-                    <span className="text-gray-800 dark:text-white">{runner.sessionEnd}</span>
-                  </div>
-                )}
+      {/* Runner Details Section */}
+      <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">Runner Information</h3>
+            <p className="text-gray-500 dark:text-gray-400">ID: {runner.id}</p>
+          </div>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStateColor(runner.state)}`}>
+            {getStateLabel(runner.state)}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Basic Information */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">State</span>
+                <span className="text-gray-800 dark:text-white">{getStateLabel(runner.state)}</span>
               </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Image Information</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Image Name</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Image ID</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.identifier}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Machine Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.machine ? runner.image!.machine.name : "No Name"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Instance Type</span>
-                  <span className="text-gray-800 dark:text-white">{runner.image!.machine ? runner.image!.machine.identifier : "No AMI ID"}</span>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Created On</span>
+                <span className="text-gray-800 dark:text-white">{runner.createdOn}</span>
               </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Hardware Configuration</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">CPU</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {runner.image!.machine ? runner.image!.machine.cpuCount : 0} {runner.image!.machine ? runner.image!.machine.cpuCount === 1 ? 'Core' : 'Cores' : 'Core'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Memory</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {runner.image!.machine ? runner.image!.machine.memorySize : 0} GB
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Storage</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white">
-                      {runner.image!.machine ? runner.image!.machine.storageSize : 0} GB
-                    </span>
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Session Start</span>
+                <span className="text-gray-800 dark:text-white">{runner.sessionStart || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Session End</span>
+                <span className="text-gray-800 dark:text-white">{runner.sessionEnd || 'N/A'}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col h-full">
-            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Runtime Metrics</h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow">
-              <div className="flex flex-col h-full">
-                <div className="text-center mb-6">
-                  <div className="text-4xl text-blue-500 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="mx-auto h-12 w-12">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <p className="text-lg font-medium text-gray-800 dark:text-white">Runtime Metrics Coming Soon</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Detailed performance metrics will be available in a future update.
-                  </p>
-                </div>
-                
-                {runner.sessionStart && runner.sessionEnd && (
-                  <div className="mt-auto">
-                    <h5 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-3">Session Timeline</h5>
-                    
-                    <div className="relative mt-6 bg-white dark:bg-gray-700 p-4 rounded-lg">
-                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full" style={{ width: '40%' }}></div>
-                      </div>
-                      
-                      <div className="flex justify-between mt-4">
-                        <div className="text-left">
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Start</div>
-                          <div className="text-sm font-medium text-gray-800 dark:text-white">{runner.sessionStart}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500 dark:text-gray-400">End</div>
-                          <div className="text-sm font-medium text-gray-800 dark:text-white">{runner.sessionEnd}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 dark:text-gray-300">Session Status</span>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStateColor(runner.state)}`}>
-                            {getStateLabel(runner.state)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+          {/* Usage Statistics */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex items-center justify-center">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No usage data available</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Usage statistics will appear here once the runner becomes active.
+                </p>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Details</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Machine Name</span>
+                <span className="text-gray-800 dark:text-white">{runner.machine?.name || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-300">Machine Identifier</span>
+              <span className="text-gray-800 dark:text-white">{runner.machine?.identifier || 'N/A'}</span>
+            </div>
+          </div>
+        </div>   
+      </div>      
     </>
   );
 };

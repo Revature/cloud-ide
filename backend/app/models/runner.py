@@ -51,7 +51,6 @@ class Runner(TimestampMixin, SQLModel, table=True):
     session_end: datetime | None = None
     ended_on: datetime | None = None
 
-
     @property
     def is_alive_state(self) -> bool:
         """Return True if the runner's state is considered 'alive'."""

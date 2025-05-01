@@ -39,8 +39,6 @@ DEV_ROUTES: tuple = (
     '/openapi.json/?$'
 )
 
-
-
 def path_in_route_patterns(path: str, patterns: tuple) -> bool:
     """Check if our route matches a regex in our tuple of routes."""
     for pattern in patterns:
@@ -116,6 +114,17 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
+
+        #print route
+        print()
+        print()
+        print(f"Request Path: {request.url.path}")
+        print()
+        print()
+
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            logger.info(f"WebSocket connection detected, bypassing auth middleware")
+            return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
