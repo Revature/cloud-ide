@@ -18,12 +18,13 @@ jobs:
     Deploy:
         runs-on: self-hosted
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
         environment: |-
           ${{
              github.event.workflow_run.head_branch == 'main' && 'PRODUCTION'
           || github.event.workflow_run.head_branch ==  'dev' && 'DEVELOPMENT'
           || github.event.workflow_run.head_branch ==  'demo' && 'DEMO'
-          || startsWith(github.ref_name, 'feat') && 'TEST'
+          || startsWith(github.event.workflow_run.head_branch, 'feat') && 'TEST'
           }}
 
         steps:
