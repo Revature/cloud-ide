@@ -188,7 +188,7 @@
             "uid": "dehww4iizin0gd"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - ( sum by (job) (node_cpu_seconds_total{mode=\"idle\"})/ sum by (job) (node_cpu_seconds_total)))",
+          "expr": "100* (1-((sum by (job) (rate(node_cpu_seconds_total{mode=\"idle\"}[$__rate_interval]))) / (sum by (job) (rate(node_cpu_seconds_total[$__rate_interval])))))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -2158,5 +2158,5 @@
   "timezone": "browser",
   "title": "Environment Tops",
   "uid": "env-tops",
-  "version": 19
+  "version": 20
 }
