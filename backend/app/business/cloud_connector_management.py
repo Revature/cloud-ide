@@ -6,6 +6,7 @@ from app.db.database import engine
 from app.models import CloudConnector
 from app.db import cloud_connector_repository
 from app.business.cloud_services import cloud_service_factory
+from app.exceptions import cloud_connector_exceptions as cc_exceptions
 import asyncio
 
 logger = get_task_logger(__name__)
@@ -19,8 +20,6 @@ def get_cloud_connector_by_id(id:int) -> CloudConnector:
     """Get an cloud_connector by its id (numeric)."""
     with Session(engine) as session:
         return cloud_connector_repository.find_cloud_connector_by_id(session, id)
-
-
 
 def create_cloud_connector(provider: str, region: str, access_key: str, secret_key: str) -> CloudConnector:
     """
@@ -43,13 +42,15 @@ def create_cloud_connector(provider: str, region: str, access_key: str, secret_k
         created_connector = cloud_connector_repository.create_cloud_connector(session, cloud_connector)
         return created_connector
 
-async def validate_cloud_connector(cloud_connector: CloudConnector) -> dict:
+async def validate_cloud_connector(cloud_connector: CloudConnector):
     """
     Validate that a cloud connector has proper permissions.
 
-    Returns:
-    - On success: {"success": True}
-    - On failure: {"error": True, "message": str, "denied_actions": list[str]}
+    Raises:
+    - AuthenticationError: When credentials are invalid
+    - PermissionError: When credentials are valid but permissions are insufficient
+    - ConfigurationError: When there's a configuration issue
+    - Exception: For other unexpected errors
     """
     print(f"Validating cloud connector: {cloud_connector}")
     try:
@@ -60,49 +61,63 @@ async def validate_cloud_connector(cloud_connector: CloudConnector) -> dict:
         validation_result = await cloud_service.validate_account()
 
         if validation_result["status"] == "success":
-            return {"success": True}
-        else:
-            return {
-                "success": False,
-                "message": validation_result["message"],
-                "denied_actions": validation_result["denied_actions"]
-            }
-    except Exception as e:
-        return {
-            "success": False,
-            "message": f"Error validating cloud connector: {e!s}",
-            "denied_actions": []
-        }
+            return  # Success - no exception raised
 
-async def create_and_validate_cloud_connector(region: str, provider: str, access_key: str, secret_key: str) -> dict:
+        # Determine the type of error
+        denied_actions = validation_result.get("denied_actions", [])
+        message = validation_result.get("message", "")
+
+        # Authentication error (STS failure)
+        if "sts:GetCallerIdentity" in denied_actions or any(
+            auth_err in message.lower() for auth_err in
+            ["invalid client", "security token", "signature", "unauthorized"]
+        ):
+            raise cc_exceptions.AuthenticationError(message, denied_actions)
+
+        # Permission error (STS works but other permissions missing)
+        elif denied_actions:
+            raise cc_exceptions.PermissionError(message, denied_actions)
+
+        # Other configuration issues
+        else:
+            raise cc_exceptions.ConfigurationError(message, denied_actions)
+
+    except (cc_exceptions.AuthenticationError, cc_exceptions.PermissionError, cc_exceptions.ConfigurationError):
+        # Re-raise these specific exceptions
+        raise
+    except Exception as e:
+        # Wrap general exceptions
+        raise cc_exceptions.ConfigurationError(f"Error validating cloud connector: {e!s}") from e
+
+
+async def create_and_validate_cloud_connector(region: str, provider: str, access_key: str, secret_key: str):
     """
     Create a new cloud connector and validate it works.
 
-    This function:
-    1. Creates the cloud connector in the database
-    2. Tests the connection using the cloud service validate_account method
-    3. If validation fails, deletes the connector from the database
+    Returns the created connector on success.
 
-    Returns:
-    - On success: {"success": True, "connector": CloudConnector}
-    - On failure: {"success": False, "message": str, "denied_actions": list[str]}
+    Raises:
+    - AuthenticationError: When credentials are invalid
+    - PermissionError: When credentials are valid but permissions are insufficient
+    - ConfigurationError: When there's a configuration issue
     """
     # Create the connector
-    created_connector = create_cloud_connector(provider=provider, region=region, access_key=access_key, secret_key=secret_key)
+    created_connector = create_cloud_connector(provider=provider, region=region,
+                                              access_key=access_key, secret_key=secret_key)
 
-    # Validate the connector
-    validation_result = await validate_cloud_connector(created_connector)
-
-    # If validation failed, delete the connector
-    if not validation_result.get("success", False):
+    try:
+        # Validate the connector - will raise exceptions on failure
+        await validate_cloud_connector(created_connector)
+        # Validation successful
+        return created_connector
+    except (cc_exceptions.AuthenticationError, cc_exceptions.PermissionError, cc_exceptions.ConfigurationError) as e:
+        # If validation failed, delete the connector
         with Session(engine) as session:
-            db_connector = cloud_connector_repository.find_cloud_connector_by_id(session, created_connector.id)
+            db_connector = cloud_connector_repository.find_cloud_connector_by_id(
+                session, created_connector.id)
             if db_connector:
                 session.delete(db_connector)
                 session.commit()
 
-        # Return the validation result directly
-        return validation_result
-
-    # Validation successful
-    return {"success": True, "connector": created_connector}
+        # Re-raise the exception
+        raise

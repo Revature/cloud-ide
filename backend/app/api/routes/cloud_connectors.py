@@ -1,8 +1,9 @@
 """Cloud Connector API routes."""
 
-from fastapi import APIRouter, HTTPException, Header, Request
+from fastapi import APIRouter, HTTPException, Header, Request, responses
 from app.models.cloud_connector import CloudConnector
 from app.business import cloud_connector_management
+from app.exceptions import cloud_connector_exceptions
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -68,47 +69,112 @@ class CloudConnectorCreate(BaseModel):
 
 @router.post("/", response_model=dict)
 async def create_cloud_connector(cloud_connector: CloudConnectorCreate):
-    """
-    Create a new cloud connector and test its connection.
+    """Create a new cloud connector and test its connection."""
+    try:
+        # This will raise exceptions on validation failure
+        connector = await cloud_connector_management.create_and_validate_cloud_connector(
+            provider=cloud_connector.provider,
+            region=cloud_connector.region,
+            access_key=cloud_connector.access_key,
+            secret_key=cloud_connector.secret_key,
+        )
 
-    If successful, returns the created connector.
-    If validation fails, returns a list of missing permissions.
-    """
-    result = await cloud_connector_management.create_and_validate_cloud_connector(
-        provider=cloud_connector.provider,
-        region=cloud_connector.region,
-        access_key=cloud_connector.access_key,
-        secret_key=cloud_connector.secret_key,
-    )
+        # If we get here, validation was successful
+        return {"success": True, "connector": connector}
 
-    # Check the 'success' flag directly instead of looking for 'error'
-    if not result.get("success", False):
-        # Return an error response with the missing permissions
-        return {
-            "success": False,
-            "message": result.get("message", "Validation failed"),
-            "denied_actions": result.get("denied_actions", [])
-        }
-    else:
-        # Return success with the created connector
-        return {"success": True, "connector": result["connector"]}
+    except cloud_connector_exceptions.AuthenticationError as e:
+        # 401 Unauthorized for credential issues
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "success": False,
+                "message": str(e.message),
+                "denied_actions": e.denied_actions
+            }
+        ) from e
+    except cloud_connector_exceptions.PermissionError as e:
+        # 403 Forbidden for permission issues
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "success": False,
+                "message": str(e.message),
+                "denied_actions": e.denied_actions
+            }
+        ) from e
+    except cloud_connector_exceptions.ConfigurationError as e:
+        # 400 Bad Request for configuration issues
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "message": str(e.message),
+                "denied_actions": getattr(e, "denied_actions", [])
+            }
+        ) from e
+    except Exception as e:
+        # 500 Internal Server Error for unexpected issues
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": f"An unexpected error occurred: {e!s}",
+                "denied_actions": []
+            }
+        ) from e
 
 @router.post("/{cloud_connector_id}/test", response_model=dict)
 async def test_cloud_connector(cloud_connector_id: int):
-    """
-    Test an existing cloud connector's connection and permissions.
-
-    Returns:
-    - On success: {"success": true}
-    - On failure: {"success": false, "message": error message, "denied_actions": [list of missing permissions]}
-    """
+    """Test an existing cloud connector's connection and permissions."""
     # Get the cloud connector
     cloud_connector = cloud_connector_management.get_cloud_connector_by_id(cloud_connector_id)
     if not cloud_connector:
         raise HTTPException(status_code=404, detail="Cloud connector not found")
 
-    # Validate the cloud connector
-    validation_result = await cloud_connector_management.validate_cloud_connector(cloud_connector)
+    try:
+        # Validate the connector - will raise exceptions on failure
+        await cloud_connector_management.validate_cloud_connector(cloud_connector)
 
-    # Simply return the validation result directly since it already has the correct format
-    return validation_result
+        # If we get here, validation was successful
+        return {"success": True}
+
+    except cloud_connector_exceptions.AuthenticationError as e:
+        # 401 Unauthorized for credential issues
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "success": False,
+                "message": str(e.message),
+                "denied_actions": e.denied_actions
+            }
+        ) from e
+    except cloud_connector_exceptions.PermissionError as e:
+        # 403 Forbidden for permission issues
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "success": False,
+                "message": str(e.message),
+                "denied_actions": e.denied_actions
+            }
+        ) from e
+    except cloud_connector_exceptions.ConfigurationError as e:
+        # 400 Bad Request for configuration issues
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "message": str(e.message),
+                "denied_actions": getattr(e, "denied_actions", [])
+            }
+        ) from e
+    except Exception as e:
+        # 500 Internal Server Error for unexpected issues
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": f"An unexpected error occurred: {e!s}",
+                "denied_actions": []
+            }
+        ) from e
