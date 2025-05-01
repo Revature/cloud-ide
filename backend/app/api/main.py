@@ -167,7 +167,7 @@ def start_api():
                 final_response = Response(status_code = 400, content = "Missing Access Token")
 
             # Verify expiration on access token, if expired try to refresh
-            if not final_response and access_token:
+            if (not final_response) and access_token:
                 if verify_token_exp(access_token):
                     response: Response = await call_next(request)
                     response.headers['Access-Token'] = access_token
