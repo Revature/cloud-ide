@@ -15,15 +15,24 @@ jobs:
         runs-on: ubuntu-latest
 
         env:
-          RUN_DEPLOY: ${{ !startsWith(github.ref_name, 'f') == true }}
-    
+          TAG: |-
+            ${{ 
+               github.ref_name == 'main' && 'prod'
+            || github.ref_name ==  'dev' && 'dev'
+            || github.ref_name ==  'demo' && 'demo'
+            || github.ref_name ==  'feat*' && 'test'
+            || 'NONE'
+            }}
+
+          RUN_DEPLOY: TAG != 'NONE'
+
         steps:
             - name: Checkout
               uses: actions/checkout@v4
 
             - name: Build Docker Image
               id: build-image
-              run: docker build --file ./proxy/Dockerfile --tag ${{ env.ECR_REPOSITORY }}:latest --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} ./proxy
+              run: docker build --file ./proxy/Dockerfile --tag ${{ env.ECR_REPOSITORY }}:${{env.TAG}} --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} ./proxy
               
             - name: Configure AWS credentials
               id: aws-credentials
@@ -47,8 +56,8 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:latest
-                docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:latest
+                docker tag ${{ env.ECR_REPOSITORY }}:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}
+                docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}
 
                 docker tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
