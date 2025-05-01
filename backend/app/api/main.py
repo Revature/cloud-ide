@@ -140,11 +140,6 @@ def start_api():
                     print('Unsecured route entered.')
                     final_response = await call_next(request)
 
-            # I removed auth_mode check, not sure why but we were bypassing middleware for all requests.
-            if path_in_route_patterns(path, UNSECURE_ROUTES):
-                print('Unsecured route entered.')
-                final_response = await call_next(request)
-
             # Check for runner access paths
             if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
                 print('Runner access route entered.')
