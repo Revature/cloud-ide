@@ -119,9 +119,9 @@ def start_api():
 
         access_token = request.headers.get("Access-Token")
         wos_cookie = request.cookies.get("wos_session")
-        #print route       
+        #print route
         print(f"\n\nRequest Path: {request.url.path}")
-        
+
         if not access_token:
             print('not access-token')
         if not wos_cookie:
