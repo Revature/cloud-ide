@@ -35,7 +35,7 @@ def generate_auth_url():
     """Return an authkit URL for login."""
     return workos.user_management.get_authorization_url(
         provider = 'authkit',
-        redirect_uri = os.getenv('WORKOS_REDIRECT_URI')
+        redirect_uri = os.getenv('WORKOS_CALLBACK_URL')
     )
 
 def handle_callback_code(code: str):
