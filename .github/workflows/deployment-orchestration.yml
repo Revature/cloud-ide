@@ -12,6 +12,7 @@ on:
       - main
       - demo
       - dev
+      - feat*
 
 jobs:
     Deploy:
@@ -21,8 +22,10 @@ jobs:
           ${{
              github.event.workflow_run.head_branch == 'main' && 'PRODUCTION'
           || github.event.workflow_run.head_branch ==  'dev' && 'DEVELOPMENT'
-          ||                                                    'DEMO'
+          || github.event.workflow_run.head_branch ==  'demo' && 'DEMO'
+          || startsWith(github.ref_name, 'feat') && 'TEST'
           }}
+
         steps:
             - name: Checkout
               uses: actions/checkout@v2
