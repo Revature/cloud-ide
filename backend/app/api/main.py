@@ -119,11 +119,7 @@ def start_api():
         access_token = request.headers.get("Access-Token")
         wos_cookie = request.cookies.get("wos_session")
         #print route
-        print()
-        print()
-        print(f"Request Path: {request.url.path}")
-        print()
-        print()
+        logger.info(f"\n\nRequest Path: {request.url.path}")
 
         if request.headers.get("upgrade", "").lower() == "websocket":
             logger.info(f"WebSocket connection detected, bypassing auth middleware")
@@ -134,10 +130,12 @@ def start_api():
             if (path_in_route_patterns(path, UNSECURE_ROUTES) or
                 constants.auth_mode=="OFF") or (path_in_route_patterns(path, DEV_ROUTES) and
                                                 constants.auth_mode!="PROD"):
+                    logger.info('Unsecured route entered.')
                     final_response = await call_next(request)
 
             # Check for runner access paths
             if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
+                logger.info('Runner access route entered.')
                 if (access_token and access_token == constants.jwt_secret):
                     final_response = await call_next(request)
                 elif (request.headers.get("Runner-Token")):
@@ -148,10 +146,12 @@ def start_api():
 
             # Check for wos_session cookie, if needed refresh it
             if (not final_response) and wos_cookie:
+                logger.info('wos_cookie secured route entered.')
                 auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
                 if auth_result.authenticated:
                     final_response = await call_next(request)
                 else:
+                    logger.info('Failed to auth with cookie, refreshing...')
                     refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
                     final_response = await call_next(request)
                     final_response.set_cookie(
@@ -168,11 +168,13 @@ def start_api():
 
             # Verify expiration on access token, if expired try to refresh
             if (not final_response) and access_token:
+                logger.info('access-token secured route entered.')
                 if verify_token_exp(access_token):
                     response: Response = await call_next(request)
                     response.headers['Access-Token'] = access_token
                     final_response = response
                 else:
+                    logger.info('Failed to auth with token, refreshing...')
                     refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
                     refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
                     access_token = refresh_response.access_token
