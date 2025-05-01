@@ -9,7 +9,7 @@ import {
   CloudIcon,
   ImageIcon,
 } from "../icons/index";
-import { RunnerPoolIcon } from "@/components/ui/icons/CustomIcons";
+import { RunnerPoolIcon, ScriptsIcon } from "@/components/ui/icons/CustomIcons";
 
 type NavItem = {
   name: string;
@@ -37,6 +37,11 @@ const navItems: NavItem[] = [
     icon: <RunnerPoolIcon />,
     name: "Runner Pools",
     path: "/runner-pools",
+  },
+  {
+    icon: <ScriptsIcon />, // Use the new ScriptsIcon here
+    name: "Scripts",
+    path: "/scripts",
   },
 ];
 
