@@ -100,6 +100,8 @@ def start_api():
         import logging
         logger = logging.getLogger(__name__)
         logger.debug('\n\ndebug')
+        logger.warn('warn')
+        logger.error('error')
         print(f'Request Path: {request.url.path}')
 
         # Use pattern matching for runner state endpoints
@@ -136,7 +138,7 @@ def start_api():
             if (path_in_route_patterns(path, UNSECURE_ROUTES) or
                 constants.auth_mode=="OFF") or (path_in_route_patterns(path, DEV_ROUTES) and
                                                 constants.auth_mode!="PROD"):
-                    logger.info('Unsecured route entered.')
+                    print('Unsecured route entered.')
                     final_response = await call_next(request)
 
             # Check for runner access paths
@@ -170,6 +172,7 @@ def start_api():
 
             # If none of the above, we must find an access token
             if not final_response and not access_token:
+                print('no auth methods present, error 400...')
                 final_response = Response(status_code = 400, content = "Missing Access Token")
 
             # Verify expiration on access token, if expired try to refresh
