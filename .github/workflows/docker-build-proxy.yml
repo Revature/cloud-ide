@@ -20,7 +20,7 @@ jobs:
                github.ref_name == 'main' && 'prod'
             || github.ref_name ==  'dev' && 'dev'
             || github.ref_name ==  'demo' && 'demo'
-            || github.ref_name ==  'feat*' && 'test'
+            || startsWith(github.ref_name, 'feat') && 'test'
             || 'NONE'
             }}
 

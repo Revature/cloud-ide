@@ -23,9 +23,9 @@ jobs:
              github.event.workflow_run.head_branch == 'main' && 'PRODUCTION'
           || github.event.workflow_run.head_branch ==  'dev' && 'DEVELOPMENT'
           || github.event.workflow_run.head_branch ==  'demo' && 'DEMO'
-          || github.event.workflow_run.head_branch ==  'feat*' && 'TEST'
+          || startsWith(github.ref_name, 'feat') && 'TEST'
           }}
-          
+
         steps:
             - name: Checkout
               uses: actions/checkout@v2
