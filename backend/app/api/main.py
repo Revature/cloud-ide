@@ -97,10 +97,7 @@ def start_api():
         Before the response is sent, execution returns to the middleware, where we make sure the access_token is updated before responding.
         """
         import logging
-        logger = logging.getLogger(__name__)
-        logger.debug('\n\ndebug')
-        logger.warn('warn')
-        logger.error('error')
+        logger = logging.getLogger(__name__) #logs getting buried by ASGI, only exception logs are forced to stdout
         print(f'Request Path: {request.url.path}')
 
         # Use pattern matching for runner state endpoints
