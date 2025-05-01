@@ -149,3 +149,51 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const awaitedParams = await params;
+    const id = awaitedParams.id;
+
+    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const endpoint = `/api/v1/images/${id}`;
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
+
+    console.log(`Deleting image with ID ${id} from backend: ${apiUrl}${endpoint}`);
+
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Token': accessToken,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+
+    console.log(`Image with ID ${id} deleted successfully.`);
+    return NextResponse.json({ message: `Image with ID ${id} deleted successfully.` });
+  } catch (error) {
+    const awaitedParams = await params;
+    const id = awaitedParams.id;
+    console.error(`Error deleting image with ID ${id}:`, error);
+
+    return NextResponse.json(
+      { error: `Failed to delete image with ID ${id}` },
+      { status: 500 }
+    );
+  }
+}
