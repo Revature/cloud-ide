@@ -99,13 +99,14 @@ def start_api():
         """
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f'Request Path: {request.url.path}')
+        logger.debug('\n\ndebug')
+        print(f'Request Path: {request.url.path}')
 
         # Use pattern matching for runner state endpoints
         path = request.url.path
         path_parts = path.split('/')
         runner_path_prefix = f"{API_ROOT_PATH}{API_VERSION}/runners/"
-        logger.info(f"Checking if path {path} starts with {runner_path_prefix}")
+        print(f"Checking if path {path} starts with {runner_path_prefix}")
 
         workos = get_workos_client()
 
@@ -119,11 +120,16 @@ def start_api():
         access_token = request.headers.get("Access-Token")
         wos_cookie = request.cookies.get("wos_session")
         #print route
-        logger.info(f"\n\nRequest Path: {request.url.path}")
+        print(f"\n\nRequest Path: {request.url.path}")
 
-        if request.headers.get("upgrade", "").lower() == "websocket":
-            logger.info(f"WebSocket connection detected, bypassing auth middleware")
-            return await call_next(request)
+        if not access_token:
+            print('not access-token')
+        if not wos_cookie:
+            print('not workos cookie')
+
+        # if request.headers.get("upgrade", "").lower() == "websocket":
+        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
+        #     return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
@@ -135,7 +141,7 @@ def start_api():
 
             # Check for runner access paths
             if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
-                logger.info('Runner access route entered.')
+                print('Runner access route entered.')
                 if (access_token and access_token == constants.jwt_secret):
                     final_response = await call_next(request)
                 elif (request.headers.get("Runner-Token")):
@@ -146,12 +152,12 @@ def start_api():
 
             # Check for wos_session cookie, if needed refresh it
             if (not final_response) and wos_cookie:
-                logger.info('wos_cookie secured route entered.')
+                print('wos_cookie secured route entered.')
                 auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
                 if auth_result.authenticated:
                     final_response = await call_next(request)
                 else:
-                    logger.info('Failed to auth with cookie, refreshing...')
+                    print('Failed to auth with cookie, refreshing...')
                     refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
                     final_response = await call_next(request)
                     final_response.set_cookie(
@@ -168,13 +174,13 @@ def start_api():
 
             # Verify expiration on access token, if expired try to refresh
             if (not final_response) and access_token:
-                logger.info('access-token secured route entered.')
+                print('access-token secured route entered.')
                 if verify_token_exp(access_token):
                     response: Response = await call_next(request)
                     response.headers['Access-Token'] = access_token
                     final_response = response
                 else:
-                    logger.info('Failed to auth with token, refreshing...')
+                    print('Failed to auth with token, refreshing...')
                     refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
                     refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
                     access_token = refresh_response.access_token
@@ -198,7 +204,7 @@ def start_api():
                 status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
                 content = '{"response":"Internal Server Error: ' + str(e) + '"}'
             )
-
+        print('returning final respose.')
         return final_response
 
     return api
