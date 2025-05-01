@@ -54,7 +54,7 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag ${{ env.ECR_REPOSITORY }}:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}}}
+                docker tag ${{ env.ECR_REPOSITORY }}:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}
 
                 docker tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
