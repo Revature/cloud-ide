@@ -10,7 +10,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_ALIAS: l4a3r3t7
-  TAG: ${{ github.ref_name == 'feat*' && 'feat' || 'temp' }}
+  TAG: ${{ github.ref_name == 'feat*' && 'feat' || 'test' }}
 
 jobs:
     Build-Proxy:
