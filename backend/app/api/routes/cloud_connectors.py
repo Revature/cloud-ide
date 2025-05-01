@@ -81,9 +81,14 @@ async def create_cloud_connector(cloud_connector: CloudConnectorCreate):
         secret_key=cloud_connector.secret_key,
     )
 
-    if "error" in result:
+    # Check the 'success' flag directly instead of looking for 'error'
+    if not result.get("success", False):
         # Return an error response with the missing permissions
-        return {"success": False, "message": result["message"], "denied_actions": result["denied_actions"]}
+        return {
+            "success": False, 
+            "message": result.get("message", "Validation failed"), 
+            "denied_actions": result.get("denied_actions", [])
+        }
     else:
         # Return success with the created connector
         return {"success": True, "connector": result["connector"]}
@@ -105,13 +110,5 @@ async def test_cloud_connector(cloud_connector_id: int):
     # Validate the cloud connector
     validation_result = await cloud_connector_management.validate_cloud_connector(cloud_connector)
 
-    if "error" in validation_result:
-        # Return an error response with the missing permissions
-        return {
-            "success": False,
-            "message": validation_result["message"],
-            "denied_actions": validation_result["denied_actions"]
-        }
-    else:
-        # Return success
-        return {"success": True}
+    # Simply return the validation result directly since it already has the correct format
+    return validation_result

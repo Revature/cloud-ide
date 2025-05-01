@@ -51,6 +51,7 @@ async def validate_cloud_connector(cloud_connector: CloudConnector) -> dict:
     - On success: {"success": True}
     - On failure: {"error": True, "message": str, "denied_actions": list[str]}
     """
+    print(f"Validating cloud connector: {cloud_connector}")
     try:
         # Create a cloud service instance to test the connection
         cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
@@ -83,8 +84,8 @@ async def create_and_validate_cloud_connector(region: str, provider: str, access
     3. If validation fails, deletes the connector from the database
 
     Returns:
-    - On success: {"connector": CloudConnector}
-    - On failure: {"error": True, "message": str, "denied_actions": list[str]}
+    - On success: {"success": True, "connector": CloudConnector}
+    - On failure: {"success": False, "message": str, "denied_actions": list[str]}
     """
     # Create the connector
     created_connector = create_cloud_connector(provider=provider, region=region, access_key=access_key, secret_key=secret_key)
@@ -93,13 +94,15 @@ async def create_and_validate_cloud_connector(region: str, provider: str, access
     validation_result = await validate_cloud_connector(created_connector)
 
     # If validation failed, delete the connector
-    if "error" in validation_result:
+    if not validation_result.get("success", False):
         with Session(engine) as session:
             db_connector = cloud_connector_repository.find_cloud_connector_by_id(session, created_connector.id)
             if db_connector:
                 session.delete(db_connector)
                 session.commit()
+        
+        # Return the validation result directly
         return validation_result
 
     # Validation successful
-    return {"connector": created_connector}
+    return {"success": True, "connector": created_connector}

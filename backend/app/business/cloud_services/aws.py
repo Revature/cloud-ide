@@ -47,16 +47,9 @@ class AWSCloudService(CloudService):
     async def validate_account(self) -> dict:
         """
         Verify the AWS account by performing dry runs of required operations.
-
-        Dry runs check if the account has permission to perform operations without
-        actually executing them, providing a reliable test of permissions.
-
+        
         Returns:
-            dict: {
-                "status": "success"|"failed",
-                "denied_actions": [list of denied actions],
-                "message": "Descriptive message"
-            }
+            dict: Status information including success/failure and denied actions
         """
         try:
             denied_actions = []
@@ -65,13 +58,20 @@ class AWSCloudService(CloudService):
             try:
                 self.sts_client.get_caller_identity()
             except Exception as e:
+                error_message = str(e)
+                print(f"STS validation failed: {error_message}")
+                # Add more debug information
+                print("Returning failed status due to STS validation failure")
                 return {
                     "status": "failed",
-                    "denied_actions": [],
-                    "message": f"Invalid AWS credentials: {e!s}"
+                    "denied_actions": ["sts:GetCallerIdentity"],
+                    "message": f"Invalid AWS credentials: {error_message}"
                 }
+                
+            # If we reach here, STS validation succeeded
+            print("STS validation succeeded, continuing with permission checks")
 
-            # Define all operations to test with dry run
+            # Define operations to test with dry run
             operations = [
                 # EC2 Instance Operations
                 {
@@ -135,18 +135,30 @@ class AWSCloudService(CloudService):
                     error_msg = str(e)
                     print(f"Testing {op['action']}: Error code: {error_code}, Message: {error_msg}")
 
-                    # DryRunOperation means success (we have permission)
+                    # Only DryRunOperation error means success (we have permission)
                     if error_code == "DryRunOperation":
                         # This is a success - we have permission
                         print(f"{op['action']} permission confirmed")
                     else:
-                        # Check if this is a resource-not-found error
-                        error_msg_lower = str(e).lower()
-                        resource_not_found = (
-                            "notfound" in error_msg_lower or
-                            "not found" in error_msg_lower or
-                            "does not exist" in error_msg_lower
-                        )
+                        # Check for auth-related errors first (these are critical failures)
+                        auth_error = any(err in error_code.lower() or err in error_msg.lower() for err in [
+                            "unauthorized", "accessdenied", "authfailure", "invalidclienttokenid", 
+                            "signaturenotmatch", "authorizationfailure"
+                        ])
+                        
+                        if auth_error:
+                            print(f"{op['action']} authentication failed: {error_code}")
+                            # Exit early on authentication errors
+                            return {
+                                "status": "failed",
+                                "denied_actions": [op["action"]],
+                                "message": f"Authentication failed: {error_msg}"
+                            }
+                        
+                        # Now check for resource-not-found errors (these are OK)
+                        resource_not_found = any(phrase in error_msg.lower() for phrase in [
+                            "notfound", "not found", "does not exist", "nonexistent"
+                        ])
 
                         if resource_not_found:
                             print(f"{op['action']} resource not found, but permission is likely OK")
@@ -154,10 +166,19 @@ class AWSCloudService(CloudService):
                             print(f"{op['action']} permission denied: {error_code}")
                             denied_actions.append(op["action"])
 
-            # S3 Operations (no dry run support, use non-destructive calls)
+            # S3 Operations (no dry run support)
             try:
                 self.s3_client.list_buckets()
-            except Exception:
+            except Exception as e:
+                error_msg = str(e).lower()
+                # Check for auth errors specifically
+                if any(err in error_msg for err in ["unauthorized", "accessdenied", "authfailure", 
+                                                "invalidclienttokenid", "signaturenotmatch"]):
+                    return {
+                        "status": "failed",
+                        "denied_actions": ["s3:ListBuckets"],
+                        "message": f"Authentication failed for S3: {e!s}"
+                    }
                 denied_actions.append("s3:ListBuckets")
 
             # Determine status based on results
