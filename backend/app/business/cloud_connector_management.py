@@ -100,7 +100,7 @@ async def create_and_validate_cloud_connector(region: str, provider: str, access
             if db_connector:
                 session.delete(db_connector)
                 session.commit()
-        
+
         # Return the validation result directly
         return validation_result
 

@@ -85,8 +85,8 @@ async def create_cloud_connector(cloud_connector: CloudConnectorCreate):
     if not result.get("success", False):
         # Return an error response with the missing permissions
         return {
-            "success": False, 
-            "message": result.get("message", "Validation failed"), 
+            "success": False,
+            "message": result.get("message", "Validation failed"),
             "denied_actions": result.get("denied_actions", [])
         }
     else:

@@ -47,7 +47,7 @@ class AWSCloudService(CloudService):
     async def validate_account(self) -> dict:
         """
         Verify the AWS account by performing dry runs of required operations.
-        
+
         Returns:
             dict: Status information including success/failure and denied actions
         """
@@ -67,7 +67,7 @@ class AWSCloudService(CloudService):
                     "denied_actions": ["sts:GetCallerIdentity"],
                     "message": f"Invalid AWS credentials: {error_message}"
                 }
-                
+
             # If we reach here, STS validation succeeded
             print("STS validation succeeded, continuing with permission checks")
 
@@ -142,10 +142,10 @@ class AWSCloudService(CloudService):
                     else:
                         # Check for auth-related errors first (these are critical failures)
                         auth_error = any(err in error_code.lower() or err in error_msg.lower() for err in [
-                            "unauthorized", "accessdenied", "authfailure", "invalidclienttokenid", 
+                            "unauthorized", "accessdenied", "authfailure", "invalidclienttokenid",
                             "signaturenotmatch", "authorizationfailure"
                         ])
-                        
+
                         if auth_error:
                             print(f"{op['action']} authentication failed: {error_code}")
                             # Exit early on authentication errors
@@ -154,7 +154,7 @@ class AWSCloudService(CloudService):
                                 "denied_actions": [op["action"]],
                                 "message": f"Authentication failed: {error_msg}"
                             }
-                        
+
                         # Now check for resource-not-found errors (these are OK)
                         resource_not_found = any(phrase in error_msg.lower() for phrase in [
                             "notfound", "not found", "does not exist", "nonexistent"
@@ -172,7 +172,7 @@ class AWSCloudService(CloudService):
             except Exception as e:
                 error_msg = str(e).lower()
                 # Check for auth errors specifically
-                if any(err in error_msg for err in ["unauthorized", "accessdenied", "authfailure", 
+                if any(err in error_msg for err in ["unauthorized", "accessdenied", "authfailure",
                                                 "invalidclienttokenid", "signaturenotmatch"]):
                     return {
                         "status": "failed",
