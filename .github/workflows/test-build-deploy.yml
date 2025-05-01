@@ -42,7 +42,7 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag cde/proxy:test $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:${{env.TAG}}
+                docker tag cde/proxy:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:${{env.TAG}}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:${{env.TAG}}
 
     Build-Backend:
@@ -74,7 +74,7 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag cde/monolith:test $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:${{env.TAG}}
+                docker tag cde/monolith:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:${{env.TAG}}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:${{env.TAG}}
     
     Build-Frontend:
@@ -106,7 +106,7 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag cde/frontend:test $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:${{env.TAG}}
+                docker tag cde/frontend:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:${{env.TAG}}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:${{env.TAG}}
 
     Deploy:
