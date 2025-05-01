@@ -19,14 +19,13 @@ API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
 
 # Update route patterns with proper regex patterns
+# I think we may need to anchor these patterns to the beginning of the string? with the '^' regex character
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/?$',
     f'{API_VERSION}/user_auth/authkit_url/',
     f'{API_VERSION}/user_auth/authkit_redirect/',
     f'{API_VERSION}/user_auth/callback/',
-    f'{API_VERSION}/runners/\\d+/state/?$',
-    f'{API_VERSION}/?$',
-    f'{API_VERSION}/'
+    f'{API_VERSION}/runners/\\d+/state/?$'
     )
 
 RUNNER_ACCESS_ROUTES: tuple = (
@@ -140,6 +139,11 @@ def start_api():
                                                 constants.auth_mode!="PROD"):
                     print('Unsecured route entered.')
                     final_response = await call_next(request)
+
+            # I removed auth_mode check, not sure why but we were bypassing middleware for all requests.
+            if path_in_route_patterns(path, UNSECURE_ROUTES):
+                print('Unsecured route entered.')
+                final_response = await call_next(request)
 
             # Check for runner access paths
             if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
