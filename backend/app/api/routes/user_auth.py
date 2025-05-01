@@ -35,9 +35,7 @@ def authkit_callback(request: Request, code: str):
     try:
         auth_result = handle_callback_code(code = code)
         response = RedirectResponse(
-            url = auth_landing_url,
-            status_code=status.HTTP_200_OK,
-            content='{"response":"Session cookie granted. Redirecting..."}'
+            url = auth_landing_url
         )
         response.set_cookie(
             key = "wos_session",
