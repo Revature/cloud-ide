@@ -1,3 +1,0 @@
-nudge
-bump
-poke
