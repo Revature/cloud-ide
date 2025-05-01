@@ -147,7 +147,7 @@ def start_api():
                         final_response = await call_next(request)
 
             # Check for wos_session cookie, if needed refresh it
-            if not final_response and wos_cookie:
+            if (not final_response) and wos_cookie:
                 auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
                 if auth_result.authenticated:
                     final_response = await call_next(request)
