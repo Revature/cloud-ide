@@ -97,10 +97,7 @@ def start_api():
         Before the response is sent, execution returns to the middleware, where we make sure the access_token is updated before responding.
         """
         import logging
-        logger = logging.getLogger(__name__)
-        logger.debug('\n\ndebug')
-        logger.warn('warn')
-        logger.error('error')
+        logger = logging.getLogger(__name__) #logs getting buried by ASGI, only exception logs are forced to stdout
         print(f'Request Path: {request.url.path}')
 
         # Use pattern matching for runner state endpoints
@@ -139,11 +136,6 @@ def start_api():
                                                 constants.auth_mode!="PROD"):
                     print('Unsecured route entered.')
                     final_response = await call_next(request)
-
-            # I removed auth_mode check, not sure why but we were bypassing middleware for all requests.
-            if path_in_route_patterns(path, UNSECURE_ROUTES):
-                print('Unsecured route entered.')
-                final_response = await call_next(request)
 
             # Check for runner access paths
             if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
