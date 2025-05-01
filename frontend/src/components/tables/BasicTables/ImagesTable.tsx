@@ -18,6 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/modal";
 import ProgressBar from "@/components/ui/progress/ProgressBar";
 import RefreshButton from "@/components/ui/button/RefreshButton";
+import { imagesApi } from "@/services/cloud-resources/images";
 
 export default function ImagesTable() {
   const router = useRouter();
@@ -150,23 +151,15 @@ export default function ImagesTable() {
     if (deleteImageId !== null) {
       try {
         console.log(`Sending DELETE request for image ID: ${deleteImageId}`);
-        const response = await fetch(`http://localhost:8020/api/v1/images/${deleteImageId}`, {
-          method: "DELETE",
-        });
-  
-        if (!response.ok) {
-          console.error(`Failed to delete image with ID ${deleteImageId}. HTTP status: ${response.status}`);
-          return;
-        }
-  
-        const responseData = await response.json();
-        console.log("Response data:", responseData);
-  
+        
+        // Use the imagesApi.delete method
+        await imagesApi.delete(deleteImageId);
+
         console.log(`Image with ID ${deleteImageId} deleted successfully.`);
         setDeleteModalOpen(false);
         setDeleteImageId(null);
         setProgress(0);
-  
+
         // Optionally, refresh the images list
         queryClient.invalidateQueries({ queryKey: ["images"] });
       } catch (error) {
