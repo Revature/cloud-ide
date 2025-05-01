@@ -4,11 +4,13 @@ on:
     push:
         branches:
             - feat*
+            - tmp*
     workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
   ECR_ALIAS: l4a3r3t7
+  TAG: ${{ github.ref_name == 'feat*' && 'feat' || 'temp' }}
 
 jobs:
     Build-Proxy:
@@ -19,7 +21,7 @@ jobs:
 
             - name: Build Docker Image
               id: build-proxy
-              run: docker build --file ./proxy/Dockerfile --tag cde/proxy:test ./proxy
+              run: docker build --file ./proxy/Dockerfile --tag cde/proxy:${{env.TAG}} ./proxy
               
             - name: Configure AWS credentials
               id: aws-credentials
@@ -40,8 +42,8 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag cde/proxy:test $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:test
-                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:test
+                docker tag cde/proxy:test $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:${{env.TAG}}
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/proxy:${{env.TAG}}
 
     Build-Backend:
         runs-on: ubuntu-latest
@@ -51,7 +53,7 @@ jobs:
 
             - name: Build Docker Image
               id: build-backend
-              run: docker build --file ./backend/Dockerfile --tag cde/monolith:test ./backend
+              run: docker build --file ./backend/Dockerfile --tag cde/monolith:${{env.TAG}} ./backend
 
             - name: Configure AWS credentials
               id: aws-credentials
@@ -72,8 +74,8 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag cde/monolith:test $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:test
-                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:test
+                docker tag cde/monolith:test $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:${{env.TAG}}
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/monolith:${{env.TAG}}
     
     Build-Frontend:
         runs-on: ubuntu-latest
@@ -83,7 +85,7 @@ jobs:
 
             - name: Build Docker Image
               id: build-frontend
-              run: docker build --file ./frontend/Dockerfile --tag cde/frontend:test ./frontend
+              run: docker build --file ./frontend/Dockerfile --tag cde/frontend:${{env.TAG}} ./frontend
               
             - name: Configure AWS credentials
               id: aws-credentials
@@ -104,8 +106,8 @@ jobs:
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag cde/frontend:test $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:test
-                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:test
+                docker tag cde/frontend:test $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:${{env.TAG}}
+                docker push $ECR_REGISTRY/$ECR_ALIAS/cde/frontend:${{env.TAG}}
 
     Deploy:
         runs-on: self-hosted
@@ -152,4 +154,4 @@ jobs:
                 port: 22
                 user: ${{ secrets.USER }}
                 private_key: ${{ secrets.RSA_KEY }}
-                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/test-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env up --quiet-pull -d"
+                command: "docker-compose -f /home/${{ secrets.USER }}/orchestration/docker-compose.yml --env-file /home/${{ secrets.USER }}/orchestration/.env up --quiet-pull -d"
