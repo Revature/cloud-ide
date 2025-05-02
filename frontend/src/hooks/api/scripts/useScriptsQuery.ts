@@ -24,4 +24,18 @@ function useScriptsQuery(id?: number): UseQueryResult<Script | Script[], Error> 
   return queryResult;
 }
 
-export { useScriptsQuery };
+function useScriptsByImageIdQuery(imageId: number): UseQueryResult<Script[], Error> {
+  const queryKey: QueryKey = ["scripts", "image", imageId];
+
+  const queryFn = async (): Promise<Script[]> => scriptsApi.getAllByImageId(imageId);
+
+  const queryResult = useQuery({
+    queryKey: queryKey,
+    queryFn: queryFn,
+    enabled: !!imageId, // Only fetch if imageId is provided
+  });
+
+  return queryResult;
+}
+
+export { useScriptsQuery, useScriptsByImageIdQuery };

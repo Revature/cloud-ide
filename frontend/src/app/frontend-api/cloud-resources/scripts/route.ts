@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
               imageId: item.image_id,
               description: item.description,
               script: item.script,
+              event: item.event,
               createdAt: new Date(item.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short', 
@@ -50,3 +51,53 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function POST(request: NextRequest) {
+    try {
+      const body = await request.json();
+  
+      const response = await fetch(`${apiUrl}/api/v1/scripts/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Token': request.headers.get('Access-Token') || '',
+        },
+        body: body,
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Failed to create script. Status: ${response.status}`);
+      }
+  
+      const createdData: BackendScript = await response.json();
+  
+      const transformedData: Script = {
+        id: createdData.id,
+        name: createdData.name,
+        imageId: createdData.image_id,
+        description: createdData.description,
+        script: createdData.script,
+        event: createdData.event,
+        createdAt: new Date(createdData.created_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
+        updatedAt: new Date(createdData.updated_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
+        createdBy: createdData.created_by,
+        modifiedBy: createdData.modified_by,
+      };
+  
+      return NextResponse.json(transformedData);
+    } catch (error) {
+      console.error('Error creating script:', error);
+      return NextResponse.json(
+        { error: 'Failed to create script' },
+        { status: 500 }
+      );
+    }
+  }

@@ -10,10 +10,11 @@ import {
 } from "../../ui/table";
 import Button from "../../ui/button/Button";
 import RefreshButton from "@/components/ui/button/RefreshButton";
-import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsData";
+import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import { useRouter } from "next/navigation";
 import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
 import { useImageForItems } from "@/hooks/api/images/useImageForItems";
+import Link from "next/link";
 
 const ScriptsTable: React.FC = () => {
   const router = useRouter();
@@ -65,10 +66,6 @@ const ScriptsTable: React.FC = () => {
     router.push(`/scripts/view/${scriptId}`);
   };
 
-  // Handle viewing an image
-  const handleViewImage = (imageId: number) => {
-      router.push(`/images/view/${imageId}`);
-    };     
   // Handle editing a script
   const handleEditScript = (scriptId: number) => {
     router.push(`/scripts/edit/${scriptId}`);
@@ -175,7 +172,7 @@ const ScriptsTable: React.FC = () => {
             </div>
           </form>
 
-          <Button size="sm" variant="primary" onClick={() => router.push("/scripts1/add")}>
+          <Button size="sm" variant="primary" onClick={() => router.push("/scripts/add")}>
             Add Script
           </Button>
         </div>
@@ -211,24 +208,24 @@ const ScriptsTable: React.FC = () => {
                 visibleScripts.map((script) => (
                   <TableRow key={script.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.03]">
                     <TableCell className="px-4 py-4 text-sm font-medium">
-                    <a
-                        onClick={() => handleViewScript(script.id)}
+                    <Link
+                        href={`view/${script.id}`}
                         className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 cursor-pointer"
                       >
                       {script.name}
-                      </a>
+                      </Link>
                     </TableCell>
               <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
                       {script.description}
                     </TableCell>
                     <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
                       {script.imageId && imagesById[script.imageId] ? (
-                        <a
-                          onClick={() => handleViewImage(script.imageId!)}
+                        <Link
+                          href={`view/${script.imageId}`}
                           className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 cursor-pointer"
                         >
                           {imagesById[script.imageId].name}
-                        </a>
+                        </Link>
                       ) : (
                         <span className="text-gray-500 dark:text-gray-400">No Image</span>
                       )}

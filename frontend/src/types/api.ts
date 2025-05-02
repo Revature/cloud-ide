@@ -97,6 +97,7 @@ export interface BackendScript{
   name: string;
   description: string;
   script: string; 
+  event: string;
   image_id: number;
   created_at: string;
   updated_at: string;

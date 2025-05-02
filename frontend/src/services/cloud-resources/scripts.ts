@@ -6,6 +6,9 @@ export const scriptsApi = {
   getAll: () =>
     apiRequest<Script[]>('/cloud-resources/scripts/'),
 
+  getAllByImageId: (id: number) =>
+    apiRequest<Script[]>(`/cloud-resources/scripts/image/${id}`),
+
   getById: (id: number) =>
     apiRequest<Script>(`/cloud-resources/scripts/${id}`),
 

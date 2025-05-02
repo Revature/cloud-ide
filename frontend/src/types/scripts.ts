@@ -3,6 +3,7 @@ export interface Script{
     name: string;
     description: string;
     script: string; 
+    event: string;
     imageId: number;
     createdAt: string;
     updatedAt: string;

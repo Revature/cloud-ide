@@ -151,7 +151,8 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
     
     // Construct proper absolute WebSocket URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//devide.revature.com/api/v1/runners/connect/${runnerId}`;
+    // const wsUrl = `${wsProtocol}//devide.revature.com/api/v1/runners/connect/${runnerId}`;
+    const wsUrl = `${wsProtocol}//localhost:8000/api/v1/runners/connect/${runnerId}`;
     console.log(`Connecting to WebSocket: ${wsUrl}`);
     
     // Determine WebSocket URL using environment variables
