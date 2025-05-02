@@ -15,9 +15,48 @@ import { useRouter } from "next/navigation";
 import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
 import { useImageForItems } from "@/hooks/api/images/useImageForItems";
 import Link from "next/link";
+import { scriptsApi } from "@/services/cloud-resources/scripts";
+import { useQueryClient } from "@tanstack/react-query";
+
+// Function to get event color
+const getEventColor = (event: string) => {
+  switch (event) {
+    case "on_create":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    case "on_awaiting_client":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+    case "on_connect":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+    case "on_disconnect":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
+    case "on_terminate":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+  }
+};
+
+// Function to get event label
+const getEventLabel = (event: string) => {
+  switch (event) {
+    case "on_create":
+      return "On Create";
+    case "on_awaiting_client":
+      return "Awaiting Client";
+    case "on_connect":
+      return "On Connect";
+    case "on_disconnect":
+      return "On Disconnect";
+    case "on_terminate":
+      return "On Terminate";
+    default:
+      return event;
+  }
+};
 
 const ScriptsTable: React.FC = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null); // Track which dropdown is active
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,6 +105,15 @@ const ScriptsTable: React.FC = () => {
     router.push(`/scripts/view/${scriptId}`);
   };
 
+  const handleDeleteScript = async (scriptId: number) => {
+    try {
+      await scriptsApi.delete(scriptId);
+      queryClient.invalidateQueries({ queryKey: ["scripts"] }); // Refresh the scripts list
+    } catch (error) {
+      console.error("Failed to delete script:", error);
+    }
+  };
+  
   // Handle editing a script
   const handleEditScript = (scriptId: number) => {
     router.push(`/scripts/edit/${scriptId}`);
@@ -187,6 +235,9 @@ const ScriptsTable: React.FC = () => {
                   Name
                 </TableCell>
                 <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                  Event
+                </TableCell>
+                <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
                   Description
                 </TableCell>
                 <TableCell isHeader className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400">
@@ -215,7 +266,16 @@ const ScriptsTable: React.FC = () => {
                       {script.name}
                       </Link>
                     </TableCell>
-              <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
+                    <TableCell className="px-4 py-4 text-sm">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEventColor(
+                          script.event
+                        )}`}
+                      >
+                        {getEventLabel(script.event)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
                       {script.description}
                     </TableCell>
                     <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
@@ -283,10 +343,10 @@ const ScriptsTable: React.FC = () => {
                         </div>
                         {/* Delete Button */}
                         <button
-                            onClick={() => console.log("Temporary delete action")}
-                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                            title="Delete Runner"
-                          >
+                          onClick={() => handleDeleteScript(script.id)}
+                          className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                          title="Delete Script"
+                        >
                           <svg
                             width="20"
                             height="20"
@@ -298,10 +358,10 @@ const ScriptsTable: React.FC = () => {
                               fillRule="evenodd"
                               clipRule="evenodd"
                               d="M6.54142 3.7915C6.54142 2.54886 7.54878 1.5415 8.79142 1.5415H11.2081C12.4507 1.5415 13.4581 2.54886 13.4581 3.7915V4.0415H15.6252H16.666C17.0802 4.0415 17.416 4.37729 17.416 4.7915C17.416 5.20572 17.0802 5.5415 16.666 5.5415H16.3752V8.24638V13.2464V16.2082C16.3752 17.4508 15.3678 18.4582 14.1252 18.4582H5.87516C4.63252 18.4582 3.62516 17.4508 3.62516 16.2082V13.2464V8.24638V5.5415H3.3335C2.91928 5.5415 2.5835 5.20572 2.5835 4.7915C2.5835 4.37729 2.91928 4.0415 3.3335 4.0415H4.37516H6.54142V3.7915ZM14.8752 13.2464V8.24638V5.5415H13.4581H12.7081H7.29142H6.54142H5.12516V8.24638V13.2464V16.2082C5.12516 16.6224 5.46095 16.9582 5.87516 16.9582H14.1252C14.5394 16.9582 14.8752 16.6224 14.8752 16.2082V13.2464ZM8.04142 4.0415H11.9581V3.7915C11.9581 3.37729 11.6223 3.0415 11.2081 3.0415H8.79142C8.37721 3.0415 8.04142 3.37729 8.04142 3.7915V4.0415ZM8.3335 7.99984C8.74771 7.99984 9.0835 8.33562 9.0835 8.74984V13.7498C9.0835 14.1641 8.74771 14.4998 8.3335 14.4998C7.91928 14.4998 7.5835 14.1641 7.5835 13.7498V8.74984C7.5835 8.33562 7.91928 7.99984 8.3335 7.99984ZM12.4168 8.74984C12.4168 8.33562 12.081 7.99984 11.6668 7.99984C11.2526 7.99984 10.9168 8.33562 10.9168 8.74984V13.7498C10.9168 14.1641 11.2526 14.4998 11.6668 14.4998C12.081 14.4998 12.4168 14.1641 12.4168 13.7498V8.74984Z"
-                            fill="currentColor"
-                          />
+                              fill="currentColor"
+                            />
                           </svg>
-                          </button>
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>

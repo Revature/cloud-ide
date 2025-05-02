@@ -7,6 +7,7 @@ import Select from "@/components/form/Select";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import { scriptsApi } from "@/services/cloud-resources/scripts";
 import { SpinnerIcon, SuccessIcon, ErrorIcon } from "@/components/ui/icons/CustomIcons";
+import CodeEditor from "../ui/codeEditor/codeEditor";
 
 interface ScriptFormProps {
   initialData?: {
@@ -50,18 +51,6 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ initialData }) => {
     { value: "on_disconnect", label: "On Disconnect - When a user disconnects from a runner" },
     { value: "on_terminate", label: "On Terminate - When a runner is being terminated" },
   ];
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setScript(content);
-      };
-      reader.readAsText(file);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,24 +126,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ initialData }) => {
 
       <div>
         <Label htmlFor="script">Script</Label>
-        <textarea
-          id="script"
-          value={script}
-          onChange={(e) => setScript(e.target.value)}
-          className="w-full mt-1 rounded-lg border-gray-300 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-          rows={10}
-          placeholder="Write your script here..."
-        />
-        <div className="mt-2">
-          <Label htmlFor="fileUpload">Or Upload a Script File</Label>
-          <input
-            id="fileUpload"
-            type="file"
-            accept=".txt,.js,.py,.sh"
-            onChange={handleFileUpload}
-            className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 dark:file:bg-gray-800 dark:file:text-gray-300 dark:hover:file:bg-gray-700"
-          />
-        </div>
+        <CodeEditor value={script} onChange={setScript} />
       </div>
 
       <div className="flex justify-end items-center space-x-4">

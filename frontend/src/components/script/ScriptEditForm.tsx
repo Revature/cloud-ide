@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
 import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import { scriptsApi } from "@/services/cloud-resources/scripts";
 import { SpinnerIcon, SuccessIcon, ErrorIcon } from "@/components/ui/icons/CustomIcons";
+import CodeEditor from "../ui/codeEditor/codeEditor";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ScriptEditFormProps {
   scriptId: number;
@@ -14,15 +16,16 @@ interface ScriptEditFormProps {
 
 const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Fetch the script data using the script ID
   const { data: script, isLoading, error } = useScriptsQuery(scriptId);
 
   // State for form fields
-  const [name, setName] = useState(script?.name || "");
-  const [description, setDescription] = useState(script?.description || "");
-  const [event, setEvent] = useState(script?.event || "on_create");
-  const [scriptContent, setScriptContent] = useState(script?.script || "");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [event, setEvent] = useState("on_create");
+  const [scriptContent, setScriptContent] = useState("");
 
   // State for save status
   const [isSaving, setIsSaving] = useState(false);
@@ -37,17 +40,14 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
     { value: "on_terminate", label: "On Terminate - When a runner is being terminated" },
   ];
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setScriptContent(content);
-      };
-      reader.readAsText(file);
+  useEffect(() => {
+    if (script) {
+      setName(script.name);
+      setDescription(script.description);
+      setEvent(script.event);
+      setScriptContent(script.script);
     }
-  };
+  }, [script]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +58,9 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
       // Call the scriptsApi.update function to update the script
       await scriptsApi.update(scriptId, { name, description, event, script: scriptContent });
       setSaveStatus("success");
+
+      // Invalidate the query to refresh the script data
+      queryClient.invalidateQueries({ queryKey: ["script", scriptId] });
 
       // Wait for 2 seconds before navigating back to the script's view page
       setTimeout(() => {
@@ -94,6 +97,7 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
           onChange={(e) => setName(e.target.value)}
           className="w-full mt-1 rounded-lg border-gray-300 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
           required
+          placeholder="Enter script name..."
         />
       </div>
 
@@ -106,6 +110,7 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
           className="w-full mt-1 rounded-lg border-gray-300 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
           rows={4}
           required
+          placeholder="Description about what this script does..."
         />
       </div>
 
@@ -120,24 +125,7 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
 
       <div>
         <Label htmlFor="script">Script</Label>
-        <textarea
-          id="script"
-          value={scriptContent}
-          onChange={(e) => setScriptContent(e.target.value)}
-          className="w-full mt-1 rounded-lg border-gray-300 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-          rows={10}
-          placeholder="Write your script here..."
-        />
-        <div className="mt-2">
-          <Label htmlFor="fileUpload">Or Upload a Script File</Label>
-          <input
-            id="fileUpload"
-            type="file"
-            accept=".txt,.js,.py,.sh"
-            onChange={handleFileUpload}
-            className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-300 file:text-sm file:font-semibold file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100 dark:file:bg-gray-800 dark:file:text-gray-300 dark:hover:file:bg-gray-700"
-          />
-        </div>
+        <CodeEditor value={scriptContent} onChange={setScriptContent} />
       </div>
 
       <div className="flex justify-end items-center space-x-4">

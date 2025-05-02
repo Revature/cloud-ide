@@ -6,6 +6,7 @@ import Button from "@/components/ui/button/Button";
 import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import { useImageForItems } from "@/hooks/api/images/useImageForItems";
 import Link from "next/link";
+import CodeEditor from "../ui/codeEditor/codeEditor";
 
 // Function to get event color
 const getEventColor = (event: string) => {
@@ -200,9 +201,7 @@ const ScriptView: React.FC = () => {
         <div>
           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Script Content</h4>
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <pre className="text-sm text-gray-800 dark:text-gray-300 overflow-auto">
-              {script.script || "No script content available."}
-            </pre>
+            <CodeEditor value={script.script || "No script content available."} readOnly={true} />
           </div>
         </div>
       </div>
