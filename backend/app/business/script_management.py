@@ -303,6 +303,93 @@ echo '{config_json}' > /home/ubuntu/.cloudide.config
 echo 'Setup config'
 """
     await execute_script_for_runner("config", runner_id, write_config_script)
+    
+async def run_custom_script_for_runner(
+    runner_id: int,
+    script_path: str,
+    env_vars: Optional[dict[str, Any]] = None,
+    initiated_by: str = "system"
+) -> dict[str, Any]:
+    """
+    Run a custom script file on a runner.
+    
+    Args:
+        runner_id: The ID of the runner to execute the script on
+        script_path: Path to the script file to execute
+        env_vars: Optional dictionary of environment variables to pass to the script
+        initiated_by: Identifier of the service/job that initiated the script execution
+        
+    Returns:
+        A dictionary with script output and error information.
+    """
+    logger.info(f"[{initiated_by}] Starting custom script execution from '{script_path}' for runner {runner_id}")
+    script_start_time = datetime.now(timezone.utc)
+    
+    try:
+        # Read the script content from the file
+        with open(script_path, 'r') as file:
+            script_content = file.read()
+        
+        runner = runner_management.get_runner_by_id(runner_id)
+        
+        # Create a template context if env_vars are provided
+        if env_vars:
+            template_context = {"env_vars": env_vars}
+            script_content = render_script(script_content, template_context)
+        
+        # Execute the script on the runner
+        result = await execute_script_for_runner(
+            event="custom_script",
+            runner_id=runner_id,
+            script=script_content,
+            initiated_by=initiated_by
+        )
+        
+        # Add script path to the result for reference
+        result["script_path"] = script_path
+        
+        # Record the custom script execution in runner history
+        with Session(engine) as session:
+            runner_obj = runner_repository.find_runner_by_id(session, runner_id)
+            if runner_obj:
+                runner_history_repository.add_runner_history(
+                    session=session,
+                    runner=runner_obj,
+                    event_name="custom_script_executed",
+                    event_data={
+                        "script_path": script_path,
+                        "initiated_by": initiated_by,
+                        "success": result.get("success", False),
+                        "exit_code": result.get("exit_code", None),
+                        "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                    },
+                    created_by=initiated_by
+                )
+        
+        return result
+        
+    except Exception as e:
+        error_message = f"Error executing custom script '{script_path}' on runner {runner_id}: {e!s}"
+        logger.error(f"[{initiated_by}] {error_message}")
+        
+        # Record the script execution error
+        with Session(engine) as session:
+            runner = runner_repository.find_runner_by_id(session, runner_id)
+            if runner:
+                runner_history_repository.add_runner_history(
+                    session=session,
+                    runner=runner,
+                    event_name="custom_script_error",
+                    event_data={
+                        "script_path": script_path,
+                        "initiated_by": initiated_by,
+                        "error": str(e),
+                        "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                    },
+                    created_by=initiated_by
+                )
+        
+        raise Exception(error_message) from e
 
 def get_all_scripts() -> list[Script]:
     """Get all scripts."""

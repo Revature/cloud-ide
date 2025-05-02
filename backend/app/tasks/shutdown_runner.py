@@ -374,6 +374,164 @@ def terminate_instance(resources, initiated_by, result, task=None):
             "message": error_message
         })
         return False
+    
+async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") -> dict:
+    """
+    Delete the Prometheus metrics for a runner when it's terminated.
+    
+    Args:
+        runner_id: ID of the runner to delete metrics for
+        initiated_by: String identifier of what triggered this action
+        
+    Returns:
+        dict: Status information about the metrics deletion process
+    """
+    try:
+        logger.info(f"[{initiated_by}] Deleting Prometheus metrics for runner {runner_id}")
+        
+        # Get the runner to access its IP address
+        with Session(engine) as session:
+            runner = runner_repository.find_runner_by_id(session, runner_id)
+            if not runner or not runner.url:
+                message = f"Runner {runner_id} not found or has no URL."
+                logger.error(f"[{initiated_by}] {message}")
+                return {"status": "error", "message": message}
+            
+            runner_ip = runner.url
+            
+            # Use urllib instead of requests to send the DELETE request to Prometheus Pushgateway
+            import urllib.request
+            import urllib.error
+            import os
+            
+            # Get the Prometheus Pushgateway URL from environment variable or use default
+            prometheus_host = os.environ.get("PROMETHEUS_PUSHGATEWAY_URL")
+            if not prometheus_host:
+                message = "PROMETHEUS_PUSHGATEWAY_URL environment variable not set"
+                logger.error(f"[{initiated_by}] {message}")
+                return {"status": "error", "message": message}
+                
+            prometheus_url = f"{prometheus_host}/metrics/job/{runner_ip}"
+            
+            # Create a DELETE request
+            req = urllib.request.Request(
+                url=prometheus_url,
+                method="DELETE"
+            )
+            
+            try:
+                # Open the request with a timeout
+                response = urllib.request.urlopen(req, timeout=5)
+                status_code = response.status
+                response_text = response.read().decode('utf-8')
+                response.close()
+                
+                if status_code == 200 or status_code == 202:
+                    message = f"Successfully deleted metrics for runner {runner_id} ({runner_ip})"
+                    logger.info(f"[{initiated_by}] {message}")
+                    
+                    # Record the successful deletion in runner history
+                    runner_history_repository.add_runner_history(
+                        session=session,
+                        runner=runner,
+                        event_name="prometheus_metrics_deleted",
+                        event_data={
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "initiated_by": initiated_by,
+                            "prometheus_url": prometheus_url,
+                            "status_code": status_code
+                        },
+                        created_by="system"
+                    )
+                    
+                    return {"status": "success", "message": message}
+                else:
+                    message = f"Failed to delete metrics for runner {runner_id} ({runner_ip}). Status code: {status_code}"
+                    logger.error(f"[{initiated_by}] {message}")
+                    
+                    # Record the failed deletion in runner history
+                    runner_history_repository.add_runner_history(
+                        session=session,
+                        runner=runner,
+                        event_name="prometheus_metrics_deletion_failed",
+                        event_data={
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "initiated_by": initiated_by,
+                            "prometheus_url": prometheus_url,
+                            "status_code": status_code,
+                            "response_text": response_text[:500] if response_text else None
+                        },
+                        created_by="system"
+                    )
+                    
+                    return {"status": "error", "message": message, "status_code": status_code}
+                    
+            except urllib.error.HTTPError as http_err:
+                status_code = http_err.code
+                error_message = f"HTTP error occurred: {http_err} (Status code: {status_code})"
+                logger.error(f"[{initiated_by}] {error_message}")
+                
+                # Record the failed deletion in runner history
+                runner_history_repository.add_runner_history(
+                    session=session,
+                    runner=runner,
+                    event_name="prometheus_metrics_deletion_failed",
+                    event_data={
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "initiated_by": initiated_by,
+                        "prometheus_url": prometheus_url,
+                        "status_code": status_code,
+                        "error": str(http_err)
+                    },
+                    created_by="system"
+                )
+                
+                return {"status": "error", "message": error_message, "status_code": status_code}
+                
+            except urllib.error.URLError as url_err:
+                error_message = f"URL error occurred: {url_err}"
+                logger.error(f"[{initiated_by}] {error_message}")
+                
+                # Record the failed deletion in runner history
+                runner_history_repository.add_runner_history(
+                    session=session,
+                    runner=runner,
+                    event_name="prometheus_metrics_deletion_failed",
+                    event_data={
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "initiated_by": initiated_by,
+                        "prometheus_url": prometheus_url,
+                        "error": str(url_err)
+                    },
+                    created_by="system"
+                )
+                
+                return {"status": "error", "message": error_message}
+                
+    except Exception as e:
+        error_message = f"Error deleting Prometheus metrics for runner {runner_id}: {e!s}"
+        logger.error(f"[{initiated_by}] {error_message}")
+        
+        # Try to record the error in history if possible
+        try:
+            with Session(engine) as session:
+                runner = runner_repository.find_runner_by_id(session, runner_id)
+                if runner:
+                    runner_history_repository.add_runner_history(
+                        session=session,
+                        runner=runner,
+                        event_name="prometheus_metrics_deletion_error",
+                        event_data={
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "initiated_by": initiated_by,
+                            "error": str(e)
+                        },
+                        created_by="system"
+                    )
+        except Exception as history_error:
+            logger.error(f"[{initiated_by}] Additional error recording history: {history_error!s}")
+            
+        return {"status": "error", "message": error_message}
 
 def cleanup_security_groups(resources, initiated_by, result):
     """Clean up security groups associated with the terminated instance."""
@@ -471,13 +629,14 @@ def update_to_terminating_state(resources, initiated_by, result):
 def process_runner_shutdown(self, runner_id: int, instance_id: str, initiated_by: str = "system"):
     """
     Complete task that handles the entire runner shutdown process.
-
+    
     1. Update runner state to "terminating"
     2. Run termination scripts if they exist
-    3. Stop and terminate the instance
-    4. Wait for termination to complete
-    5. Clean up security groups
-    6. Update runner state to "terminated"
+    3. Delete Prometheus metrics
+    4. Stop and terminate the instance
+    5. Wait for termination to complete
+    6. Clean up security groups
+    7. Update runner state to "terminated"
 
     Args:
         runner_id: ID of the runner to shut down
@@ -502,16 +661,35 @@ def process_runner_shutdown(self, runner_id: int, instance_id: str, initiated_by
     if should_run_termination_script(resources["runner"], initiated_by, result):
         run_termination_script(runner_id, initiated_by, result)
 
-    # ip = resources["runner"].url
-    #curl -X DELETE http://34.223.156.189:9091/metrics/job/{runner_ip}
+    # Step 4: Delete Prometheus metrics (do this before stopping the instance)
+    try:
+        metrics_result = asyncio.run(terminate_runner_logs(runner_id, initiated_by))
+        result["details"].append({
+            "step": "delete_prometheus_metrics",
+            "status": metrics_result.get("status", "error"),
+            "message": metrics_result.get("message", "Unknown error deleting metrics")
+        })
+        print()
+        print(f"Prometheus metrics deletion result: {metrics_result}")
+        print()
+    except Exception as e:
+        logger.error(f"[{initiated_by}] Error in Prometheus metrics deletion: {e}")
+        result["details"].append({
+            "step": "delete_prometheus_metrics",
+            "status": "error",
+            "message": f"Error deleting Prometheus metrics: {str(e)}"
+        })
+        print()
+        print(f"Prometheus metrics deletion error: {e}")
+        print()
 
-    # Step 4: Stop the instance and update state to closed
+    # Step 5: Stop the instance and update state to closed
     stop_instance(resources, initiated_by, result)
 
-    # Step 5: Terminate the instance and update state to terminated
+    # Step 6: Terminate the instance and update state to terminated
     terminate_instance(resources, initiated_by, result, self)
 
-    # Step 6: Clean up security groups
+    # Step 7: Clean up security groups
     cleanup_security_groups(resources, initiated_by, result)
 
     logger.info(f"[{initiated_by}] Completed shutdown process for runner {runner_id}")
