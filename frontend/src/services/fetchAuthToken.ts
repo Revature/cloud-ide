@@ -12,7 +12,7 @@ export const fetchAuthToken = async (
   }
 
   try {
-    const response = await fetch(`${apiUrl}${endpoint}`, {
+    const response = await fetch(`https://${apiUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
