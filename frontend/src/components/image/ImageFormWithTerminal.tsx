@@ -14,7 +14,6 @@ import { SuccessIcon } from "../ui/icons/CustomIcons";
 import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 
-
 type WorkflowStage = 'form' | 'webSocketSetup' | 'connecting' | 'terminal' | 'readyToSubmit' | 'submitting' | 'success' | 'error';
 
 /**
@@ -22,6 +21,7 @@ type WorkflowStage = 'form' | 'webSocketSetup' | 'connecting' | 'terminal' | 're
  * It manages multiple stages of the workflow, including form submission, WebSocket setup,
  * terminal interaction, and final submission.
  */
+
 const ImageFormWithTerminal: React.FC = () => {
   const [workflowStage, setWorkflowStage] = useState<WorkflowStage>('form');
   const [imageFormData, setImageFormData] = useState<ImageFormData | null>(null);
@@ -71,8 +71,8 @@ const ImageFormWithTerminal: React.FC = () => {
     setWorkflowStage('webSocketSetup');
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const SETUP_WS_URL = `${wsProtocol}//localhost:8000/api/v1/app_requests/runner_status`;
-    // const SETUP_WS_URL = `${wsProtocol}//devide.revature.com/api/v1/app_requests/runner_status`;
+    const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'localhost:8000'; 
+    const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`;
 
     try {
       const enrichedEnvData = await enrichEnvDataWithUserIp({

@@ -11,7 +11,7 @@ export async function GET(
     const id = awaitedParams.id;
     
     // Backend API URL
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/machines/${id}`;
     
     console.log(`Fetching individual machine from backend: ${apiUrl}${endpoint}`);

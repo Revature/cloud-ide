@@ -10,7 +10,7 @@ export async function GET(
   try {
     const id = awaitedParams.id;
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/runners/${id}`;
 
     console.log(`Fetching individual runner from backend: ${apiUrl}${endpoint}`);
@@ -123,7 +123,7 @@ export async function PATCH(
       );
     }
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/runners/${id}/${action}`;
 
     const accessToken = request.headers.get('Access-Token');
@@ -168,7 +168,7 @@ export async function DELETE(
   const id = awaitedParams.id;
 
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/runners/${id}`;
 
     console.log(`Terminating runner ${id}: ${apiUrl}${endpoint}`);
