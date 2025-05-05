@@ -11,7 +11,7 @@ class Key(TimestampMixin, SQLModel, table=True):
     """Key model."""
 
     __tablename__ = "key"
-    __table_args__ = (UniqueConstraint("key_date"),)
+    __table_args__ = (UniqueConstraint("key_date", "cloud_connector_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
     key_date: date = Field(nullable=False, index=True)

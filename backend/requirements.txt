@@ -13,3 +13,4 @@ Jinja2
 redis
 ruff
 websockets
+alembic
