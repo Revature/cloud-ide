@@ -10,7 +10,7 @@ export async function GET(
     const awaitedParams = await params;
     const id = awaitedParams.id;
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/images/${id}`;
 
     const accessToken = request.headers.get('Access-Token');
@@ -98,7 +98,7 @@ export async function PATCH(
     const awaitedParams = await params;
     const id = awaitedParams.id;
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/images/${id}/runner_pool`;
 
     const body = await request.json();
@@ -158,7 +158,7 @@ export async function DELETE(
     const awaitedParams = await params;
     const id = awaitedParams.id;
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/images/${id}`;
 
     const accessToken = request.headers.get('Access-Token');

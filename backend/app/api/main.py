@@ -1,7 +1,10 @@
 """Main application file for the API."""
 import re
 from http import HTTPStatus
-from app.api.routes import machine_auth, registration, user_auth, users, runners, machines, cloud_connectors, images, app_requests
+from fastapi import APIRouter
+from app.api.routes import user_auth, machine_auth, registration, users
+from app.api.routes import runners, machines, cloud_connectors, images, scripts
+from app.api.routes import app_requests
 from fastapi import FastAPI, Request, Response
 from app.business import runner_management
 from contextlib import asynccontextmanager
@@ -19,14 +22,13 @@ API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
 
 # Update route patterns with proper regex patterns
+# I think we may need to anchor these patterns to the beginning of the string? with the '^' regex character
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/?$',
     f'{API_VERSION}/user_auth/authkit_url/',
     f'{API_VERSION}/user_auth/authkit_redirect/',
     f'{API_VERSION}/user_auth/callback/',
-    f'{API_VERSION}/runners/\\d+/state/?$',
-    f'{API_VERSION}/?$',
-    f'{API_VERSION}/'
+    f'{API_VERSION}/runners/\\d+/state/?$'
     )
 
 RUNNER_ACCESS_ROUTES: tuple = (
@@ -84,6 +86,7 @@ def start_api():
     api.include_router(machines.router, prefix=f"{API_VERSION}/machines", tags=["machines"])
     api.include_router(cloud_connectors.router, prefix=f"{API_VERSION}/cloud_connectors", tags=["cloud_connectors"])
     api.include_router(app_requests.router, prefix=f"{API_VERSION}/app_requests", tags=["app_requests"])
+    api.include_router(scripts.router, prefix=f"{API_VERSION}/scripts", tags=["scripts"])
 
     # Middleware to protect all routes, passes unsecure route requests through
     @api.middleware("http")
@@ -98,10 +101,7 @@ def start_api():
         Before the response is sent, execution returns to the middleware, where we make sure the access_token is updated before responding.
         """
         import logging
-        logger = logging.getLogger(__name__)
-        logger.debug('\n\ndebug')
-        logger.warn('warn')
-        logger.error('error')
+        logger = logging.getLogger(__name__) #logs getting buried by ASGI, only exception logs are forced to stdout
         print(f'Request Path: {request.url.path}')
 
         # Use pattern matching for runner state endpoints

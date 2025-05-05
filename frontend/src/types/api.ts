@@ -91,3 +91,16 @@ export interface BackendCloudConnectorRequest{
   access_key: string;
   secret_key: string;
 }
+
+export interface BackendScript{
+  id: number;
+  name: string;
+  description: string;
+  script: string; 
+  event: string;
+  image_id: number;
+  created_at: string;
+  updated_at: string;
+  modified_by: string;
+  created_by: string;
+}

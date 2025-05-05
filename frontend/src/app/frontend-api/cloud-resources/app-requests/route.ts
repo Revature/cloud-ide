@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000' || 'http://backend:8000';
     const endpoint = '/api/v1/app_requests/with_status';
 
     // Parse the request body
