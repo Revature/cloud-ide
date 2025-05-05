@@ -129,7 +129,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -231,7 +231,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -2158,5 +2158,5 @@
   "timezone": "browser",
   "title": "Environment Tops",
   "uid": "env-tops",
-  "version": 20
+  "version": 21
 }

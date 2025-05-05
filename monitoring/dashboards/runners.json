@@ -151,7 +151,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -230,5 +230,5 @@
   "timezone": "browser",
   "title": "Runners",
   "uid": "dekejcrtamu4gd",
-  "version": 2
+  "version": 3
 }
