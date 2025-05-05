@@ -39,10 +39,7 @@ jobs:
               if: env.TAG != 'NONE'
               id: create-env
               run: |
-                ls -al ./frontend
                 echo "${{ vars.FE_BUILD_ENV }}" >> ./frontend/.env
-                ls -al ./frontend
-                cat ./frontend/.env
 
             - name: Build Docker Image
               id: build-image
