@@ -1,40 +1,69 @@
 "use client";
-import React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React from "react";
+import { useRouter, useParams } from "next/navigation";
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { useImageQuery } from '@/hooks/api/images/useImageQuery';
-import { useMachineQuery } from '@/hooks/api/machines/useMachinesData';
-import { useCloudConnectorQuery } from '@/hooks/api/cloudConnectors/useCloudConnectorsData';
+import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { useMachineQuery } from "@/hooks/api/machines/useMachinesData";
+import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
+import Link from "next/link";
+import { useScriptsByImageIdQuery } from "@/hooks/api/scripts/useScriptsQuery";
+
+// Function to get event color
+const getEventColor = (event: string) => {
+  switch (event) {
+    case "on_create":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    case "on_awaiting_client":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+    case "on_connect":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+    case "on_disconnect":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
+    case "on_terminate":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+  }
+};
+
+// Function to get event label
+const getEventLabel = (event: string) => {
+  switch (event) {
+    case "on_create":
+      return "On Create";
+    case "on_awaiting_client":
+      return "Awaiting Client";
+    case "on_connect":
+      return "On Connect";
+    case "on_disconnect":
+      return "On Disconnect";
+    case "on_terminate":
+      return "On Terminate";
+    default:
+      return event;
+  }
+};
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
   const params = useParams();
   const imageId = parseInt(params.id as string, 10);
-  
+
   // Use React Query to fetch the image data
-  const { 
-    data: image, 
-    isLoading: imageLoading, 
-    error: imageError 
-  } = useImageQuery(imageId)
+  const { data: image, isLoading: imageLoading, error: imageError } = useImageQuery(imageId);
 
   // Fetch machine data if image is loaded and has machine_id
-  const {
-    data: machine,
-    isLoading: machineLoading,
-    error: machineError
-  } = useMachineQuery(image?.machineId || 0)
+  const { data: machine, isLoading: machineLoading, error: machineError } = useMachineQuery(image?.machineId || 0);
 
   // Fetch cloud connector data if image is loaded and has cloudConnector_id
-  const {
-    data: cloudConnector,
-    isLoading: connectorLoading,
-    error: connectorError
-  } = useCloudConnectorQuery(image?.cloudConnectorId || 0)
+  const { data: cloudConnector, isLoading: connectorLoading, error: connectorError } = useCloudConnectorQuery(image?.cloudConnectorId || 0);
+
+  // Fetch associated scripts using the new React Query hook
+  const { data: scripts, isLoading: scriptsLoading, error: scriptsError } = useScriptsByImageIdQuery(imageId);
 
   const goBack = () => {
-    router.push('/images');
+    router.push("/images");
   };
 
   const navigateToEdit = () => {
@@ -42,14 +71,10 @@ const ViewImage: React.FC = () => {
   };
 
   // Overall loading state
-  const isLoading = imageLoading || 
-    (!!image?.machineId && machineLoading) || 
-    (!!image?.cloudConnectorId && connectorLoading);
+  const isLoading = imageLoading || (!!image?.machineId && machineLoading) || (!!image?.cloudConnectorId && connectorLoading);
 
   // Overall error state
-  const error = imageError || 
-    (!!image?.machineId && machineError) || 
-    (!!image?.cloudConnectorId && connectorError);
+  const error = imageError || (!!image?.machineId && machineError) || (!!image?.cloudConnectorId && connectorError);
 
   if (isLoading) {
     return (
@@ -63,7 +88,7 @@ const ViewImage: React.FC = () => {
     return (
       <div className="flex flex-col items-center">
         <p className="text-red-500 dark:text-red-400 mb-4">
-          {error ? `Error loading data: ${error instanceof Error ? error.message : 'Unknown error'}` : 'Image not found'}
+          {error ? `Error loading data: ${error instanceof Error ? error.message : "Unknown error"}` : "Image not found"}
         </p>
         <Button onClick={goBack}>Back to Images</Button>
       </div>
@@ -73,12 +98,7 @@ const ViewImage: React.FC = () => {
   return (
     <>
       <div className="flex items-center mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={goBack}
-          className="mr-4"
-        >
+        <Button variant="outline" size="sm" onClick={goBack} className="mr-4">
           <svg
             className="w-4 h-4 mr-2"
             width="24"
@@ -87,13 +107,7 @@ const ViewImage: React.FC = () => {
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <path
-              d="M19 12H5M5 12L12 19M5 12L12 5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back
         </Button>
@@ -109,29 +123,25 @@ const ViewImage: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={navigateToEdit}
-            >
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
+            <Button size="sm" variant="outline" onClick={navigateToEdit}>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 className="stroke-current mr-2"
               >
-                <path 
-                  d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
+                <path
+                  d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13"
+                  strokeWidth="2"
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                <path 
-                  d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
+                <path
+                  d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z"
+                  strokeWidth="2"
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
@@ -139,7 +149,7 @@ const ViewImage: React.FC = () => {
             </Button>
           </div>
         </div>
-        
+
         <div className="mb-6">
           <p className="text-gray-600 dark:text-gray-300">
             {image.description}
@@ -251,7 +261,7 @@ const ViewImage: React.FC = () => {
                       </div>
                       <div className="flex items-center">
                         <svg className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-gray-700 dark:text-gray-300">Memory: {machine.memorySize} GB</span>
                       </div>
@@ -394,6 +404,43 @@ const ViewImage: React.FC = () => {
               <div className="text-center p-8">
                 <p className="text-gray-500 dark:text-gray-400">No cloud provider associated with this image</p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Script Details Section */}
+        <div className="mt-8">
+          <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Script Details</h4>
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            {scriptsLoading ? (
+              <div className="text-center text-gray-500">Loading scripts...</div>
+            ) : scriptsError ? (
+              <div className="text-center text-red-500">Error loading scripts</div>
+            ) : scripts && scripts.length > 0 ? (
+              <ul className="space-y-2">
+                {scripts.map((script) => (
+                  <li key={script.id} className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <Link
+                        href={`/scripts/view/${script.id}`}
+                        className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 font-medium"
+                      >
+                        {script.name}
+                      </Link>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEventColor(
+                          script.event
+                        )}`}
+                      >
+                        {getEventLabel(script.event)}
+                      </span>
+                    </div>
+                    <span className="text-gray-500 dark:text-gray-400">{script.description}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center text-gray-500">No scripts associated with this image</div>
             )}
           </div>
         </div>

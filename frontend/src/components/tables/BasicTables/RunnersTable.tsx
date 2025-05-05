@@ -18,6 +18,7 @@ import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRunnerQuery } from "@/hooks/api/runners/useRunnersData";
 import RefreshButton from "@/components/ui/button/RefreshButton";
+import Link from "next/link";
 
 const getStateColor = (state: RunnerState) => {
   switch (state) {
@@ -309,12 +310,12 @@ const RunnersTable: React.FC = () => {
                 visibleRunners.map((runner) => (
                   <TableRow key={runner.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.03]">
                     <TableCell className="px-4 py-4 text-sm font-medium">
-                      <a
-                        onClick={() => handleViewRunner(runner.id)}
+                      <Link
+                        href={`view/${runner.id}`}
                         className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 cursor-pointer"
                       >
                         {runner.id}
-                      </a>
+                      </Link>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">

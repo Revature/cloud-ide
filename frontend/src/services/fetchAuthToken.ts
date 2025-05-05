@@ -1,5 +1,5 @@
 let authToken: string = '';
-const apiUrl = process.env.BACKEND_API_URL || 'https://devide.revature.com';
+const apiUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'localhost:8000'; 
 const endpoint = '/api/v1/machine_auth/';
 // const AUTH_MODE = 'ON'
 

@@ -7,8 +7,6 @@ import { useRouter } from "next/navigation";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 import { appRequestsApi } from '@/services/cloud-resources/appRequests'
 
-
-
 type WorkflowStage = "form" | "webSocketSetup" | "connecting" | "error";
 
 const RunnerFormWithTerminal: React.FC = () => {
@@ -44,9 +42,9 @@ const RunnerFormWithTerminal: React.FC = () => {
     cleanupConnections();
     setErrorMessage(null);
     setWorkflowStage('webSocketSetup');
-    // const SETUP_WS_URL = "ws://localhost:8000/api/v1/app_requests/runner_status";
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const SETUP_WS_URL = `${wsProtocol}//devide.revature.com/api/v1/app_requests/runner_status`;
+    const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'localhost:8000'; 
+    const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`
 
     try {
       const enrichedEnvData = await enrichEnvDataWithUserIp({
