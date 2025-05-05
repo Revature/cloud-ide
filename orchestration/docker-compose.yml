@@ -80,6 +80,8 @@ services:
     image: public.ecr.aws/l4a3r3t7/cde/frontend:${AGENT}
     pull_policy: always
     container_name: frontend
+    env_file:
+      - .env
     networks:
       - app-network
     ports:
