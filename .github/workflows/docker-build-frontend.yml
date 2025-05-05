@@ -13,13 +13,20 @@ env:
 jobs:
     Build:
         runs-on: ubuntu-latest
+        environment: |-
+          ${{
+             github.ref_name == 'main' && 'PRODUCTION'
+          || github.ref_name == 'dev' && 'DEVELOPMENT'
+          || github.ref_name == 'demo' && 'DEMO'
+          || startsWith(github.ref_name, 'feat') && 'TEST'
+          }}
 
         env:
           TAG: |-
             ${{ 
                github.ref_name == 'main' && 'prod'
-            || github.ref_name ==  'dev' && 'dev'
-            || github.ref_name ==  'demo' && 'demo'
+            || github.ref_name == 'dev' && 'dev'
+            || github.ref_name == 'demo' && 'demo'
             || startsWith(github.ref_name, 'feat') && 'test'
             || 'NONE'
             }}
@@ -29,7 +36,8 @@ jobs:
               uses: actions/checkout@v4
             
             - name: Create .env file
-              if : env.TAG != 'NONE'
+              if: env.TAG != 'NONE'
+              id: create-env
               run: |
                 ls -al ./frontend
                 echo "${{ vars.FE_BUILD_ENV }}" >> ./frontend/.env
