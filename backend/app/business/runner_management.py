@@ -994,6 +994,10 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             "initiated_by": initiated_by
         }
 
+# async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") -> dict:
+#     # curl -X DELETE http://34.223.156.189:9091/metrics/job/{runner_ip}
+#     print("reached terminate_runner_logs")
+
 async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> list:
     """
     Queue up runner shutdown tasks for Celery to process.
@@ -1042,6 +1046,9 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
         initiated_by: Identifier of the service/job that initiated the termination
     """
     from app.models.runner_history import RunnerHistory
+    import urllib.request
+    import urllib.error
+    from http.client import HTTPResponse
 
     logger.info(f"[{initiated_by}] force_shutdown_runners called with instance_ids: {instance_ids}")
 
@@ -1067,6 +1074,7 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
 
                 # Store runner ID for later use with security groups
                 runner_id = runner.id
+                runner_url = runner.url
 
                 # Get necessary info for cloud operations
                 image = session.get(Image, runner.image_id)
@@ -1138,8 +1146,68 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
                     result["details"].append({"step": "security_group_cleanup", "status": "warning", "message": str(e)})
                     # Continue without failing the overall operation
 
-                result["status"] = "success"
-                result["details"].append({"step": "terminate", "status": "initiated"})
+                try:
+                    prometheus_host = os.environ.get("PROMETHEUS_PUSHGATEWAY_URL", "http://prometheus-pushgateway:9091")
+                    prometheus_url = f"{prometheus_host}/metrics/job/{runner_url}"
+                    # Create a DELETE request
+                    req = urllib.request.Request(
+                        url=prometheus_url,
+                        method="DELETE"
+                    )
+
+                    # Set a timeout for the request
+                    metrics_success = False
+                    status_code = None
+                    try:
+                        # Open the request with a timeout
+                        response = urllib.request.urlopen(req, timeout=5)
+                        status_code = response.status
+                        metrics_success = (status_code in (200, 202))
+                        response.close()
+                    except urllib.error.HTTPError as http_err:
+                        status_code = http_err.code
+                        logger.warning(f"[{initiated_by}] HTTP error deleting metrics: {http_err}")
+                    except Exception as open_err:
+                        logger.warning(f"[{initiated_by}] Error opening URL: {open_err}")
+
+                    if metrics_success:
+                        logger.info(f"[{initiated_by}] Successfully deleted metrics for runner {runner_id} ({runner_url})")
+
+                        # Add a history record for the metrics deletion
+                        metrics_history = RunnerHistory(
+                            runner_id=runner.id,
+                            event_name="prometheus_metrics_deleted",
+                            event_data={
+                                "timestamp": datetime.utcnow().isoformat(),
+                                "initiated_by": initiated_by,
+                                "prometheus_url": prometheus_url,
+                                "status_code": status_code,
+                                "context": "force_shutdown"
+                            },
+                            created_by="system",
+                            modified_by="system"
+                        )
+                        session.add(metrics_history)
+                        session.commit()
+
+                        result["details"].append({"step": "delete_prometheus_metrics", "status": "success"})
+                    else:
+                        message = f"Failed with status code {status_code}" if status_code else "Failed to connect"
+                        logger.warning(
+                            f"[{initiated_by}] Failed to delete metrics for runner {runner_id} ({runner_url}). {message}"
+                        )
+                        result["details"].append({
+                            "step": "delete_prometheus_metrics",
+                            "status": "warning",
+                            "message": message
+                        })
+                except Exception as metrics_error:
+                    logger.warning(f"[{initiated_by}] Error deleting Prometheus metrics for runner {runner_id}: {metrics_error}")
+                    result["details"].append({
+                        "step": "delete_prometheus_metrics",
+                        "status": "warning",
+                        "message": str(metrics_error)
+                    })
 
             except Exception as e:
                 logger.error(f"[{initiated_by}] Error in cloud provider operations for instance {instance_id}: {e}")
