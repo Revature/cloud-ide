@@ -8,13 +8,13 @@ from app.api.routes import app_requests
 from fastapi import FastAPI, Request, Response
 from app.business import runner_management
 from contextlib import asynccontextmanager
-from app.business.workos import get_workos_client
+from app.business.workos import authenticate_sealed_session, get_workos_client, refresh_sealed_session
 from app.util import constants
 from app.db.database import create_db_and_tables
 from app.business.resource_setup import fill_runner_pools, setup_resources
-from app.business.runner_management import launch_runners, shutdown_all_runners
+from app.business.runner_management import shutdown_all_runners
 from app.business.pkce import verify_token_exp
-from app.exceptions.no_matching_key import NoMatchingKeyException
+from app.exceptions.authentication_exceptions import NoMatchingKeyException
 from app.models.workos_session import get_refresh_token, refresh_session
 from workos import exceptions as workos_exceptions
 
@@ -22,11 +22,13 @@ API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
 
 # Update route patterns with proper regex patterns
+# I think we may need to anchor these patterns to the beginning of the string? with the '^' regex character
 UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/machine_auth/?$',
-    f'{API_VERSION}/runners/\\d+/state/?$',
-    f'{API_VERSION}/?$',
-    f'{API_VERSION}/registration/email_invite/?$'
+    f'{API_VERSION}/user_auth/authkit_url/',
+    f'{API_VERSION}/user_auth/authkit_redirect/',
+    f'{API_VERSION}/user_auth/callback/',
+    f'{API_VERSION}/runners/\\d+/state/?$'
     )
 
 RUNNER_ACCESS_ROUTES: tuple = (
@@ -77,7 +79,8 @@ def start_api():
 
     api.include_router(users.router, prefix=f"{API_VERSION}/users", tags=["users"])
     api.include_router(runners.router, prefix=f"{API_VERSION}/runners", tags=["runners"])
-    api.include_router(auth.router, prefix=f"{API_VERSION}/machine_auth", tags=["auth"])
+    api.include_router(machine_auth.router, prefix=f"{API_VERSION}/machine_auth", tags=["machine_auth"])
+    api.include_router(user_auth.router, prefix=f"{API_VERSION}/user_auth", tags=["user_auth"])
     api.include_router(registration.router, prefix=f"{API_VERSION}/registration", tags=["registration"])
     api.include_router(images.router, prefix=f"{API_VERSION}/images", tags=["images"])
     api.include_router(machines.router, prefix=f"{API_VERSION}/machines", tags=["machines"])
@@ -98,46 +101,49 @@ def start_api():
         Before the response is sent, execution returns to the middleware, where we make sure the access_token is updated before responding.
         """
         import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f'Request Path: {request.url.path}')
+        logger = logging.getLogger(__name__) #logs getting buried by ASGI, only exception logs are forced to stdout
+        print(f'Request Path: {request.url.path}')
 
         # Use pattern matching for runner state endpoints
         path = request.url.path
         path_parts = path.split('/')
         runner_path_prefix = f"{API_ROOT_PATH}{API_VERSION}/runners/"
-        logger.info(f"Checking if path {path} starts with {runner_path_prefix}")
+        print(f"Checking if path {path} starts with {runner_path_prefix}")
 
         workos = get_workos_client()
 
         """
         This response object will eventually be used as the response. Instead of returning too many times with
         different response objects, at the end of the method just respond with whichever is assigned to this ref.
-        We shouldn't ever see this default response, it should always be replaced with an actual response.
+        Once final_response is no longer None, the remaining checks will bypass.
         """
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-
+        wos_cookie = request.cookies.get("wos_session")
         #print route
-        print()
-        print()
-        print(f"Request Path: {request.url.path}")
-        print()
-        print()
+        print(f"\n\nRequest Path: {request.url.path}")
 
-        if request.headers.get("upgrade", "").lower() == "websocket":
-            logger.info(f"WebSocket connection detected, bypassing auth middleware")
-            return await call_next(request)
+        if not access_token:
+            print('not access-token')
+        if not wos_cookie:
+            print('not workos cookie')
+
+        # if request.headers.get("upgrade", "").lower() == "websocket":
+        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
+        #     return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
             if (path_in_route_patterns(path, UNSECURE_ROUTES) or
                 constants.auth_mode=="OFF") or (path_in_route_patterns(path, DEV_ROUTES) and
                                                 constants.auth_mode!="PROD"):
+                    print('Unsecured route entered.')
                     final_response = await call_next(request)
 
             # Check for runner access paths
             if (not final_response and path_in_route_patterns(request.url.path, RUNNER_ACCESS_ROUTES)):
+                print('Runner access route entered.')
                 if (access_token and access_token == constants.jwt_secret):
                     final_response = await call_next(request)
                 elif (request.headers.get("Runner-Token")):
@@ -146,20 +152,44 @@ def start_api():
                     if runner_management.auth_runner(runner_id, runner_token):
                         final_response = await call_next(request)
 
+            # Check for wos_session cookie, if needed refresh it
+            if (not final_response) and wos_cookie:
+                print('wos_cookie secured route entered.')
+                auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
+                if auth_result.authenticated:
+                    final_response = await call_next(request)
+                else:
+                    print('Failed to auth with cookie, refreshing...')
+                    refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
+                    final_response = await call_next(request)
+                    final_response.set_cookie(
+                        key = "wos_session",
+                        value = refresh_result.sealed_session,
+                        secure = True,
+                        httponly = True,
+                        samesite = "lax"
+                    )
+
             # If none of the above, we must find an access token
             if not final_response and not access_token:
+                print('no auth methods present, error 400...')
                 final_response = Response(status_code = 400, content = "Missing Access Token")
 
             # Verify expiration on access token, if expired try to refresh
-            # TODO: Rethink this, what if workos fails to raise an exception when the token is bad - don't depend on exceptions from workos
-            if not final_response and access_token:
-                if not verify_token_exp(access_token):
+            if (not final_response) and access_token:
+                print('access-token secured route entered.')
+                if verify_token_exp(access_token):
+                    response: Response = await call_next(request)
+                    response.headers['Access-Token'] = access_token
+                    final_response = response
+                else:
+                    print('Failed to auth with token, refreshing...')
                     refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
                     refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
                     access_token = refresh_response.access_token
-                response: Response = await call_next(request)
-                response.headers['Access-Token'] = access_token
-                final_response = response
+                    response: Response = await call_next(request)
+                    response.headers['Access-Token'] = access_token
+                    final_response = response
 
         except workos_exceptions.BadRequestException as e:
             logger.exception(f'WorkOS raised BadRequestException in middleware.')
@@ -172,12 +202,12 @@ def start_api():
                 status_code = HTTPStatus.BAD_REQUEST,
                 content = "Bad Token Header")
         except Exception as e:
-            logger.exception(f'Exception raised in the backend middleware.')
+            logger.exception(f'Exception raised in the authentication middleware.')
             final_response = Response(
                 status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
                 content = '{"response":"Internal Server Error: ' + str(e) + '"}'
             )
-
+        print('returning final respose.')
         return final_response
 
     return api

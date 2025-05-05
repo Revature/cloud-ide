@@ -3,7 +3,7 @@
 from sqlmodel import Field, SQLModel, Text, select, Column
 from app.db.database import get_session
 from app.models.mixins import TimestampMixin
-from app.exceptions.no_matching_key import NoMatchingKeyException
+from app.exceptions.authentication_exceptions import NoMatchingKeyException
 
 
 class PKCESet(TimestampMixin, SQLModel, table=True):
