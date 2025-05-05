@@ -1144,7 +1144,7 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
                     logger.warning(f"[{initiated_by}] Security group cleanup for runner {runner_id} failed or timed out: {e}")
                     result["details"].append({"step": "security_group_cleanup", "status": "warning", "message": str(e)})
                     # Continue without failing the overall operation
-                    
+
                 try:
                     prometheus_host = os.environ.get("PROMETHEUS_PUSHGATEWAY_URL", "http://prometheus-pushgateway:9091")
                     prometheus_url = f"{prometheus_host}/metrics/job/{runner_url}"
@@ -1153,7 +1153,7 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
                         url=prometheus_url,
                         method="DELETE"
                     )
-                    
+
                     # Set a timeout for the request
                     metrics_success = False
                     status_code = None
@@ -1168,10 +1168,10 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
                         logger.warning(f"[{initiated_by}] HTTP error deleting metrics: {http_err}")
                     except Exception as open_err:
                         logger.warning(f"[{initiated_by}] Error opening URL: {open_err}")
-                    
+
                     if metrics_success:
                         logger.info(f"[{initiated_by}] Successfully deleted metrics for runner {runner_id} ({runner_url})")
-                        
+
                         # Add a history record for the metrics deletion
                         metrics_history = RunnerHistory(
                             runner_id=runner.id,
@@ -1188,7 +1188,7 @@ async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system
                         )
                         session.add(metrics_history)
                         session.commit()
-                        
+
                         result["details"].append({"step": "delete_prometheus_metrics", "status": "success"})
                     else:
                         message = f"Failed with status code {status_code}" if status_code else "Failed to connect"

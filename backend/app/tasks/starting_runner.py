@@ -274,7 +274,7 @@ def run_startup_script(runner_id: int):
             return result
 
         script_result = asyncio.run(run_script())
-        
+
         # Run node_exporter.sh script
         async def run_node_exporter():
             node_exporter_result = await script_management.run_custom_script_for_runner(
@@ -284,7 +284,7 @@ def run_startup_script(runner_id: int):
                 initiated_by="system"
             )
             return node_exporter_result
-            
+
         node_exporter_result = asyncio.run(run_node_exporter())
         print()
         print("Node Exporter Result:")
