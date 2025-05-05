@@ -6,10 +6,17 @@ import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, EyeClosedIcon, EyeOpenIcon } from "@/icons";
 import Link from "next/link";
 import React, { useState } from "react";
+import { getSignInUrl } from "@workos-inc/authkit-nextjs";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+
+  const handleSignIn = async () => {
+    const signInUrl = await getSignInUrl(); // Generate the WorkOS sign-in URL
+    window.location.href = signInUrl; // Redirect the user to the WorkOS sign-in page
+  };
+
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       <div className="w-full max-w-md sm:pt-10 mx-auto mb-5">
@@ -148,6 +155,14 @@ export default function SignInForm() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="w-full max-w-md sm:pt-10 mx-auto mb-5">
+        <button
+          onClick={handleSignIn}
+          className="w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600"
+        >
+          Sign in with WorkOS
+        </button>
       </div>
     </div>
   );
