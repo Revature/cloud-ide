@@ -27,6 +27,14 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+            
+            - name: Create .env file
+              if : env.TAG != 'NONE'
+              run: |
+                ls -al ./frontend
+                echo "${{ vars.FE_BUILD_ENV }}" >> ./frontend/.env
+                ls -al ./frontend
+                cat ./frontend/.env
 
             - name: Build Docker Image
               id: build-image
