@@ -290,7 +290,7 @@
             "uid": "dehww4iizin0gd"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - ( node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
+          "expr": "100 * (\r\n  1 - (\r\n    node_memory_MemAvailable_bytes\r\n    unless (timestamp(node_memory_MemAvailable_bytes) < time() - $__range_s)\r\n  ) / node_memory_MemTotal_bytes\r\n)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -2158,5 +2158,5 @@
   "timezone": "browser",
   "title": "Environment Tops",
   "uid": "env-tops",
-  "version": 21
+  "version": 22
 }
