@@ -2,7 +2,7 @@
 import re
 from http import HTTPStatus
 from fastapi import APIRouter
-from app.api.routes import auth, registration, users
+from app.api.routes import user_auth, machine_auth, registration, users
 from app.api.routes import runners, machines, cloud_connectors, images, scripts
 from app.api.routes import app_requests
 from fastapi import FastAPI, Request, Response
