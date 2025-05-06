@@ -1,11 +1,13 @@
-import SignInForm from "@/components/auth/SignInForm";
 import { Metadata } from "next";
+import { getSignInUrl } from "@workos-inc/authkit-nextjs";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Next.js SignIn Page | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js Signin Page TailAdmin Dashboard Template",
+  title: "Sign In | TailAdmin",
+  description: "Sign in to your account using WorkOS authentication.",
 };
 
-export default function SignIn() {
-  return <SignInForm />;
+export default async function SignIn() {
+  const signInUrl = await getSignInUrl(); // Generate the WorkOS sign-in URL
+  redirect(signInUrl); // Redirect the user to the WorkOS sign-in page
 }
