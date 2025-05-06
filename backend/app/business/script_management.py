@@ -1,5 +1,6 @@
 """Module for managing scripts and running them on runners via SSH."""
 
+import json
 from sqlmodel import Session, select
 from celery.utils.log import get_task_logger
 from app.db.database import engine
@@ -9,6 +10,7 @@ from app.business.cloud_services import cloud_service_factory
 from app.business import key_management, encryption, runner_management
 from app.exceptions.runner_exceptions import RunnerExecException
 from app.db import script_repository, runner_repository, runner_history_repository, image_repository
+from app.util import constants
 from datetime import datetime, timezone
 import time
 import jinja2
@@ -17,6 +19,14 @@ from typing import Any, Optional
 import re
 
 logger = get_task_logger(__name__)
+
+VALID_EVENTS = [
+    "on_create",
+    "on_awaiting_client",
+    "on_connect",
+    "on_disconnect",
+    "on_terminate"
+]
 
 def render_script(template: str, context: dict) -> str:
     """
@@ -140,7 +150,6 @@ def get_script_for_runner(
         logger.info(f"[{initiated_by}] Rendered script for '{event}' on runner {runner_id}")
         return rendered_script
 
-
 async def execute_script_for_runner(
     event: str,
     runner_id: int,
@@ -163,7 +172,28 @@ async def execute_script_for_runner(
             cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
             logger.info(f"[{initiated_by}] Executing script '{event}' on runner {runner_id} via SSH")
-            ssh_result = await cloud_service.ssh_run_script(runner.url, private_key, script)
+
+            # For complex scripts with heredocs and quotes, using base64 encoding is safer
+            # Encode the script as base64 and decode it on the runner
+            import base64
+            encoded_script = base64.b64encode(script.encode('utf-8')).decode('utf-8')
+
+            temp_script = f"""#!/bin/bash
+# Decode the base64 encoded script and execute it with sudo
+echo '{encoded_script}' | base64 -d > /tmp/runner_script.sh
+chmod +x /tmp/runner_script.sh
+sudo /tmp/runner_script.sh
+"""
+            # Execute the script
+            ssh_result = await cloud_service.ssh_run_script(
+                runner.url,
+                private_key,
+                temp_script
+            )
+
+            # print(f"[DEBUG] SSH result: {ssh_result}")
+            logger.info(f"[{initiated_by}] SSH result: {ssh_result}")
+
             # Parse the output to get detailed status information
             result = parse_script_output(
                 ssh_result.get("stdout", ""),
@@ -198,11 +228,6 @@ async def execute_script_for_runner(
                     f"[{initiated_by}] Script error: {result.get('error_message', 'Unknown error')}"
                 )
 
-            # Add these debug logs
-            print(f"[DEBUG] Result from parse_script_output: {result}")
-            print(f"[DEBUG] Success value: {result.get('success', False)}")
-            print(f"[DEBUG] Exit code: {result.get('exit_code')}, type: {type(result.get('exit_code'))}")
-
             # Create a script result history record
             script_result_record = RunnerHistory(
                 runner_id=runner_id,
@@ -236,7 +261,7 @@ async def execute_script_for_runner(
 
     except Exception as e:
         error_message = f"Error executing script '{event}' on runner {runner_id}: {e!s}"
-        print(f"{e!s}")
+        # print(f"{e!s}")
         logger.error(f"[{initiated_by}] {error_message}")
 
         # Record the script execution error
@@ -263,3 +288,166 @@ async def run_script_for_runner(
         result = await execute_script_for_runner(event=event, runner_id=runner_id, script=script, initiated_by=initiated_by)
         return result
     return None
+
+async def run_custom_script_for_runner(
+    runner_id: int,
+    script_path: str,
+    env_vars: Optional[dict[str, Any]] = None,
+    script_name: str = "custom_script",
+    initiated_by: str = "system"
+) -> dict[str, Any]:
+    """
+    Run a custom script file on a runner.
+
+    Args:
+        runner_id: The ID of the runner to execute the script on
+        script_path: Path to the script file to execute
+        env_vars: Optional dictionary of environment variables to pass to the script
+        initiated_by: Identifier of the service/job that initiated the script execution
+
+    Returns:
+        A dictionary with script output and error information.
+    """
+    logger.info(f"[{initiated_by}] Starting custom script execution from '{script_path}' for runner {runner_id}")
+    script_start_time = datetime.now(timezone.utc)
+
+    try:
+        # Read the script content from the file
+        with open(script_path) as file:
+            script_content = file.read()
+
+        runner = runner_management.get_runner_by_id(runner_id)
+
+        # Create a template context if env_vars are provided
+        if env_vars:
+            template_context = {"env_vars": env_vars}
+            script_content = render_script(script_content, template_context)
+
+        # Execute the script on the runner
+        result = await execute_script_for_runner(
+            event=script_name,
+            runner_id=runner_id,
+            script=script_content,
+            initiated_by=initiated_by
+        )
+
+        # Add script path to the result for reference
+        result["script_path"] = script_path
+
+        # Record the custom script execution in runner history
+        with Session(engine) as session:
+            runner_obj = runner_repository.find_runner_by_id(session, runner_id)
+            if runner_obj:
+                runner_history_repository.add_runner_history(
+                    session=session,
+                    runner=runner_obj,
+                    event_name=f"{script_name}_executed",
+                    event_data={
+                        "script_path": script_path,
+                        "initiated_by": initiated_by,
+                        "success": result.get("success", False),
+                        "exit_code": result.get("exit_code", None),
+                        "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                    },
+                    created_by=initiated_by
+                )
+
+        return result
+
+    except Exception as e:
+        error_message = f"Error executing custom script '{script_path}' on runner {runner_id}: {e!s}"
+        logger.error(f"[{initiated_by}] {error_message}")
+
+        # Record the script execution error
+        with Session(engine) as session:
+            runner = runner_repository.find_runner_by_id(session, runner_id)
+            if runner:
+                runner_history_repository.add_runner_history(
+                    session=session,
+                    runner=runner,
+                    event_name="custom_script_error",
+                    event_data={
+                        "script_path": script_path,
+                        "initiated_by": initiated_by,
+                        "error": str(e),
+                        "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                    },
+                    created_by=initiated_by
+                )
+
+        raise Exception(error_message) from e
+
+def get_all_scripts() -> list[Script]:
+    """Get all scripts."""
+    with Session(engine) as session:
+        return script_repository.find_all_scripts(session)
+
+def get_script_by_id(script_id: int) -> Optional[Script]:
+    """Get a script by ID."""
+    with Session(engine) as session:
+        return script_repository.find_script_by_id(session, script_id)
+
+def get_scripts_by_image_id(image_id: int) -> list[Script]:
+    """Get all scripts associated with a specific image."""
+    with Session(engine) as session:
+        return script_repository.find_scripts_by_image_id(session, image_id)
+
+def create_script(
+    name: str,
+    description: str,
+    event: str,
+    image_id: int,
+    script: str
+) -> Script:
+    """Create a new script."""
+    # Validation
+    if not name:
+        raise ValueError("Script name is required")
+
+    if event not in VALID_EVENTS:
+        valid_events_str = ", ".join(VALID_EVENTS)
+        raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
+
+    with Session(engine) as session:
+        image = image_repository.find_image_by_id(session, image_id)
+        if not image:
+            raise ValueError(f"Image with ID {image_id} not found")
+
+        # Check if a script with the same event already exists for this image
+        existing_script = script_repository.find_script_by_event_and_image_id(session, event, image_id)
+        if existing_script:
+            raise ValueError(f"A script for event '{event}' already exists for this image")
+
+        # Create new script object
+        new_script = Script(
+            name=name,
+            description=description,
+            event=event,
+            image_id=image_id,
+            script=script
+        )
+
+        # Save to database
+        return script_repository.create_script(session, new_script)
+
+
+def update_script(script_id: int, update_data: dict[str, Any]) -> Script:
+    """Update an existing script."""
+    with Session(engine) as session:
+        # Get existing script
+        script = script_repository.find_script_by_id(session, script_id)
+        if not script:
+            raise ValueError(f"Script with ID {script_id} not found")
+
+        # Validate event if it's being updated
+        if 'event' in update_data and update_data['event'] not in VALID_EVENTS:
+            valid_events_str = ", ".join(VALID_EVENTS)
+            raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
+
+        # Update script
+        return script_repository.update_script(session, script_id, update_data)
+
+def delete_script(script_id: int) -> bool:
+    """Delete a script."""
+    with Session(engine) as session:
+        return script_repository.delete_script(session, script_id)

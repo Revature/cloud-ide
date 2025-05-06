@@ -1,4 +1,5 @@
 """Repository layer for the Image entity."""
+from app.db.database import get_session
 from app.models import Image
 from sqlmodel import Session, select
 
@@ -12,7 +13,7 @@ def find_image_by_identifier(session: Session, identifier: str) -> Image:
     statement = select(Image).where(Image.identifier == identifier)
     return session.exec(statement).first()
 
-def find_image_by_id(session: Session, id: str) -> Image:
+def find_image_by_id(session: Session, id: int) -> Image:
     """Select an image by its id."""
     statement = select(Image).where(Image.id == id)
     return session.exec(statement).first()
@@ -29,3 +30,25 @@ def update_image(session: Session, image_id: int, image_data: Image) -> Image:
 
     session.add(db_image)
     return db_image
+
+def create_image(session: Session, image: Image) -> Image:
+    """Create a new image."""
+    session.add(image)
+    session.commit()
+    session.refresh(image)
+    return image
+
+def delete_image(session: Session, image_id: int) -> bool:
+    """Delete an image by its id."""
+    db_image = find_image_by_id(session, image_id)
+    if not db_image:
+        return False
+
+    session.delete(db_image)
+    session.commit()
+    return True
+
+def find_images_with_pool(session: Session = next(get_session())):
+    """Find images with a runner pool > 0."""
+    stmt = select(Image).where(Image.runner_pool_size > 0)
+    return session.exec(stmt).all()

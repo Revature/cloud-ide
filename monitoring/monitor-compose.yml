@@ -9,8 +9,43 @@ services:
     pull_policy: always
     ports:
       - "3100:3100"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     volumes:
+      - /home/ubuntu/loki-data:/loki
       - ./loki-config.yml:/etc/loki/loki-config.yml
+    networks:
+      - monitor
+
+  pushgateway:
+    container_name: pushgateway
+    image: prom/pushgateway:latest
+    pull_policy: always
+    ports:
+      - "9091:9091"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
+    volumes:
+      - ./pushgateway-data:/data
+    networks:
+      - monitor
+    
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    pull_policy: always
+    ports:
+      - "9090:9090"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
+    volumes: 
+      - "./monitor-prometheus.yml:/etc/prometheus/prometheus.yml"
     networks:
       - monitor
 
@@ -18,6 +53,14 @@ services:
     container_name: grafana
     image: grafana/grafana:latest
     pull_policy: always
+    ports:
+      - "3000:3000"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
+    networks:
+      - monitor    
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
       - DS_PROMETHEUS=prometheus
@@ -26,12 +69,9 @@ services:
       - "./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
       - "./dashboards:/var/lib/grafana/dashboards"
       - "./default.yml:/etc/grafana/provisioning/dashboards/default.yml"
-    ports:
-      - "3000:3000"
-    networks:
-      - monitor
     depends_on:
       - loki
+      - pushgateway
 
 volumes:
   grafana-data:

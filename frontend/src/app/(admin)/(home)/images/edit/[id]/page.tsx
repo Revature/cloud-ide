@@ -3,15 +3,17 @@ import React from 'react';
 import { useParams } from "next/navigation";
 import EditImageForm from '@/components/image/ImageEditForm';
 import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
-import { useImages } from "@/context/ImagesContext";
+import { useImageQuery } from '@/hooks/api/images/useImageQuery';
 
 export default function EditImagePage() {
-  const { images } = useImages();
   const params = useParams();
-  const imageIndex = parseInt(params.id as string, 10);
-  
+  const imageIndex = parseInt(params.id as string, 10) - 1;
+
+  // Obtain images from ImagesTable ReactQuery
+  const { data:images = [] } = useImageQuery()
+
   // Get image name for the breadcrumb if available
-  const imageName = !isNaN(imageIndex) && images[imageIndex] 
+  const imageName = !isNaN(imageIndex) && images[imageIndex] && images[imageIndex].name
     ? images[imageIndex].name 
     : "Image";
     

@@ -9,6 +9,7 @@ import {
   CloudIcon,
   ImageIcon,
 } from "../icons/index";
+import { RunnerPoolIcon } from "@/components/ui/icons/CustomIcons";
 
 type NavItem = {
   name: string;
@@ -25,14 +26,18 @@ const navItems: NavItem[] = [
   {
     icon: <ImageIcon />,
     name: "Images",
-  path: "/images",
+    path: "/images",
   },
   {
     icon: <RunnerIcon />,
     name: "Runners",
     path: "/runners",
   },
-
+  {
+    icon: <RunnerPoolIcon />,
+    name: "Runner Pools",
+    path: "/runner-pools",
+  },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -95,16 +100,10 @@ const AppSidebar: React.FC = () => {
             <div>
               <h2
                 className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
+                  !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
                 }`}
               >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  "•••"
-                )}
+                Menu
               </h2>
               <ul className="flex flex-col gap-4">
                 {navItems.map((nav) => (

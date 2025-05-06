@@ -4,9 +4,9 @@ WORKDIR /app
 
 RUN npm install --global pm2
 
-COPY ./package*.json ./
+COPY ./package.json ./package-lock.json ./
 
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 COPY . .
 

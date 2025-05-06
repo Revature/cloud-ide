@@ -14,9 +14,29 @@ def find_all_runners(session: Session) -> list[Runner]:
     statement = select(Runner)
     return session.exec(statement).all()
 
+def find_runners_by_status(session: Session, status: str) -> list[Runner]:
+    """Find runners with a specific status."""
+    query = select(Runner).where(Runner.state == status)
+    return session.exec(query).all()
+
+def find_alive_runners(session: Session) -> list[Runner]:
+    """Find runners in 'alive' states."""
+    alive_states = [
+        "runner_starting", "app_starting", "ready",
+        "runner_starting_claimed", "ready_claimed", "setup",
+        "awaiting_client", "active", "disconnecting", "disconnected"
+    ]
+    query = select(Runner).where(Runner.state.in_(alive_states))
+    return session.exec(query).all()
+
 def find_runner_by_id(session: Session, id: int) -> Runner:
     """Retrieve the runner by its ID."""
     statement = select(Runner).where(Runner.id == id)
+    return session.exec(statement).first()
+
+def find_runner_by_instance_id(session: Session, instance_id: str) -> Runner:
+    """Retrieve the runner by its instance ID."""
+    statement = select(Runner).where(Runner.identifier == instance_id)
     return session.exec(statement).first()
 
 def find_runner_by_user_id_and_image_id_and_states(session: Session, user_id: int, image_id: int, states: list[str]):
@@ -41,3 +61,36 @@ def find_runner_by_image_id_and_states(session: Session, image_id: int, states: 
         Runner.image_id == image_id
     )
     return session.exec(stmt_runner).first()
+
+def update_runner(session: Session, runner: Runner) -> Runner:
+    """Update a runner."""
+    session.add(runner)
+    session.commit()
+    session.refresh(runner)
+    return runner
+
+# Add to runner_repository.py
+def find_runners_by_image_id(session: Session, image_id: int) -> list[Runner]:
+    """
+    Find all runners associated with a specific image.
+
+    Args:
+        session: The database session
+        image_id: The ID of the image
+
+    Returns:
+        A list of Runner objects
+    """
+    return session.exec(select(Runner).where(Runner.image_id == image_id)).all()
+
+def delete_runner(session: Session, runner_id: int) -> None:
+    """
+    Delete a specific runner by ID.
+
+    Args:
+        session: The database session
+        runner_id: The ID of the runner to delete
+    """
+    runner = session.get(Runner, runner_id)
+    if runner:
+        session.delete(runner)

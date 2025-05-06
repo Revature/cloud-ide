@@ -6,16 +6,25 @@ import { BackendMachine, APIResponse } from '@/types/api';
 export async function GET(request: NextRequest) {
   try {
     // Backend API URL
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = '/api/v1/machines/';
     
     console.log(request);
     console.log(`Fetching machines from backend: ${apiUrl}${endpoint}`);
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
     
     // Make the actual request to your backend
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken,
       },
     });
     

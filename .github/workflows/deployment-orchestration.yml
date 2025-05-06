@@ -12,17 +12,20 @@ on:
       - main
       - demo
       - dev
+      - feat*
 
 jobs:
     Deploy:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         environment: |-
           ${{
              github.event.workflow_run.head_branch == 'main' && 'PRODUCTION'
           || github.event.workflow_run.head_branch ==  'dev' && 'DEVELOPMENT'
-          ||                                                    'DEMO'
+          || github.event.workflow_run.head_branch ==  'demo' && 'DEMO'
+          || startsWith(github.ref_name, 'feat') && 'TEST'
           }}
+
         steps:
             - name: Checkout
               uses: actions/checkout@v2

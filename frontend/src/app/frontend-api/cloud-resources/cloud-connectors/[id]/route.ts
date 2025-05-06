@@ -12,8 +12,16 @@ export async function GET(
     const id = awaitedParams.id;
     
     // Backend API URL
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/cloud_connectors/${id}`;
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
     
     console.log(`Fetching individual cloud connector from backend: ${apiUrl}${endpoint}`);
     
@@ -21,6 +29,7 @@ export async function GET(
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken,
       },
     });
 
@@ -36,6 +45,7 @@ export async function GET(
     // Transform the backend data using proper types
     const transformedData: CloudConnector = {
       id: backendData.id,
+      provider: backendData.provider,
       name: `${backendData.provider} ${backendData.region}`, // Generated name
       type: backendData.provider,
       region: backendData.region,

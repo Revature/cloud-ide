@@ -3,6 +3,7 @@ import { apiRequest } from '../base';
 import { 
   CloudConnector, 
 } from '@/types/cloudConnectors';
+import { BackendCloudConnectorRequest } from '@/types/api';
 
 export const cloudConnectorsApi = {
   getAll: () => 
@@ -10,13 +11,14 @@ export const cloudConnectorsApi = {
     
   getById: (id: number) => 
     apiRequest<CloudConnector>(`/cloud-resources/cloud-connectors/${id}`),
-    
-  // create: (connector: NewCloudConnector) => 
-  //   apiRequest<CloudConnector>('/cloud_connectors/', {
-  //     method: 'POST',
-  //     body: connector,
-  //   }),
-    
+
+  create: (connector: BackendCloudConnectorRequest) => 
+    apiRequest<CloudConnector>('/cloud-resources/cloud-connectors/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(connector),
+    }),
+
   // update: (id: number, connector: UpdateCloudConnector) => 
   //   apiRequest<CloudConnector>(`/cloud_connectors/${id}`, {
   //     method: 'PUT',

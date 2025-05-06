@@ -8,7 +8,7 @@ import httpx
 from workos import WorkOSClient
 
 from app.business.workos import get_workos_client
-from app.exceptions.no_matching_key import NoMatchingKeyException
+from app.exceptions.authentication_exceptions import NoMatchingKeyException
 from app.models.pkce_cache import get_key_set, store_key_set
 
 workos = WorkOSClient(api_key=os.getenv("WORKOS_API_KEY"), client_id=os.getenv("WORKOS_CLIENT_ID"))

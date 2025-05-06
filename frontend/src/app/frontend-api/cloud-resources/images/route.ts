@@ -6,19 +6,28 @@ import { BackendVMImage } from '@/types/api';
 export async function GET(request: NextRequest) {
   try {
     // Backend API URL
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = '/api/v1/images/';
     
     console.log(request);
     console.log(`Fetching images from backend: ${apiUrl}${endpoint}`);
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
     
     // Make the actual request to your backend
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken,
       },
     });
-    
+
     if (!response.ok) {
       console.error(`Backend API error: ${response.status}`);
       throw new Error(`Backend API error: ${response.status}`);
@@ -75,8 +84,9 @@ export async function GET(request: NextRequest) {
           modifiedBy: item.modified_by,
           
           // Only include IDs for related resources
-          cloudConnector_id: item.cloud_connector_id,
-          machine_id: item.machine_id
+          cloudConnectorId: item.cloud_connector_id,
+          machineId: item.machine_id,
+          runnerPoolSize: item.runner_pool_size
         }))
       : [];
     
@@ -90,6 +100,46 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       [], // Return an empty array instead of an error object
       { status: 200 } // Return 200 status to avoid frontend errors
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
+    const endpoint = `/api/v1/images/`;
+
+    const body = await request.json();
+
+    const accessToken = request.headers.get('Access-Token');
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Access-Token is missing from the request headers.' },
+        { status: 401 }
+      );
+    }
+
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Token': accessToken,
+      },
+      body,
+    });
+
+    if (!response.ok) {
+      console.error(`Backend API error: ${response.status}`);
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    return NextResponse.json(responseData);
+  } catch (error) {
+    console.error('Error creating image:', error);
+    return NextResponse.json(
+      { error: 'Failed to create image' },
+      { status: 500 }
     );
   }
 }
