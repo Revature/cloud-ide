@@ -134,14 +134,6 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
     );
   }
 
-  if (!scripts || scripts.length === 0) {
-    return (
-      <div className="text-center text-gray-500 dark:text-gray-400">
-        No scripts associated with this image
-      </div>
-    );
-  }
-
   if (currentView === "view" && selectedScriptId) {
     return (
       <ScriptView
@@ -207,7 +199,12 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {scripts.map((script) => (
+            {!scripts || scripts.length === 0 ? (
+                <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.03] text-center col-span-4">
+                    <span className="text-gray-600 dark:text-gray-300">No scripts available for this image. Please add scripts if needed.</span>
+                </TableRow>
+            
+            ) : ( scripts.map((script) => (
               <TableRow
                 key={script.id}
                 className="hover:bg-gray-50 dark:hover:bg-white/[0.03]"
@@ -302,7 +299,7 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
                       </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )))}
           </TableBody>
         </Table>
       </div>
