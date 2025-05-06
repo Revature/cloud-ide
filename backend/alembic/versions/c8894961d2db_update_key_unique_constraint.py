@@ -11,7 +11,6 @@ from collections.abc import Sequence
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision: str = 'c8894961d2db'
 down_revision: Union[str, None] = None
@@ -29,7 +28,6 @@ def upgrade():
         'key',
         ['key_date', 'cloud_connector_id']
     )
-
 
 def downgrade():
     """Revert key table unique constraint."""
