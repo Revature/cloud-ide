@@ -358,7 +358,8 @@ async def claim_runner(
     request_id: Optional[str] = None
 ) -> str:
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
-    logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, requested_session_time={runner_config["requested_session_time"]}")
+    logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, "+
+                f"requested_session_time={runner_config["requested_session_time"]}")
 
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(session, runner.id)
@@ -414,7 +415,8 @@ async def claim_runner(
         if runner_config["user_ip"]:
             runner.user_ip = ["user_ip"]
 
-        logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, script_vars_size={len(runner_config["script_vars"])}")
+        logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, "+
+                    f"script_vars_size={len(runner_config["script_vars"])}")
 
         # Emit session status update
         if request_id:
