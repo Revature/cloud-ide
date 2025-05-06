@@ -1,56 +1,40 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import { scriptsApi } from "@/services/cloud-resources/scripts";
 import { SpinnerIcon, SuccessIcon, ErrorIcon } from "@/components/ui/icons/CustomIcons";
 import CodeEditor from "../ui/codeEditor/codeEditor";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ScriptFormProps {
-  initialData?: {
-    name: string;
-    description: string;
-    imageId: number | null;
-    script: string;
-    event: string;
-  };
+  imageId: number; // Image ID is required
+  existingEvents: string[]; // List of events that already have scripts
+  onCancel: () => void; // Callback for cancel button
 }
 
-const ScriptForm: React.FC<ScriptFormProps> = ({ initialData }) => {
-  const router = useRouter();
-  const [name, setName] = useState(initialData?.name || "");
-  const [description, setDescription] = useState(initialData?.description || "");
-  const [imageId, setImageId] = useState<number>(initialData?.imageId || 0);
-  const [script, setScript] = useState(initialData?.script || "");
-  const [event, setEvent] = useState(initialData?.event || "on_create");
+const ScriptForm: React.FC<ScriptFormProps> = ({ imageId, existingEvents, onCancel }) => {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [script, setScript] = useState("");
+  const [event, setEvent] = useState("");
 
   // State for submission status
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
 
-  // Fetch available images using the custom hook
-  const { data: images = [], isLoading: isLoadingImages } = useImageQuery();
+  const queryClient = useQueryClient();
 
-  // Create options for the "Associated Image" dropdown
-  const imageOptions = images.map((image) => ({
-    value: image.id.toString(),
-    label: image.name || "Unnamed Image",
-  }));
-
-  // Add a "No Image" option
-  imageOptions.unshift({ value: "0", label: "No Image" });
-
-  // Event options
-  const eventOptions = [
+  // Event options (filter out existing events)
+  const allEventOptions = [
     { value: "on_create", label: "On Create - When a runner is first created" },
     { value: "on_awaiting_client", label: "On Awaiting Client - When a runner is assigned to a user but before connection" },
     { value: "on_connect", label: "On Connect - When a user connects to a runner" },
     { value: "on_disconnect", label: "On Disconnect - When a user disconnects from a runner" },
     { value: "on_terminate", label: "On Terminate - When a runner is being terminated" },
   ];
+  const eventOptions = allEventOptions.filter((option) => !existingEvents.includes(option.value));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,10 +45,13 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ initialData }) => {
       // Call the scriptsApi.create function to create a new script
       await scriptsApi.create({ name, description, event, image_id: imageId, script });
       setSubmitStatus("success");
+      
+      // Invalidate the query to refresh the script data
+      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId] });
 
       // Wait for 2 seconds before navigating back to the scripts list
       setTimeout(() => {
-        router.push("/scripts");
+        onCancel();
       }, 2000);
     } catch (error) {
       console.error("Failed to create script:", error);
@@ -112,19 +99,6 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ initialData }) => {
       </div>
 
       <div>
-        <Label htmlFor="image">Associated Image</Label>
-        {isLoadingImages ? (
-          <p className="text-gray-500 dark:text-gray-400">Loading images...</p>
-        ) : (
-          <Select
-            options={imageOptions}
-            defaultValue={imageId.toString()}
-            onChange={(value) => setImageId(parseInt(value))}
-          />
-        )}
-      </div>
-
-      <div>
         <Label htmlFor="script">Script</Label>
         <CodeEditor value={script} onChange={setScript} />
       </div>
@@ -132,7 +106,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ initialData }) => {
       <div className="flex justify-end items-center space-x-4">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={onCancel} // Use the onCancel callback
           className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           disabled={isSubmitting}
         >
