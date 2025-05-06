@@ -44,7 +44,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
   const websocketRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<IFitAddon | null>(null);
   const [initialized, setInitialized] = useState(false);
-
+  
   // Initialize terminal when component mounts
   useEffect(() => {
     let isActive = true;
@@ -149,17 +149,16 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
 
     terminal.writeln('Connecting to runner...\r\n');
     
+
     // Construct proper absolute WebSocket URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'];
+    // const deploymentUrl = process.env['NEXT_PUBLIC_LOCAL_URL'];
+
     // const wsUrl = `${wsProtocol}//devide.revature.com/api/v1/runners/connect/${runnerId}`;
-    const wsUrl = `${wsProtocol}//localhost:8000/api/v1/runners/connect/${runnerId}`;
+    const wsUrl = `${wsProtocol}//${deploymentUrl}/api/v1/runners/connect/${runnerId}`;
     console.log(`Connecting to WebSocket: ${wsUrl}`);
     
-    // Determine WebSocket URL using environment variables
-    // const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
-    // const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // const wsBaseUrl = apiUrl.replace(/^http(s)?:\/\//, ''); // Remove http:// or https://
-    // const wsUrl = `${wsProtocol}//${wsBaseUrl}/api/v1/runners/connect/${runnerId}`;
 
     // Close existing connection if any
     disconnectTerminal();
@@ -168,6 +167,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
       // Create new WebSocket connection
       console.log('Creating new WebSocket connection...');
       console.log('WebSocket URL:', wsUrl);
+      
       const socket = new WebSocket(wsUrl);
       console.log(socket);
       websocketRef.current = socket;

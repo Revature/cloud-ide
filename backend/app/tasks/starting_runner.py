@@ -239,7 +239,7 @@ def wait_for_ssh(runner_id: int, instance_id: str, public_ip: str):
 
 @celery_app.task(name="app.tasks.runner_tasks.run_startup_script")
 def run_startup_script(runner_id: int):
-    """Run the on_startup script on the runner."""
+    """Run the on_startup script on the runner and also node_exporter.sh."""
     try:
         from app.business import script_management
 
@@ -248,6 +248,7 @@ def run_startup_script(runner_id: int):
             if not runner:
                 logger.error(f"Runner {runner_id} not found in the database.")
                 return
+            asyncio.run(script_management.runner_config_script(runner_id, runner.external_hash))
 
             # Create history record
             history = RunnerHistory(
@@ -274,6 +275,22 @@ def run_startup_script(runner_id: int):
 
         script_result = asyncio.run(run_script())
 
+        # Run node_exporter.sh script
+        async def run_node_exporter():
+            node_exporter_result = await script_management.run_custom_script_for_runner(
+                runner_id=runner_id,
+                script_path="app/db/sample_scripts/node_exporter.sh",
+                env_vars={},
+                initiated_by="system"
+            )
+            return node_exporter_result
+
+        node_exporter_result = asyncio.run(run_node_exporter())
+        print()
+        print("Node Exporter Result:")
+        print(node_exporter_result)
+        print()
+
         # Update history in database
         with Session(engine) as session:
             runner = runner_repository.find_runner_by_id(session, runner_id)
@@ -288,7 +305,8 @@ def run_startup_script(runner_id: int):
                     event_name="startup_script_completed",
                     event_data={
                         "timestamp": datetime.utcnow().isoformat(),
-                        "script_result": script_result
+                        "script_result": script_result,
+                        "node_exporter_result": node_exporter_result
                     },
                     created_by="system",
                     modified_by="system"
@@ -296,8 +314,12 @@ def run_startup_script(runner_id: int):
                 session.add(history)
                 session.commit()
 
-        return script_result
+        return {
+            "startup_script": script_result,
+            "node_exporter": node_exporter_result
+        }
     except Exception as e:
+        # Error handling code remains the same
         logger.error(f"Error running startup script: {e}")
 
         instance_id = None

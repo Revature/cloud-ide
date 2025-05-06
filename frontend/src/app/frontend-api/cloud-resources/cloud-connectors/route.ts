@@ -5,7 +5,7 @@ import { BackendCloudConnector } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = '/api/v1/cloud_connectors/';
 
     console.log(request);
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = '/api/v1/cloud_connectors/';
 
     const body = await request.json();

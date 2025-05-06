@@ -6,7 +6,7 @@ import { BackendMachine, APIResponse } from '@/types/api';
 export async function GET(request: NextRequest) {
   try {
     // Backend API URL
-    const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = '/api/v1/machines/';
     
     console.log(request);

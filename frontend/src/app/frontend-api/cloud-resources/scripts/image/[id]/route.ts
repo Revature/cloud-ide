@@ -2,7 +2,7 @@ import { BackendScript } from '@/types';
 import { Script } from '@/types/scripts';
 import { NextRequest, NextResponse } from 'next/server';
 
-const apiUrl = process.env.BACKEND_API_URL || 'http://backend:8000';
+const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
 
 export async function GET(
   request: NextRequest,
