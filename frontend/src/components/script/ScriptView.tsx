@@ -1,12 +1,12 @@
 "use client";
 
-import React from "react";
-import { useRouter, useParams } from "next/navigation";
+import React, { useState } from "react";
 import Button from "@/components/ui/button/Button";
 import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import { useImageForItems } from "@/hooks/api/images/useImageForItems";
 import Link from "next/link";
 import CodeEditor from "../ui/codeEditor/codeEditor";
+import ScriptEditForm from "./ScriptEditForm";
 
 // Function to get event color
 const getEventColor = (event: string) => {
@@ -44,23 +44,18 @@ const getEventLabel = (event: string) => {
   }
 };
 
-const ScriptView: React.FC = () => {
-  const router = useRouter();
-  const params = useParams();
-  const scriptId = parseInt(params.id as string, 10);
+interface ScriptViewProps {
+  scriptId: number;
+  onBack: () => void; // Callback for cancel button
+}
+
+const ScriptView: React.FC<ScriptViewProps> = ({scriptId, onBack}) => {
 
   const { data: script, isLoading, error } = useScriptsQuery(scriptId);
+  const [isEditing, setIsEditing] = useState(false); // State to toggle between view and edit mode
 
   // Fetch associated image details
   const { imagesById } = useImageForItems([{ imageId: script?.imageId }]);
-
-  const goBack = () => {
-    router.push("/scripts");
-  };
-
-  const navigateToEdit = () => {
-    router.push(`/scripts/edit/${scriptId}`);
-  };
 
   if (isLoading) {
     return (
@@ -76,8 +71,17 @@ const ScriptView: React.FC = () => {
         <p className="text-red-500 dark:text-red-400 mb-4">
           {error ? `Error loading data: ${error instanceof Error ? error.message : "Unknown error"}` : "Script not found"}
         </p>
-        <Button onClick={goBack}>Back to Scripts</Button>
+        <Button onClick={onBack}>Back to Scripts</Button>
       </div>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <ScriptEditForm
+        scriptId={scriptId}
+        onCancel={() => setIsEditing(false)} // Return to view mode
+      />
     );
   }
 
@@ -85,37 +89,32 @@ const ScriptView: React.FC = () => {
 
   return (
     <>
-      <div className="flex items-center mb-6">
-        <Button variant="outline" size="sm" onClick={goBack} className="mr-4">
-          <svg
-            className="w-4 h-4 mr-2"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M19 12H5M5 12L12 19M5 12L12 5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </Button>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Script Details</h2>
-      </div>
-
       <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
         <div className="flex justify-between items-start mb-6">
           <div>
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{script.name}</h3>
-            <p className="text-gray-500 dark:text-gray-400">Created on {script.createdAt}</p>
           </div>
           <div className="flex gap-3">
-            <Button size="sm" variant="outline" onClick={navigateToEdit}>
+            <Button variant="outline" size="sm" onClick={onBack} className="mr-4">
+              <svg
+                className="w-4 h-4 mr-2"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M19 12H5M5 12L12 19M5 12L12 5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Back
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
               <svg
                 width="20"
                 height="20"

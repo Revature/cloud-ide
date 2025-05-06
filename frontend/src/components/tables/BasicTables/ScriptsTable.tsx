@@ -291,7 +291,6 @@ const ScriptsTable: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell className="px-4 py-4 text-sm text-gray-700 dark:text-gray-400 text-right">
-                      <div className="flex justify-end space-x-2">
                       <div className="relative">
                         <button
                           onClick={() => handleDropdownToggle(script.id)}
@@ -362,7 +361,6 @@ const ScriptsTable: React.FC = () => {
                             />
                           </svg>
                         </button>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))
