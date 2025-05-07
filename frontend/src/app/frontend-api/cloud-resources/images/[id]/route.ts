@@ -73,11 +73,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const awaitedParams = await params;
-    const id = awaitedParams.id;
+    const { id } = await params;
+    console.log(request);
 
     // Use backendServer to make the DELETE request
     await backendServer.delete(`${endpoint}/${id}`);
