@@ -31,6 +31,7 @@ export async function GET(
         'Content-Type': 'application/json',
         'Access-Token': accessToken,
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
