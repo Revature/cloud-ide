@@ -1,10 +1,23 @@
 #!/bin/bash
 
+# Detect system architecture
+EXPORTER_ARCH=""
+ARCH=$(uname -m)
+if [[ "$ARCH" == "x86_64" ]]; then
+    EXPORTER_ARCH="amd64"
+elif [[ "$ARCH" == "aarch64" ]]; then
+    EXPORTER_ARCH="arm64"
+else
+    echo "Unsupported architecture detected: $ARCH"
+    exit 1
+fi
+echo "Using Node Exporter architecture: $EXPORTER_ARCH"
+
 # Install Node Exporter
 NODE_EXPORTER_VERSION="1.7.0"
-wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
-tar -xzf node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
-mv node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /usr/local/bin/
+wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}.tar.gz
+tar -xzf node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}.tar.gz
+mv node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}/node_exporter /usr/local/bin/
 
 # Start Node Exporter in the background
 nohup /usr/local/bin/node_exporter &
