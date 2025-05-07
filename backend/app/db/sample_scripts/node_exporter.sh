@@ -24,8 +24,17 @@ echo "Starting Node Exporter installation and setup..."
 # Create log directory for debugging
 mkdir -p /var/log/node_exporter
 
-EXPORTER_ARCH="arm64"
-
+# Detect system architecture
+EXPORTER_ARCH=""
+ARCH=$(uname -m)
+if [[ "$ARCH" == "x86_64" ]]; then
+    EXPORTER_ARCH="amd64"
+elif [[ "$ARCH" == "aarch64" ]]; then
+    EXPORTER_ARCH="arm64"
+else
+    echo "Unsupported architecture detected: $ARCH"
+    exit 1
+fi
 echo "Using Node Exporter architecture: $EXPORTER_ARCH"
 
 # Check if Node Exporter is already running
