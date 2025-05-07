@@ -1,5 +1,6 @@
 """Main application file for the API."""
 import re
+import os
 from http import HTTPStatus
 from fastapi import APIRouter
 from app.api.routes import user_auth, machine_auth, registration, users
@@ -120,7 +121,7 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        wos_cookie = request.cookies.get("wos_session")
+        wos_cookie = request.cookies.get("wos-session")
         #print route
         print(f"\n\nRequest Path: {request.url.path}")
 
@@ -163,12 +164,15 @@ def start_api():
                     refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
                     final_response = await call_next(request)
                     final_response.set_cookie(
-                        key = "wos_session",
+                        key = "wos-session",
                         value = refresh_result.sealed_session,
                         secure = True,
                         httponly = True,
-                        samesite = "lax"
+                        samesite = "lax",
+                        domain = os.getenv("DOMAIN"),
+                        path = "/"
                     )
+
 
             # If none of the above, we must find an access token
             if not final_response and not access_token:
