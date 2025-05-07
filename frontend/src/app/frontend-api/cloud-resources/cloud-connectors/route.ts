@@ -2,38 +2,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudConnector } from '@/types/cloudConnectors';
 import { BackendCloudConnector } from '@/types/api';
+import { backendServer } from '../../axios';
 
 export async function GET(request: NextRequest) {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = '/api/v1/cloud_connectors/';
 
     console.log(request);
-    console.log(`Fetching from backend: ${apiUrl}${endpoint}`);
+    console.log(`Fetching from backend: ${endpoint}`);
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-    
-    const response = await fetch(`${apiUrl}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Token': accessToken,
-      },
-    });
+    // Use backendServer to make the request
+    const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
 
-    if (!response.ok) {
-      console.error(`Backend API error: ${response.status}`);
-      throw new Error(`Backend API error: ${response.status}`);
-    }
-
-    const backendData = await response.json() as BackendCloudConnector[];
+    const backendData = response.data;
     console.log('Backend response:', backendData);
-    
+
     const transformedData: CloudConnector[] = backendData.map((item: BackendCloudConnector) => ({
       id: item.id,
       provider: item.provider,
@@ -46,16 +29,16 @@ export async function GET(request: NextRequest) {
       createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       }),
       updatedOn: new Date(item.updated_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       }),
       image: `/images/brand/${item.provider.toLowerCase()}-logo.svg`,
       modifiedBy: item.modified_by,
-      createdBy: item.created_by
+      createdBy: item.created_by,
     }));
 
     return NextResponse.json(transformedData);
@@ -78,19 +61,10 @@ export async function POST(request: NextRequest) {
     console.log(`Creating new cloud connector at ${apiUrl}${endpoint}`);
     console.log('Request body:', body);
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
       body,
     });

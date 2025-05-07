@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
 import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
@@ -12,10 +11,10 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface ScriptEditFormProps {
   scriptId: number;
+  onCancel: () => void; // Callback for cancel button
 }
 
-const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
-  const router = useRouter();
+const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel}) => {
   const queryClient = useQueryClient();
 
   // Fetch the script data using the script ID
@@ -60,11 +59,12 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
       setSaveStatus("success");
 
       // Invalidate the query to refresh the script data
-      queryClient.invalidateQueries({ queryKey: ["script", scriptId] });
+      queryClient.invalidateQueries({ queryKey: ["scripts", scriptId] });
+      queryClient.invalidateQueries({ queryKey: ["scripts", "image", script?.imageId] });
 
       // Wait for 2 seconds before navigating back to the script's view page
       setTimeout(() => {
-        router.push(`/scripts/view/${scriptId}`);
+        onCancel();
       }, 2000);
     } catch (error) {
       console.error("Failed to update script:", error);
@@ -131,7 +131,7 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId }) => {
       <div className="flex justify-end items-center space-x-4">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={onCancel}
           className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           disabled={isSaving}
         >

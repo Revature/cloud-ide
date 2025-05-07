@@ -1,5 +1,6 @@
 """Module for managing runners (EC2 instances) for running scripts."""
 
+import json
 import uuid
 import asyncio
 import traceback
@@ -352,26 +353,22 @@ def get_runner_from_pool(image_id) -> Runner:
 
 async def claim_runner(
     runner: Runner,
-    requested_session_time: int,
     user: User,
-    user_ip: str,
-    script_vars: dict,
+    runner_config: dict,
     request_id: Optional[str] = None
 ) -> str:
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
-    logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, requested_session_time={requested_session_time}")
+    logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, "+
+                f"requested_session_time={runner_config["requested_session_time"]}")
 
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(session, runner.id)
         logger.info(f"Found runner: id={runner.id}, state={runner.state}, image_id={runner.image_id}")
-
         # Update the runner state quickly to avoid race condition
         previous_state = runner.state
         runner.state = "awaiting_client"
         logger.info(f"Updating runner state from {previous_state} to awaiting_client")
-
         session.commit()
-
         # Emit instance lifecycle event for state change
         if request_id:
             await runner_status_management.runner_status_emitter.emit_status(
@@ -387,13 +384,39 @@ async def claim_runner(
 
         # Update session_end and other attributes
         runner.session_start = datetime.now(timezone.utc)
-        runner.session_end = datetime.now(timezone.utc) + timedelta(minutes=requested_session_time)
+        runner.session_end = datetime.now(timezone.utc) + timedelta(minutes=runner_config["requested_session_time"])
         runner.user_id = user.id
-        runner.env_data = script_vars
-        if user_ip:
-            runner.user_ip = user_ip
+        runner.env_data = runner_config["script_vars"]
+        # Config file setup.
+        config_json = json.dumps({
+            "runnerAuth": runner.external_hash,
+            "runnerId": runner.id,
+            "userId": runner.user_id,
+            "sessionStart": runner.session_start.isoformat(),
+            "maxSessionTime": constants.max_runner_lifetime,
+            "filePath": runner_config["file_path"],
+            "monolithUrl": constants.domain
+        })
+        try:
+            asyncio.get_running_loop()
+            # If an event loop is running, schedule the config script as a background job
+            asyncio.create_task(script_management.run_custom_script_for_runner(runner.id,
+                                                                               "app/db/sample_scripts/config.sh",
+                                                                               {"config_json":config_json},
+                                                                               "config"))
 
-        logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, script_vars_size={len(script_vars)}")
+        except RuntimeError:
+            # If no event loop is running, start one
+            asyncio.run(script_management.run_custom_script_for_runner(runner.id,
+                                                                       "app/db/sample_scripts/config.sh",
+                                                                       {"config_json":config_json},
+                                                                       "config"))
+
+        if runner_config["user_ip"]:
+            runner.user_ip = ["user_ip"]
+
+        logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, "+
+                    f"script_vars_size={len(runner_config["script_vars"])}")
 
         # Emit session status update
         if request_id:
@@ -405,7 +428,7 @@ async def claim_runner(
                     "runner_id": runner.id,
                     "session_type": "create",
                     "status": "in_progress",
-                    "duration": requested_session_time
+                    "duration": runner_config["requested_session_time"]
                 }
             )
 
@@ -428,7 +451,7 @@ async def claim_runner(
 
                         # Update security group rules to allow user IP access
                         try:
-                            logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {user_ip}")
+                            logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {runner_config["user_ip"]}")
 
                             # Emit security update event - starting
                             if request_id:
@@ -441,14 +464,14 @@ async def claim_runner(
                                         "update_type": "update_security_group",
                                         "status": "in_progress",
                                         "details": {
-                                            "user_ip": user_ip
+                                            "user_ip": runner_config["user_ip"]
                                         }
                                     }
                                 )
 
                             security_group_result = await security_group_management.authorize_user_access(
                                 runner.id,
-                                user_ip,
+                                runner_config["user_ip"],
                                 user.email,
                                 cloud_service
                             )
@@ -465,7 +488,7 @@ async def claim_runner(
                                         "update_type": "update_security_group",
                                         "status": "succeeded",
                                         "details": {
-                                            "user_ip": user_ip
+                                            "user_ip": runner_config["user_ip"]
                                         }
                                     }
                                 )

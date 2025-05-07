@@ -4,13 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const response = await fetch(`${apiUrl}/api/v1/scripts/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': request.headers.get('Access-Token') || '',
       },
     });
 
@@ -60,7 +59,6 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Access-Token': request.headers.get('Access-Token') || '',
         },
         body: body,
       });
