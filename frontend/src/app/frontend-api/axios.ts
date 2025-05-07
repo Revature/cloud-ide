@@ -2,7 +2,7 @@ import { withAuth } from '@workos-inc/authkit-nextjs';
 import axios from 'axios';
 
 export const backendServer =  axios.create({
-  baseURL: `https://${process.env.NEXT_PUBLIC_BACKEND_URL}`,
+  baseURL: `https://${process.env['NEXT_PUBLIC_DEPLOYMENT_URL']}`,
     headers: {
         'Content-Type': 'application/json',
     },
