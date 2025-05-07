@@ -1,5 +1,3 @@
-import { fetchAuthToken, resetAuthToken } from './fetchAuthToken'; // Import the token fetcher and reset logic
-
 // Define the HTTP methods type
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
@@ -18,12 +16,8 @@ export async function apiRequest<TResponse, TBody = unknown>(
 ): Promise<TResponse> {
   const { method = 'GET', body, headers = {} } = options;
 
-  // Fetch the Auth-Token dynamically
-  const authToken = await fetchAuthToken() || "asdlfkajsdlfkj";
-
   const requestHeaders: HeadersInit = {
     'Content-Type': 'application/json',
-    'Access-Token': authToken, // Add the Auth-Token to the headers
     ...headers,
   };
 
@@ -38,7 +32,6 @@ export async function apiRequest<TResponse, TBody = unknown>(
   if (!response.ok) {
     if (response.status === 401) {
       // Reset the token if unauthorized and retry the request
-      resetAuthToken();
       return apiRequest(endpoint, options);
     }
 

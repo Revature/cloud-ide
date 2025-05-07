@@ -11,20 +11,11 @@ export async function POST(request: NextRequest) {
     console.log(`Creating new app request at ${apiUrl}${endpoint}`);
     console.log('Request body:', body);
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-
     // Forward the request to the backend
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
       body,
     });
