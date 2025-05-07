@@ -4,7 +4,6 @@
 /.venv/
 secrets.json
 /test/*/config.json
-/monitoring/Sneaky-Scripts
 
 # Don't Ignore
 !local-compose.env
