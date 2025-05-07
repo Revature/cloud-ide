@@ -2,11 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudConnector } from '@/types/cloudConnectors';
 import { BackendCloudConnector } from '@/types/api';
+import { withAuth } from '@workos-inc/authkit-nextjs';
 
 export async function GET(request: NextRequest) {
   try {
     const apiUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'http://localhost:8000';
     const endpoint = '/api/v1/cloud_connectors/';
+    const { accessToken } = await withAuth();
 
     console.log(request);
     console.log(`Fetching from backend: ${apiUrl}${endpoint}`);
@@ -14,8 +16,8 @@ export async function GET(request: NextRequest) {
     const response = await fetch(`https://${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Access-Token': accessToken || '',
       },
-      credentials: 'include',
     });
 
     if (!response.ok) {
