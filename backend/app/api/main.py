@@ -130,6 +130,12 @@ def start_api():
         if not wos_cookie:
             print('not workos cookie')
 
+        # What's with these cookies?
+        print("\n\n================Cookies:================")
+        print(request.cookies)
+        print("\n\n================Headers:================")
+        print(request.headers)
+
         # if request.headers.get("upgrade", "").lower() == "websocket":
         #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
         #     return await call_next(request)
