@@ -38,11 +38,13 @@ def authkit_callback(request: Request, code: str):
             url = auth_landing_url
         )
         response.set_cookie(
-            key = "wos_session",
+            key = "wos-session",
             value = auth_result.sealed_session,
             secure = True,
             httponly = True,
-            samesite = "lax"
+            samesite = "lax",
+            domain = os.getenv("DOMAIN"),
+            path = "/"
         )
 
     except workos_exceptions.BadRequestException as e:
