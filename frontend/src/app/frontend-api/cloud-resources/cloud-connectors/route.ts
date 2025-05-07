@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
         'Access-Token': accessToken,
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
