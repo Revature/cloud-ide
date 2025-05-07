@@ -81,7 +81,7 @@ async def get_ready_runner(
     existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
     if existing_runner :
         logger.info(f"User {db_user.id} requested runner, got existing runner: {existing_runner}")
-        url : str = await runner_management.claim_runner(fresh_runner, db_user, runner_config)
+        url : str = await runner_management.claim_runner(existing_runner, db_user, runner_config)
         return app_requests_dto(url, existing_runner)
 
     ready_runner : Runner = runner_management.get_runner_from_pool(db_image.id)
@@ -92,7 +92,7 @@ async def get_ready_runner(
         # Launch a new runner asynchronously to replenish the pool if the image definition specifies a pool.
         if db_image.runner_pool_size != 0:
             asyncio.create_task(runner_management.launch_runners(db_image.identifier, 1, initiated_by="app_requests_endpoint_pool_replenish"))
-        url : str = await runner_management.claim_runner(fresh_runner, db_user, runner_config)
+        url : str = await runner_management.claim_runner(ready_runner, db_user, runner_config)
         return await awaiting_client_hook(ready_runner, url, env_vars)
     else:
         # Launch a new runner and wait for it to be ready.

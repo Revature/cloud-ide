@@ -57,7 +57,7 @@ def find_runner_by_image_id_and_states(session: Session, image_id: int, states: 
     more bursting credits.
     """
     stmt_runner = select(Runner).where(
-        Runner.state.in_(states),  # Changed to include awaiting_client too
+        Runner.state.in_(states),
         Runner.image_id == image_id
     )
     return session.exec(stmt_runner).first()
