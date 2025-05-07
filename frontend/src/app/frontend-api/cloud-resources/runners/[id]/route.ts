@@ -1,36 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Runner } from '@/types/runner';
 import { BackendRunner } from '@/types/api';
+import { backendServer } from '../../../../../utils/axios';
+import { handleRouteError } from '@/utils/errorHandler';
+
+
+// Backend API endpoint
+const endpoint = `/api/v1/runners`;
 
 export async function GET(
-  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const awaitedParams = await params;
   try {
-    const id = awaitedParams.id;
+    const { id } = await params;
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
-    const endpoint = `/api/v1/runners/${id}`;
+    // Use backendServer to make the request
+    const response = await backendServer.get<BackendRunner>(`${endpoint}/${id}`);
 
-    console.log(`Fetching individual runner from backend: ${apiUrl}${endpoint}`);
+    // Extract backend data
+    const runnerData = response.data;
 
-    const response = await fetch(`${apiUrl}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`Backend API error: ${response.status}`);
-      throw new Error(`Backend API error: ${response.status}`);
-    }
-
-// Parse the JSON response
-    const runnerData = await response.json// Validate that we have the expected fields
-() as BackendRunner;
-
-// Validate that we have the expected fields
+    // Validate that we have the expected fields
     if (!runnerData || !runnerData.id) {
       console.error('Invalid runner data:', runnerData);
       throw new Error('Invalid runner data returned from backend');
@@ -48,64 +38,29 @@ export async function GET(
       url: runnerData.url,
       userIP: runnerData.user_ip,
       envData: runnerData.env_data,
-      sessionStart: new Date(runnerData.session_start).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric',
-          }), // When user requests runner
-        sessionEnd: new Date(runnerData.session_end).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric',
-          }), // When runner expires
-        endedOn: new Date(runnerData.ended_on).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric',
-          }),
-        createdOn: new Date(runnerData.created_on).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-          }),
-      updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-          }),
+      sessionStart: new Date(runnerData.session_start).toLocaleString('en-US'),
+      sessionEnd: new Date(runnerData.session_end).toLocaleString('en-US'),
+      endedOn: new Date(runnerData.ended_on).toLocaleString('en-US'),
+      createdOn: new Date(runnerData.created_on).toLocaleDateString('en-US'),
+      updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US'),
       modifiedBy: runnerData.modified_by,
     };
 
     return NextResponse.json(transformedData);
   } catch (error) {
-    console.error(`Error fetching runner with ID ${awaitedParams.id}:`, error);
-
-    return NextResponse.json(
-      { error: `Failed to fetch runner with ID ${awaitedParams.id}` },
-      { status: 500 }
-    );
+    return handleRouteError(error, {action: 'fetching runner', id: (await params).id});
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string, action: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const awaitedParams = await params;
-  const id = awaitedParams.id;
-  try{
+  try {
+    const { id } = await params;
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
-    
+
     // Validate the action
     if (!action || !['start', 'stop'].includes(action)) {
       return NextResponse.json(
@@ -114,67 +69,26 @@ export async function PATCH(
       );
     }
 
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
-    const endpoint = `/api/v1/runners/${id}/${action}`;
-
-
-    console.log(`Performing ${action} action on runner ${id}: ${apiUrl}${endpoint}`);
-
-    const response = await fetch(`${apiUrl}${endpoint}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`Backend API error: ${response.status}`);
-      throw new Error(`Backend API error: ${response.status}`);
-    }
+    // Use backendServer to make the request
+    await backendServer.patch(`${endpoint}/${id}/${action}`);
 
     return NextResponse.json({ message: `Runner ${id} ${action}ed successfully.` });
   } catch (error) {
-    console.error(`Error performing action on runner ${id}:`, error);
-
-    return NextResponse.json(
-      { error: `Failed to perform action on runner ${id}` },
-      { status: 500 }
-    );
+    return handleRouteError(error, {action: 'update runner', id: (await params).id});
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const awaitedParams = await params;
-  const id = awaitedParams.id;
-
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
-    const endpoint = `/api/v1/runners/${id}`;
+    const { id } = await params;
 
-    console.log(`Terminating runner ${id}: ${apiUrl}${endpoint}`);
-
-    const response = await fetch(`${apiUrl}${endpoint}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`Backend API error: ${response.status}`);
-      throw new Error(`Backend API error: ${response.status}`);
-    }
+    // Use backendServer to make the request
+    await backendServer.delete(`${endpoint}/${id}`);
 
     return NextResponse.json({ message: `Runner ${id} terminated successfully.` });
   } catch (error) {
-    console.error(`Error terminating runner ${id}:`, error);
-
-    return NextResponse.json(
-      { error: `Failed to terminate runner ${id}` },
-      { status: 500 }
-    );
+    return handleRouteError(error, {action: 'delete runner', id: (await params).id});
   }
 }

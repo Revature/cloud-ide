@@ -1,21 +1,17 @@
-// src/app/frontend-api/cloud-resources/cloud-connectors/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudConnector } from '@/types/cloudConnectors';
 import { BackendCloudConnector } from '@/types/api';
-import { backendServer } from '../../axios';
+import { backendServer } from '../../../../utils/axios';
+import { handleRouteError } from '@/utils/errorHandler';
 
-export async function GET(request: NextRequest) {
+const endpoint = '/api/v1/cloud_connectors/';
+
+export async function GET() {
   try {
-    const endpoint = '/api/v1/cloud_connectors/';
 
-    console.log(request);
-    console.log(`Fetching from backend: ${endpoint}`);
-
-    // Use backendServer to make the request
     const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
 
     const backendData = response.data;
-    console.log('Backend response:', backendData);
 
     const transformedData: CloudConnector[] = backendData.map((item: BackendCloudConnector) => ({
       id: item.id,
@@ -43,82 +39,45 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transformedData);
   } catch (error) {
-    console.error('Cloud Connectors API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch cloud connectors', data: [] },
-      { status: 500 }
-    );
+    return handleRouteError(error, { action: 'fetch cloud connectors' });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
-    const endpoint = '/api/v1/cloud_connectors/';
+    const requestBody = await request.json();
 
-    const body = await request.json();
+    const response = await backendServer.post<BackendCloudConnector>(endpoint, requestBody);
 
-    console.log(`Creating new cloud connector at ${apiUrl}${endpoint}`);
-    console.log('Request body:', body);
+    const connector = response.data;
 
-    const response = await fetch(`${apiUrl}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body,
-    });
+    const transformedConnector: CloudConnector = {
+      id: connector.id,
+      provider: connector.provider,
+      name: `${connector.provider} ${connector.region}`,
+      type: connector.provider,
+      region: connector.region,
+      active: true,
+      accessKey: connector.encrypted_access_key,
+      secretKey: connector.encrypted_secret_key,
+      createdOn: new Date(connector.created_on).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+      updatedOn: new Date(connector.updated_on).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+      image: `/images/brand/${connector.provider.toLowerCase()}-logo.svg`,
+      modifiedBy: connector.modified_by,
+      createdBy: connector.created_by,
+    };
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error(`Backend API error: ${response.status}`);
-      throw new Error(`Backend API error: ${response.status}`);
-    }
-
-    if (responseData.success) {
-      const connector: BackendCloudConnector = responseData.connector;
-      console.log('Cloud connector created successfully:', connector);
-
-      const transformedConnector: CloudConnector = {
-        id: connector.id,
-        provider: connector.provider,
-        name: `${connector.provider} ${connector.region}`,
-        type: connector.provider,
-        region: connector.region,
-        active: true,
-        accessKey: connector.encrypted_access_key,
-        secretKey: connector.encrypted_secret_key,
-        createdOn: new Date(connector.created_on).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        }),
-        updatedOn: new Date(connector.updated_on).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        }),
-        image: `/images/brand/${connector.provider.toLowerCase()}-logo.svg`,
-        modifiedBy: connector.modified_by,
-        createdBy: connector.created_by
-      };
-
-      return NextResponse.json(transformedConnector);
-    } else {
-      console.error('Cloud connector creation failed:', responseData.message);
-      console.error('Denied actions:', responseData.denied_actions);
-
-      return NextResponse.json(
-        { error: responseData.message, deniedActions: responseData.denied_actions },
-        { status: 400 }
-      );
-    }
+    return NextResponse.json(transformedConnector);
   } catch (error) {
-    console.error('Error creating cloud connector:', error);
-    return NextResponse.json(
-      { error: 'Failed to create cloud connector' },
-      { status: 500 }
-    );
+    
+   return handleRouteError(error, { action: 'create cloud connector' });
   }
 }
