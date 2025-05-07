@@ -2,32 +2,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CloudConnector } from '@/types/cloudConnectors';
 import { BackendCloudConnector } from '@/types/api';
-import { withAuth } from '@workos-inc/authkit-nextjs';
+import { backendServer } from '../../axios';
 
 export async function GET(request: NextRequest) {
   try {
-    const apiUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'http://localhost:8000';
     const endpoint = '/api/v1/cloud_connectors/';
-    const { accessToken } = await withAuth();
 
     console.log(request);
-    console.log(`Fetching from backend: ${apiUrl}${endpoint}`);
-    
-    const response = await fetch(`https://${apiUrl}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Token': accessToken || '',
-      },
-    });
+    console.log(`Fetching from backend: ${endpoint}`);
 
-    if (!response.ok) {
-      console.error(`Backend API error: ${response.status}`);
-      throw new Error(`Backend API error: ${response.status}`);
-    }
+    // Use backendServer to make the request
+    const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
 
-    const backendData = await response.json() as BackendCloudConnector[];
+    const backendData = response.data;
     console.log('Backend response:', backendData);
-    
+
     const transformedData: CloudConnector[] = backendData.map((item: BackendCloudConnector) => ({
       id: item.id,
       provider: item.provider,
@@ -40,16 +29,16 @@ export async function GET(request: NextRequest) {
       createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       }),
       updatedOn: new Date(item.updated_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       }),
       image: `/images/brand/${item.provider.toLowerCase()}-logo.svg`,
       modifiedBy: item.modified_by,
-      createdBy: item.created_by
+      createdBy: item.created_by,
     }));
 
     return NextResponse.json(transformedData);
