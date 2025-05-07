@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
       credentials: 'include',
     });

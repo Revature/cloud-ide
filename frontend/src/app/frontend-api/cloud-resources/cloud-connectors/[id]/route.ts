@@ -29,7 +29,6 @@ export async function GET(
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
       credentials: 'include',
     });
