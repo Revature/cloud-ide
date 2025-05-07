@@ -5,6 +5,7 @@ import { backendServer } from '../../../../../../utils/axios';
 import { handleRouteError } from '@/utils/errorHandler';
 
 export async function GET(
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: imageId } = await params;
@@ -12,6 +13,7 @@ export async function GET(
   try {
     // Backend API endpoint
     const endpoint = `/api/v1/scripts/image/${imageId}`;
+    console.log(request);
 
     // Use backendServer to make the request
     const response = await backendServer.get<BackendScript[]>(endpoint);

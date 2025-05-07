@@ -9,10 +9,12 @@ import { handleRouteError } from '@/utils/errorHandler';
 const endpoint = `/api/v1/scripts`;
 
 export async function GET(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    console.log(request);
 
     // Use backendServer to make the request
     const response = await backendServer.get<BackendScript>(`${endpoint}/${id}`);
@@ -91,12 +93,14 @@ export async function PUT(
 }
 
 export async function DELETE(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     // Use backendServer to make the request
     await backendServer.delete(`${endpoint}/${id}`);
+    console.log(request);
 
     return NextResponse.json({
       success: true,

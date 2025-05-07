@@ -7,14 +7,15 @@ import { handleRouteError } from '@/utils/errorHandler';
 const endpoint = `/api/v1/images`;
 
 export async function GET(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const awaitedParams = await params;
-    const id = awaitedParams.id;
+    const { id } = await params;
 
     // Use backendServer to make the GET request
     const response = await backendServer.get(`${endpoint}/${id}`);
+    console.log(request);
 
     const imageData = response.data;
 

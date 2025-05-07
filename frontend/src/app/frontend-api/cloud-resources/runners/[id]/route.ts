@@ -9,10 +9,12 @@ import { handleRouteError } from '@/utils/errorHandler';
 const endpoint = `/api/v1/runners`;
 
 export async function GET(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    console.log(request);
 
     // Use backendServer to make the request
     const response = await backendServer.get<BackendRunner>(`${endpoint}/${id}`);
@@ -79,10 +81,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    console.log(request);
 
     // Use backendServer to make the request
     await backendServer.delete(`${endpoint}/${id}`);

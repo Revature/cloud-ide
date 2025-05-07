@@ -1,18 +1,19 @@
 // src/app/frontend-api/cloud-resources/cloud-connectors/[id]/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { backendServer } from '../../../../../utils/axios'; // Import your backendServer instance
 import { CloudConnector } from '@/types/cloudConnectors';
 import { BackendCloudConnector } from '@/types/api';
 import { handleRouteError } from '@/utils/errorHandler';
 
 export async function GET(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const awaitedParams = await params;
-    const id = awaitedParams.id;
+    const { id } = await params;
 
     const endpoint = `/api/v1/cloud_connectors/${id}`;
+    console.log(request);
 
     // Use backendServer to make the request
     const response = await backendServer.get<BackendCloudConnector>(endpoint);

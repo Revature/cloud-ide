@@ -4,6 +4,7 @@ import { backendServer } from '../../../../../utils/axios';
 import { handleRouteError } from '@/utils/errorHandler';
 
 export async function GET(
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -11,6 +12,7 @@ export async function GET(
 
     // Backend API endpoint
     const endpoint = `/api/v1/machines/${id}`;
+    console.log(request);
 
     // Use backendServer to make the request
     const response = await backendServer.get(endpoint);
