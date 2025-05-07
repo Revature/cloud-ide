@@ -1,9 +1,10 @@
 """Model for workOS sessions, tracks access and refresh tokens."""
-from sqlmodel import Field, SQLModel, Text, select, Column, String
+from sqlmodel import Field, SQLModel, Session, Text, select, Column, String
 from app.business.encryption import decrypt_text, encrypt_text
 from app.db.database import get_session
 from app.models.mixins import TimestampMixin
-
+from app.db.database import engine
+from app.exceptions.authentication_exceptions import NoRefreshSessionFound
 
 class WorkosSession(TimestampMixin, SQLModel, table=True):
     """WorkosSession Model."""
@@ -54,7 +55,7 @@ def create_workos_session(workos_session: WorkosSession):
 
 def get_refresh_token(access_token: str):
     """Return a refresh token for an access token."""
-    with next(get_session()) as database_session:
+    with Session(engine) as database_session:
         encrypted_access_token = encrypt_text(access_token)
         record: WorkosSession = database_session.exec(select(WorkosSession)
             .where(WorkosSession.encrypted_access_token == encrypt_text(access_token))).first()
@@ -70,7 +71,7 @@ def refresh_session(old_access_token: str, access_token: str, refresh_token: str
         record: WorkosSession = database_session.exec(select(WorkosSession)
             .where(WorkosSession.encrypted_access_token == encrypt_text(old_access_token))).first()
         if not record:
-            raise Exception("Session not found")
+            raise NoRefreshSessionFound("Session not found")
         record.set_decrypted_access_token(access_token)
         record.set_decrypted_refresh_token(refresh_token)
         database_session.add(record)
