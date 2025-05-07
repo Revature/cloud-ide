@@ -5,21 +5,13 @@ import { BackendCloudConnector } from '@/types/api';
 
 export async function GET(request: NextRequest) {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
+    const apiUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'http://localhost:8000';
     const endpoint = '/api/v1/cloud_connectors/';
 
     console.log(request);
     console.log(`Fetching from backend: ${apiUrl}${endpoint}`);
-
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
     
-    const response = await fetch(`${apiUrl}${endpoint}`, {
+    const response = await fetch(`https://${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -78,19 +70,10 @@ export async function POST(request: NextRequest) {
     console.log(`Creating new cloud connector at ${apiUrl}${endpoint}`);
     console.log('Request body:', body);
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
       body,
     });

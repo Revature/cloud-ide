@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': request.headers.get('Access-Token') || '',
       },
     });
 
@@ -60,7 +59,6 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Access-Token': request.headers.get('Access-Token') || '',
         },
         body: body,
       });

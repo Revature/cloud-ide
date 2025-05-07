@@ -15,7 +15,6 @@ export async function GET(
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': request.headers.get('Access-Token') || '',
       },
     });
 
@@ -67,7 +66,6 @@ export async function PUT(
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Access-Token': request.headers.get('Access-Token') || '',
         },
         body,
       });
@@ -118,7 +116,6 @@ export async function PUT(
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Access-Token': request.headers.get('Access-Token') || '',
         },
       });
   

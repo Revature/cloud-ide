@@ -15,7 +15,6 @@ export async function GET(
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': request.headers.get('Access-Token') || '',
       },
     });
 

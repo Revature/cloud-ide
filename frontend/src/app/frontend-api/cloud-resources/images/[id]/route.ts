@@ -13,20 +13,11 @@ export async function GET(
     const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/images/${id}`;
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-
     console.log(`Fetching individual image from backend: ${apiUrl}${endpoint}`);
 
     const response = await fetch(`${apiUrl}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
     });
 
@@ -103,14 +94,6 @@ export async function PATCH(
 
     const body = await request.json();
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-
     if (typeof body.runner_pool_size !== 'number' || body.runner_pool_size < 0) { 
       return NextResponse.json(
         { error: 'Invalid runner_pool_size. It must be a positive number.' },
@@ -124,7 +107,6 @@ export async function PATCH(
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
       body: JSON.stringify({ runner_pool_size: body.runner_pool_size }),
     });
@@ -161,21 +143,12 @@ export async function DELETE(
     const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const endpoint = `/api/v1/images/${id}`;
 
-    const accessToken = request.headers.get('Access-Token');
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Access-Token is missing from the request headers.' },
-        { status: 401 }
-      );
-    }
-
     console.log(`Deleting image with ID ${id} from backend: ${apiUrl}${endpoint}`);
 
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Token': accessToken,
       },
     });
 
