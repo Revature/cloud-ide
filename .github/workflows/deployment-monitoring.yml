@@ -8,9 +8,9 @@ jobs:
         runs-on: self-hosted
         environment: |-
           ${{
-             github.event.workflow_run.head_branch == 'main' && 'PRODUCTION'
-          || github.event.workflow_run.head_branch == 'dev' && 'DEVELOPMENT'
-          || github.event.workflow_run.head_branch == 'demo' && 'DEMO'
+             github.ref_name == 'main' && 'PRODUCTION'
+          || github.ref_name == 'dev' && 'DEVELOPMENT'
+          || github.ref_name == 'demo' && 'DEMO'
           || startsWith(github.ref_name, 'feat') && 'TEST'
           }}
 
