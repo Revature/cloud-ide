@@ -397,21 +397,11 @@ async def claim_runner(
             "filePath": runner_config["file_path"],
             "monolithUrl": constants.domain
         })
-        try:
-            asyncio.get_running_loop()
-            # If an event loop is running, schedule the config script as a background job
-            asyncio.create_task(script_management.run_custom_script_for_runner(runner.id,
+        asyncio.get_running_loop()
+        task = asyncio.create_task(script_management.run_custom_script_for_runner(runner.id,
                                                                                "app/db/sample_scripts/config.sh",
                                                                                {"config_json":config_json},
                                                                                "config"))
-
-        except RuntimeError:
-            # If no event loop is running, start one
-            asyncio.run(script_management.run_custom_script_for_runner(runner.id,
-                                                                       "app/db/sample_scripts/config.sh",
-                                                                       {"config_json":config_json},
-                                                                       "config"))
-
         if runner_config["user_ip"]:
             runner.user_ip = ["user_ip"]
 
@@ -644,8 +634,11 @@ async def claim_runner(
         session.commit()
 
         runner_url = get_runner_destination_url(runner)
-
         # Return the destination URL
+        # the config script should be complete, let's wait for it to complete
+        # (this prevents an issue where the runner terminating as the result
+        # of on_awaiting_client would give a misleading error)
+        await task
         return runner_url
 
 def get_runner_destination_url(runner: Runner) -> str:
