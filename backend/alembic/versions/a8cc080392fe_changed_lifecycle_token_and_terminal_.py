@@ -1,11 +1,12 @@
-"""changed lifecycle_token and terminal_token in runner to nullable
+"""changed lifecycle_token and terminal_token in runner to nullable.
 
 Revision ID: a8cc080392fe
 Revises: b702f249db9d
 Create Date: 2025-05-08 14:39:24.346397
 
 """
-from typing import Sequence, Union
+from typing import Union
+from collections.abc import Sequence
 
 from alembic import op
 import sqlalchemy as sa
