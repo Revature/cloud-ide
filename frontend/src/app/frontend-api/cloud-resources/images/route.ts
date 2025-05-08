@@ -2,8 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { VMImage } from '@/types/images';
 import { BackendVMImage } from '@/types/api';
-import { backendServer } from '../../../../utils/axios';
 import { handleRouteError } from '@/utils/errorHandler';
+import { backendServer } from '@/utils/axios';
 
 
 const endpoint = '/api/v1/images/';
@@ -20,7 +20,7 @@ export async function GET() {
       name: item.name,
       identifier: item.identifier,
       description: item.description,
-      active: typeof item.active === 'number' ? Boolean(item.active) : !!item.active,
+      status: item.status,
       createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',

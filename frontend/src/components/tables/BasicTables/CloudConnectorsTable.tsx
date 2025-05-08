@@ -89,7 +89,7 @@ export default function CloudConnectorsTable() {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="text-red-500">
-          Error loading cloud connectors: {error instanceof Error ? error.message : "Unknown error"}
+          Error loading cloud connectors: {error.message}
         </div>
       </div>
     );

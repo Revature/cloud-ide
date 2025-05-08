@@ -6,8 +6,9 @@ import { handleRouteError } from '@/utils/errorHandler';
 
 const endpoint = '/api/v1/cloud_connectors/';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    console.log(request);
 
     const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
 
@@ -19,7 +20,7 @@ export async function GET() {
       name: `${item.provider} ${item.region}`,
       type: item.provider,
       region: item.region,
-      active: true,
+      status: 'active',
       accessKey: item.encrypted_access_key,
       secretKey: item.encrypted_secret_key,
       createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       name: `${connector.provider} ${connector.region}`,
       type: connector.provider,
       region: connector.region,
-      active: true,
+      status: 'active',
       accessKey: connector.encrypted_access_key,
       secretKey: connector.encrypted_secret_key,
       createdOn: new Date(connector.created_on).toLocaleDateString('en-US', {

@@ -26,7 +26,7 @@ export async function GET(
       name: `${backendData.provider} ${backendData.region}`, // Generated name
       type: backendData.provider,
       region: backendData.region,
-      active: true, // TODO: Default to active
+      status: 'active', // TODO: Default to active
       accessKey: backendData.encrypted_access_key,
       secretKey: backendData.encrypted_secret_key,
       createdOn: new Date(backendData.created_on).toLocaleDateString('en-US', {

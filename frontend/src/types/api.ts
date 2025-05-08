@@ -20,7 +20,7 @@ export interface BackendVMImage {
   machine_id: number;
   runner_pool_size: number;
   cloud_connector_id: number;
-  active: number | boolean;
+  status: string;
   created_on: string;
   updated_on: string;
   modified_by: string;
@@ -47,6 +47,7 @@ export interface BackendCloudConnector {
   region: string;
   encrypted_access_key: string;
   encrypted_secret_key: string;
+  status: string; // "active", "inactive", etc.
   created_on: string;
   updated_on: string;
   modified_by: string;

@@ -2,7 +2,7 @@
 import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 
 export default authkitMiddleware({middlewareAuth:{
-  enabled: true, 
+  enabled: false, 
   unauthenticatedPaths: ['/', '/frontend-api/auth/callback', '/home'], 
 },
 redirectUri: process.env['NEXT_PUBLIC_WORKOS_REDIRECT_URI'],
