@@ -33,15 +33,15 @@ class RunnerRequest(BaseModel):
     file_path: Optional[str] = None # A starting filepath to be opened on startup
 
 async def emit_status(
-    lifecycle_token: Optional[str], 
-    event_type: str, 
-    message: str, 
+    lifecycle_token: Optional[str],
+    event_type: str,
+    message: str,
     data: dict[str, Any],
     is_error: bool = False
 ) -> None:
     """
     Emit a status update if lifecycle_token is provided.
-    
+
     Args:
         lifecycle_token: Optional token for tracking the request
         event_type: Type of event (e.g., "REQUEST_PROCESSING", "ERROR")
@@ -51,7 +51,7 @@ async def emit_status(
     """
     if not lifecycle_token:
         return
-        
+
     if is_error:
         await runner_status_management.runner_status_emitter.emit_status(
             lifecycle_token,
@@ -71,7 +71,7 @@ async def emit_status(
         )
 
 def handle_runner_errors(func):
-    """Decorator for standardized error handling in runner operations."""
+    """Decorate standardized error handling in runner operations."""
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         try:
@@ -79,34 +79,34 @@ def handle_runner_errors(func):
         except RunnerLaunchError as e:
             lifecycle_token = kwargs.get('lifecycle_token')
             await emit_status(
-                lifecycle_token, 
-                "ERROR", 
+                lifecycle_token,
+                "ERROR",
                 f"Failed to launch runner: {e!s}",
                 {"error_type": "launch_failed", "exception": str(e)},
                 is_error=True
             )
-            raise HTTPException(status_code=500, detail=f"Failed to launch runner: {e!s}")
+            raise HTTPException(status_code=500, detail=f"Failed to launch runner: {e!s}") from e
         except RunnerClaimError as e:
             lifecycle_token = kwargs.get('lifecycle_token')
             await emit_status(
-                lifecycle_token, 
-                "ERROR", 
+                lifecycle_token,
+                "ERROR",
                 f"Failed to claim runner: {e!s}",
                 {"error_type": "claim_failed", "exception": str(e)},
                 is_error=True
             )
-            raise HTTPException(status_code=500, detail=f"Failed to claim runner: {e!s}")
+            raise HTTPException(status_code=500, detail=f"Failed to claim runner: {e!s}") from e
         except Exception as e:
             lifecycle_token = kwargs.get('lifecycle_token')
             logger.error(f"Error in {func.__name__}: {e}")
             await emit_status(
-                lifecycle_token, 
-                "ERROR", 
+                lifecycle_token,
+                "ERROR",
                 f"Unexpected error: {e!s}",
                 {"error_type": "unknown", "exception": str(e)},
                 is_error=True
             )
-            raise HTTPException(status_code=500, detail=f"Unexpected error: {e!s}")
+            raise HTTPException(status_code=500, detail=f"Unexpected error: {e!s}") from e
     return wrapper
 
 async def process_runner_request(
@@ -117,16 +117,16 @@ async def process_runner_request(
 ) -> dict:
     """
     Core processing logic for all runner requests.
-    
+
     Args:
         request: The RunnerRequest containing image_id, env_data, user_email, etc.
         lifecycle_token: Optional token for status tracking via WebSocket
         client_ip: Optional client IP from header
         x_forwarded_for: Optional X-Forwarded-For header
-        
+
     Returns:
         A dictionary containing the URL and runner_id, or status information
-        
+
     Raises:
         HTTPException: If the request is invalid or processing fails
     """
@@ -134,7 +134,7 @@ async def process_runner_request(
         # Extract common data from request
         script_vars = request.env_data.get("script_vars", {})
         env_vars = request.env_data.get("env_vars", {})
-        
+
         # Validate session time
         if request.session_time > constants.max_runner_lifetime:
             error_msg = f"Requested session time exceeds maximum: {constants.max_runner_lifetime} minutes"
@@ -149,7 +149,7 @@ async def process_runner_request(
                 is_error=True
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
-            
+
         # Get image
         db_image = image_management.get_image_by_id(request.image_id)
         if not db_image:
@@ -165,7 +165,7 @@ async def process_runner_request(
                 is_error=True
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
-            
+
         # Get user
         db_user = user_management.get_user_by_email(request.user_email)
         if not db_user:
@@ -181,7 +181,7 @@ async def process_runner_request(
                 is_error=True
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
-            
+
         # Process user IP - handle it differently based on whether we have headers
         if x_forwarded_for or client_ip:
             user_ip = http.extract_original_ip(client_ip, x_forwarded_for)
@@ -195,7 +195,7 @@ async def process_runner_request(
             "user_ip": user_ip,
             "file_path": script_vars.get("file_path", "")
         }
-        
+
         # If lifecycle_token is provided, emit initial status
         await emit_status(
             lifecycle_token,
@@ -208,7 +208,7 @@ async def process_runner_request(
                 "status": "in_progress"
             }
         )
-            
+
         # STEP 1: Check if the user already has a runner
         await emit_status(
             lifecycle_token,
@@ -219,12 +219,12 @@ async def process_runner_request(
                 "status": "in_progress"
             }
         )
-            
+
         existing_runner = runner_management.get_existing_runner(db_user.id, db_image.id)
-        
+
         if existing_runner:
             logger.info(f"User {db_user.id} requested runner, got existing runner: {existing_runner}")
-            
+
             await emit_status(
                 lifecycle_token,
                 "RESOURCE_DISCOVERY",
@@ -235,7 +235,7 @@ async def process_runner_request(
                     "status": "succeeded"
                 }
             )
-                
+
             await emit_status(
                 lifecycle_token,
                 "RESOURCE_ALLOCATION",
@@ -246,7 +246,7 @@ async def process_runner_request(
                     "status": "in_progress"
                 }
             )
-                
+
             # Claim the existing runner with the updated function signature
             url = await runner_management.claim_runner(
                 runner=existing_runner,
@@ -254,7 +254,7 @@ async def process_runner_request(
                 runner_config=runner_config,
                 lifecycle_token=lifecycle_token
             )
-            
+
             await emit_status(
                 lifecycle_token,
                 "RESOURCE_ALLOCATION",
@@ -265,7 +265,7 @@ async def process_runner_request(
                     "status": "succeeded"
                 }
             )
-                
+
             await emit_status(
                 lifecycle_token,
                 "REQUEST_PROCESSING",
@@ -277,7 +277,7 @@ async def process_runner_request(
                     "status": "succeeded"
                 }
             )
-                
+
             await emit_status(
                 lifecycle_token,
                 "CONNECTION_STATUS",
@@ -288,9 +288,9 @@ async def process_runner_request(
                     "url": url
                 }
             )
-                
+
             return app_requests_dto(url, existing_runner)
-            
+
         # STEP 2: No existing runner, check for a ready runner in the pool
         await emit_status(
             lifecycle_token,
@@ -301,22 +301,22 @@ async def process_runner_request(
                 "status": "in_progress"
             }
         )
-            
+
         ready_runner = runner_management.get_runner_from_pool(db_image.id)
-        
+
         if ready_runner:
             logger.info(f"User {db_user.id} requested runner, got ready runner: {ready_runner}")
-            
+
             # Replenish the pool if configured
             if db_image.runner_pool_size != 0:
                 asyncio.create_task(
                     runner_management.launch_runners(
-                        db_image.identifier, 
-                        1, 
+                        db_image.identifier,
+                        1,
                         initiated_by="app_requests_endpoint_pool_replenish"
                     )
                 )
-                
+
             await emit_status(
                 lifecycle_token,
                 "RESOURCE_DISCOVERY",
@@ -327,7 +327,7 @@ async def process_runner_request(
                     "status": "succeeded"
                 }
             )
-                
+
             await emit_status(
                 lifecycle_token,
                 "RESOURCE_ALLOCATION",
@@ -338,7 +338,7 @@ async def process_runner_request(
                     "status": "in_progress"
                 }
             )
-                
+
             # Claim the pool runner with the updated function signature
             url = await runner_management.claim_runner(
                 runner=ready_runner,
@@ -346,7 +346,7 @@ async def process_runner_request(
                 runner_config=runner_config,
                 lifecycle_token=lifecycle_token
             )
-            
+
             await emit_status(
                 lifecycle_token,
                 "RESOURCE_ALLOCATION",
@@ -357,11 +357,11 @@ async def process_runner_request(
                     "status": "succeeded"
                 }
             )
-                
+
             # Run the script for awaiting_client
             result = await awaiting_client_hook(ready_runner, url, env_vars, lifecycle_token)
             return result
-            
+
         # STEP 3: No existing or pool runner, need to launch a new one
         await emit_status(
             lifecycle_token,
@@ -372,7 +372,7 @@ async def process_runner_request(
                 "status": "succeeded"
             }
         )
-            
+
         await emit_status(
             lifecycle_token,
             "RESOURCE_ALLOCATION",
@@ -383,7 +383,7 @@ async def process_runner_request(
                 "status": "in_progress"
             }
         )
-            
+
         # Launch a new runner
         fresh_runners = await runner_management.launch_runners(
             db_image.identifier,
@@ -392,7 +392,7 @@ async def process_runner_request(
             claimed=True,
             lifecycle_token=lifecycle_token
         )
-        
+
         if not fresh_runners:
             error_msg = "Failed to launch new runner"
             await emit_status(
@@ -406,17 +406,17 @@ async def process_runner_request(
                 is_error=True
             )
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
-            
+
         fresh_runner = fresh_runners[0]
         logger.info(f"User {db_user.id} requested runner, got fresh runner: {fresh_runner}")
-        
+
         # Wait for the runner to become ready
         fresh_runner = await runner_management.wait_for_runner_state(
-            fresh_runner, 
-            "ready_claimed", 
+            fresh_runner,
+            "ready_claimed",
             600
         )
-        
+
         if not fresh_runner or fresh_runner.state != "ready_claimed":
             error_msg = "Runner did not become ready in time"
             await emit_status(
@@ -430,7 +430,7 @@ async def process_runner_request(
                 is_error=True
             )
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
-            
+
         await emit_status(
             lifecycle_token,
             "RESOURCE_ALLOCATION",
@@ -441,7 +441,7 @@ async def process_runner_request(
                 "status": "succeeded"
             }
         )
-            
+
         await emit_status(
             lifecycle_token,
             "CONNECTION_STATUS",
@@ -451,7 +451,7 @@ async def process_runner_request(
                 "status": "in_progress"
             }
         )
-            
+
         # Claim the fresh runner with the updated function signature
         url = await runner_management.claim_runner(
             runner=fresh_runner,
@@ -459,15 +459,15 @@ async def process_runner_request(
             runner_config=runner_config,
             lifecycle_token=lifecycle_token
         )
-        
+
         # Run the script for awaiting_client
         result = await awaiting_client_hook(fresh_runner, url, env_vars, lifecycle_token)
         return result
-        
+
     except Exception as e:
         # Log the exception
         logger.error(f"Error in process_runner_request: {e}")
-        
+
         # Emit error status if lifecycle_token is provided
         await emit_status(
             lifecycle_token,
@@ -479,34 +479,34 @@ async def process_runner_request(
             },
             is_error=True
         )
-            
+
         # Re-raise as HTTPException if it's not already one
         if not isinstance(e, HTTPException):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error processing runner request: {e!s}"
-            )
+            ) from e
         raise
 
 @handle_runner_errors
 async def awaiting_client_hook(
-    runner: Runner, 
-    url: str, 
-    env_vars: dict[str, Any], 
+    runner: Runner,
+    url: str,
+    env_vars: dict[str, Any],
     lifecycle_token: Optional[str] = None
 ) -> dict:
     """
     Run the script for the "awaiting_client" state.
-    
+
     Args:
         runner: The Runner object
         url: The URL for the runner
         env_vars: Environment variables for the script
         lifecycle_token: Optional token for status tracking
-        
+
     Returns:
         Dictionary with URL and runner_id
-        
+
     Raises:
         Exception: If script execution fails
     """
@@ -615,18 +615,18 @@ async def awaiting_client_hook(
             [runner.identifier],
             initiated_by="app_requests_endpoint"
         )
-        raise 
+        raise
 
     return app_requests_dto(url, runner)
 
 def app_requests_dto(url: str, runner: Runner) -> dict:
     """
     Create response DTO for runner requests.
-    
+
     Args:
         url: The URL for the runner
         runner: The Runner object
-        
+
     Returns:
         Dictionary with URL and runner_id
     """
@@ -640,10 +640,10 @@ async def get_ready_runner(
 ):
     """
     Retrieve a runner with the "ready" state for the given image and assign it to a user.
-    
+
     If the user already has an "alive" runner for the image, update its session_end.
     Otherwise, if no ready runner is available, launch a new one.
-    
+
     The runner's environment data is updated, its state is set to "awaiting_client",
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
@@ -651,7 +651,7 @@ async def get_ready_runner(
     # Emit an initial status update for the direct endpoint (no lifecycle_token)
     # The direct endpoint has no lifecycle_token for WebSocket updates, but we can still log the request
     logger.info(f"Processing direct runner request for image {request.image_id} and user {request.user_email}")
-    
+
     try:
         return await process_runner_request(
             request=request,
@@ -669,13 +669,13 @@ async def get_ready_runner_with_status(
 ):
     """
     Request a runner and return a lifecycle_token for tracking status via WebSocket.
-    
+
     This endpoint immediately returns a lifecycle_token and processes the request asynchronously.
     Clients can use the runner_status WebSocket endpoint to receive real-time updates.
     """
     # Generate a unique lifecycle token
     lifecycle_token = str(uuid4())
-    
+
     try:
         # Emit an initial status update for the with-status endpoint
         await emit_status(
@@ -689,7 +689,7 @@ async def get_ready_runner_with_status(
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
         )
-        
+
         # Start processing in background task
         asyncio.create_task(
             process_runner_request(
@@ -697,17 +697,17 @@ async def get_ready_runner_with_status(
                 lifecycle_token=lifecycle_token
             )
         )
-        
+
         # Return the lifecycle token immediately
         return {
             "lifecycle_token": lifecycle_token,
             "status": "processing",
             "message": "Runner request is being processed"
         }
-        
+
     except Exception as e:
         logger.error(f"Error in get_ready_runner_with_status: {e}")
-        
+
         # Emit error status
         await emit_status(
             lifecycle_token,
@@ -719,7 +719,7 @@ async def get_ready_runner_with_status(
             },
             is_error=True
         )
-        
+
         return {
             "lifecycle_token": lifecycle_token,
             "status": "error",
@@ -741,9 +741,9 @@ async def runner_status_websocket(
     try:
         print(f"got token: {lifecycle_token}")
         await runner_management.wait_for_lifecycle_token(lifecycle_token)
-    except:
+    except Exception as err:
         print(f"rejected token: {lifecycle_token}")
-        raise HTTPException(403, "Lifecycle token invalid.")
+        raise HTTPException(403, "Lifecycle token invalid.") from err
     try:
         # Connect the client (will send any buffered messages)
         await websocket_management.connection_manager.connect(websocket, "runner_status", lifecycle_token)

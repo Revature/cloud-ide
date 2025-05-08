@@ -437,7 +437,6 @@ async def claim_runner(
                     "session_type": "create",
                     "status": "in_progress",
                     "duration": runner_config["requested_session_time"]
-                    "duration": runner_config["requested_session_time"]
                 }
             )
 
@@ -475,7 +474,6 @@ async def claim_runner(
                                         "status": "in_progress",
                                         "details": {
                                             "user_ip": runner_config["user_ip"]
-                                            "user_ip": runner_config["user_ip"]
                                         }
                                     }
                                 )
@@ -500,7 +498,6 @@ async def claim_runner(
                                         "update_type": "update_security_group",
                                         "status": "succeeded",
                                         "details": {
-                                            "user_ip": runner_config["user_ip"]
                                             "user_ip": runner_config["user_ip"]
                                         }
                                     }
@@ -1309,8 +1306,9 @@ async def shutdown_all_runners():
         return [{"status": "error", "message": f"Global error in shutdown_all_runners: {e!s}"}]
 
 async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
+    """Wait 30 seconds for a runner record to be created, so that we can track its lifecycle token."""
     with Session(engine) as session:
-        for _ in 10:
+        for _ in 30:
             asyncio.sleep(1)
             runner: Runner = runner_repository.find_runner_with_lifecycle_token(lifecycle_token)
             if runner:

@@ -3,7 +3,7 @@ import json
 import sys
 import time
 import logging
-from typing import Dict, Any, Callable, List, Optional
+from typing import Dict, Any, Optional
 
 import requests
 from requests.exceptions import RequestException
