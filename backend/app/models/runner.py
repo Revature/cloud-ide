@@ -40,8 +40,8 @@ class Runner(TimestampMixin, SQLModel, table=True):
     key_id: int | None = Field(default=None, foreign_key="key.id")
     state: str
     url: str
-    lifecycle_token: str
-    terminal_token: str
+    lifecycle_token: str | None = None
+    terminal_token: str | None = None
     user_ip: str | None = None
     identifier: str
     external_hash: str
