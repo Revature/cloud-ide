@@ -1,10 +1,14 @@
 """Module for defining the CloudConnector model."""
 
 from sqlmodel import SQLModel, Field
-from typing import Optional
+from typing import Optional, Literal
 from app.models.mixins import TimestampMixin
 from app.business.encryption import encrypt_text, decrypt_text
 from sqlalchemy import Column, String
+
+
+# Cloud connector status type
+CloudConnectorStatus = Literal["active", "inactive", "deleted"]
 
 class CloudConnector(TimestampMixin, SQLModel, table=True):
     """
@@ -18,6 +22,7 @@ class CloudConnector(TimestampMixin, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     provider: str = Field(index=True, description="Cloud provider type (aws, azure, gcp, etc.)")
     region: str = Field(default="us-west-2", description="Default region for this connector")
+    status: str = Field(default="active", description="Current status of the cloud connector")
 
     # Underlying encrypted fields stored in DB columns "access_key" and "secret_key"
     encrypted_access_key: str = Field(sa_column=Column("access_key", String(255)), default="")

@@ -134,7 +134,11 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
     This function:
     1. Gets the runner information
     2. Uses the appropriate cloud service to create an AMI
-    3. Creates and returns a new Image record
+    3. Creates a new Image record with status 'creating'
+    4. Schedules a background task to monitor the image creation and update status
+
+    Returns:
+        Image: The newly created image record with initial status of 'creating'
     """
     logger = logging.getLogger(__name__)
 
@@ -176,40 +180,47 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
                 logger.error(f"Failed to create AMI: {image_identifier}")
                 raise RunnerExecException(f"Failed to create AMI: {image_identifier}")
 
-            # Create the Image record in the database
+            # Create the Image record in the database with status 'creating'
             new_image = Image(
                 name=image_data["name"],
                 description=image_data.get("description", ""),
                 identifier=image_identifier,
                 machine_id=image_data.get("machine_id"),
                 cloud_connector_id=cloud_connector_id,
-                runner_pool_size=0
+                runner_pool_size=0,
+                status="creating"  # Set initial status to 'creating'
             )
 
             # Save the new image to the database
             db_image = image_repository.create_image(session, new_image)
             session.commit()
-            logger.info(f"Image created with ID: {db_image.id}")
+
+            logger.info(f"Image created with ID: {db_image.id}, status: creating")
+
+            # Schedule a background task to monitor the image creation and update status
+            # Use Celery for this to allow the API to return immediately
+            from app.tasks.image_status_update import update_image_status_task
+            update_image_status_task.delay(db_image.id, image_identifier, cloud_connector_id)
+
             return db_image
 
         except Exception as e:
             logger.error(f"Error creating image from runner {runner_id}: {e!s}")
             raise RunnerExecException(f"Error creating image from runner: {e!s}") from e
 
-
 async def delete_image(image_id: int) -> bool:
     """
-    Delete an image by its ID.
+    Mark an image as deleted by its ID.
 
     This function:
     1. Finds the image in the database
     2. Terminates all runners associated with this image using proper runner management methods
     3. Cleans up security groups using security_group_management
     4. Uses the appropriate cloud service to deregister the AMI
-    5. Deletes the runner histories, runners, and image record from the database
+    5. Updates the image status to "deleted" without removing it from the database
 
     Returns:
-        bool: True if the image was successfully deleted
+        bool: True if the image was successfully marked as deleted
 
     Raises:
         RunnerExecException: If the image cannot be found or deregistered
@@ -273,44 +284,6 @@ async def delete_image(image_id: int) -> bool:
             logger.error(f"Error cleaning up security groups for runner {runner_id}: {e!s}")
             security_group_cleanup_results.append({"runner_id": runner_id, "success": False, "error": str(e)})
 
-    # Handle database cleanup - first runner associations
-    try:
-        with Session(engine) as assoc_session:
-            # Delete runner-security group associations first
-            for runner_id in runner_ids:
-                assoc_session.execute(
-                    text("DELETE FROM runner_security_group WHERE runner_id = :runner_id"),
-                    {"runner_id": runner_id}
-                )
-            assoc_session.commit()
-    except Exception as e:
-        logger.error(f"Error deleting runner-security group associations: {e!s}")
-        raise RunnerExecException(f"Error deleting runner-security group associations: {e!s}") from e
-
-    # Now handle runner histories
-    try:
-        with Session(engine) as history_session:
-            # Delete all runner histories
-            for runner_id in runner_ids:
-                runner_history_repository.delete_runner_histories_by_runner_id(history_session, runner_id)
-                logger.info(f"Deleted history records for runner {runner_id}")
-            history_session.commit()
-    except Exception as e:
-        logger.error(f"Error deleting runner histories: {e!s}")
-        raise RunnerExecException(f"Error deleting runner histories: {e!s}") from e
-
-    # Now delete the runners
-    try:
-        with Session(engine) as runner_session:
-            # Delete all runners
-            for runner_id in runner_ids:
-                runner_repository.delete_runner(runner_session, runner_id)
-                logger.info(f"Deleted runner {runner_id}")
-            runner_session.commit()
-    except Exception as e:
-        logger.error(f"Error deleting runners: {e!s}")
-        raise RunnerExecException(f"Error deleting runners: {e!s}") from e
-
     # Deregister the AMI using the cloud service
     try:
         deregister_response = await cloud_service.deregister_runner_image(db_image.identifier)
@@ -319,18 +292,20 @@ async def delete_image(image_id: int) -> bool:
         if str(deregister_response) == "200":
             logger.info(f"Successfully deregistered AMI for image {image_id}")
 
-            # Finally, delete the image record
+            # Update the image status to "deleted" using the repository function
             with Session(engine) as image_session:
-                image_repository.delete_image(image_session, db_image.id)
-                logger.info(f"Image with ID {db_image.id} deleted successfully")
-                image_session.commit()
+                result = image_repository.delete_image(image_session, image_id)
+                if result:
+                    logger.info(f"Image with ID {image_id} marked as deleted successfully")
+                else:
+                    logger.error(f"Image with ID {image_id} not found when trying to mark as deleted")
+                    raise RunnerExecException(f"Image with ID {image_id} not found when trying to mark as deleted")
 
             return True
         else:
             # Handle error case - the response contains an error message
             logger.error(f"Failed to deregister AMI: {deregister_response}")
             raise RunnerExecException(f"Failed to deregister AMI: {deregister_response}")
-
     except Exception as e:
-        logger.error(f"Error deleting image {image_id}: {e!s}")
-        raise RunnerExecException(f"Error deleting image: {e!s}") from e
+        logger.error(f"Error marking image {image_id} as deleted: {e!s}")
+        raise RunnerExecException(f"Error marking image as deleted: {e!s}") from e

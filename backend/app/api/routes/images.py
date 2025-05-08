@@ -19,10 +19,13 @@ class ImageCreate(BaseModel):
     runner_id: int
 
 @router.post("/", response_model=Image, status_code=201)
-async def create_image(
-    image: ImageCreate
-):
-    """Create a new Image record."""
+async def create_image(image: ImageCreate):
+    """
+    Create a new Image record.
+
+    Returns an Image with status 'creating'. The status will be updated to 'active'
+    once the cloud provider confirms the image is available.
+    """
     try:
         created_image = await image_management.create_image(image.dict(), image.runner_id)
         return created_image
