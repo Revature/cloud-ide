@@ -92,7 +92,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
 
   // Create options for cloud connectors dropdown
   const cloudConnectorOptions = connectors
-    .filter(connector => connector.active)
+    .filter(connector => connector.status)
     .map(connector => { 
       if(connector.name)  
       return {
@@ -112,7 +112,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
 
     // Set default connector only if not already set and the form is being initialized
     if (!initialData?.selectedConnector && !values.selectedConnector && connectors && connectors.length > 0) {
-      const defaultConnector = connectors.find((c) => c.active)?.name ?? "";
+      const defaultConnector = connectors.find((c) => c.status)?.name ?? "";
       if (defaultConnector) {
         newState.selectedConnector = defaultConnector;
         needsUpdate = true;
@@ -137,7 +137,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
     return machineTypes.find(m => m.identifier === values.selectedMachine) || machineTypes[1];
   };
   const getSelectedConnectorObject = (): CloudConnector | undefined => {
-    return connectors.find(c => c.name === values.selectedConnector && c.active);
+    return connectors.find(c => c.name === values.selectedConnector && c.status);
   };
 
   // Create options for the base image dropdown
@@ -230,7 +230,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
           {/* Cloud Provider */}
           <div className="col-span-full md:col-span-1">
             <Label htmlFor="cloudConnector">Cloud Provider</Label>
-            {connectors.filter(c => c.active).length > 0 ? (
+            {connectors.filter(c => c.status).length > 0 ? (
               <Select
                 options={cloudConnectorOptions}
                 defaultValue={values.selectedConnector}
@@ -384,7 +384,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
                       <p className="text-base font-medium dark:text-gray-200">
-                        {connector.active ? "Active" : "Inactive"}
+                        {connector.status ? "Active" : "Inactive"}
                       </p>
                     </div>
                   </div>
@@ -445,11 +445,11 @@ const ImageForm: React.FC<ImageFormProps> = ({
               disabled={
                 isLoading ||
                 !values.selectedConnector ||
-                connectors.filter((c) => c.active).length === 0 ||
+                connectors.filter((c) => c.status).length === 0 ||
                 !areAllFieldsEdited()
               }
               title={
-                !values.selectedConnector || connectors.filter((c) => c.active).length === 0
+                !values.selectedConnector || connectors.filter((c) => c.status).length === 0
                   ? "You need an active cloud connector"
                   : "Prepare terminal session"
               }

@@ -7,7 +7,6 @@ import Input from "@/components/form/input/InputField";
 import Select from "@/components/form/Select";
 import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
-import Toggle from "@/components/form/input/Toggle";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { machineTypes } from "@/types";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
@@ -31,13 +30,13 @@ const EditImageForm: React.FC = () => {
     name: string;
     description: string;
     machineIdentifier: string;
-    active: boolean;
+    status: string;
     cloudConnector?: CloudConnector;
   }>({
     name: "",
     description: "",
     machineIdentifier: "",
-    active: true,
+    status: '',
     cloudConnector: undefined
   });
 
@@ -58,7 +57,7 @@ const EditImageForm: React.FC = () => {
           name: image.name,
           description: image.description || "",
           machineIdentifier: image.machine.identifier,
-          active: image.active,
+          status: image.status,
           cloudConnector: image.cloudConnector
         });
       }
@@ -76,13 +75,6 @@ const EditImageForm: React.FC = () => {
     // TODO: Implement Update Image Request to Backend
     
     router.push('/images');
-  };
-
-  const handleToggleChange = (enabled: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      active: enabled
-    }));
   };
 
   const goBack = () => {
@@ -198,9 +190,8 @@ const EditImageForm: React.FC = () => {
             <div className="col-span-full md:col-span-1">
               <Label>Status</Label>
               <div className="flex items-center gap-3 mt-2">
-                <Toggle enabled={formData.active} setEnabled={handleToggleChange} />
                 <Label className="mb-0">
-                  {formData.active ? "Active" : "Inactive"}
+                  {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
                 </Label>
               </div>
             </div>
@@ -260,11 +251,11 @@ const EditImageForm: React.FC = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
                       <p className={`text-base font-medium ${
-                        formData.cloudConnector.active 
+                        formData.cloudConnector.status 
                           ? "text-green-600 dark:text-green-400" 
                           : "text-gray-500 dark:text-gray-400"
                       }`}>
-                        {formData.cloudConnector.active ? "Active" : "Inactive"}
+                        {formData.cloudConnector.status ? "Active" : "Inactive"}
                       </p>
                     </div>
                   </div>

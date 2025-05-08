@@ -17,26 +17,25 @@ export function handleRouteError(
     error
   );
 
-  if (error instanceof Error && 'response' in error) {
-    const axiosError = error as AxiosError; // Narrowing for Axios-specific errors
+  // Check if the error is an AxiosError
+  if (error instanceof AxiosError) {
     return NextResponse.json(
       {
         error: `Failed ${context.action ? `to ${context.action}` : ''}${
           context.id ? ` for ID ${context.id}` : ''
         }`,
-        details: axiosError.response?.data,
-      } as ErrorResponse,
-      { status: axiosError.response?.status || 500 }
+        details: error,
+      } as ErrorResponse
     );
   }
 
+  // Handle non-Axios errors
   return NextResponse.json(
     {
       error: `Unexpected error occurred${
         context.action ? ` during ${context.action}` : ''
       }${context.id ? ` for ID ${context.id}` : ''}`,
       details: error,
-    } as ErrorResponse,
-    { status: 500 }
+    } as ErrorResponse
   );
 }

@@ -56,12 +56,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string, action: string }> }
 ) {
   try {
-    const { id } = await params;
-    const url = new URL(request.url);
-    const action = url.searchParams.get('action');
+    const { id, action } = await params;
+    console.log(request);
 
     // Validate the action
     if (!action || !['start', 'stop'].includes(action)) {

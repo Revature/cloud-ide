@@ -11,7 +11,6 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from "../../icons";
-import Toggle from "../form/input/Toggle";
 import Label from "../form/Label";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
@@ -79,10 +78,10 @@ const ConnectorEditForm: React.FC = () => {
   const [formData, setFormData] = useState({
     provider: 'aws' as CloudProvider,
     region: '',
+    status: '',
     type: '',
     accessKey: '',
     secretKey: '',
-    active: false
   });
   
   const [showAccessKey, setShowAccessKey] = useState(false);
@@ -92,7 +91,7 @@ const ConnectorEditForm: React.FC = () => {
   useEffect(() => {
     if (!isNaN(connectorIndex) && connectors[connectorIndex]) {
       const connector = connectors[connectorIndex];
-      if (connector.active && connector.type) {
+      if (connector.status && connector.type) {
         const providerKey = displayNameToProvider[connector.type] || 'aws';
         
         setProviderName(connector.type);
@@ -102,7 +101,7 @@ const ConnectorEditForm: React.FC = () => {
           type: connector.type,
           accessKey: connector.accessKey, // Load actual credential data
           secretKey: connector.secretKey, // Load actual credential data
-          active: connector.active
+          status: connector.status,
         });
       }
     } else {
@@ -117,13 +116,6 @@ const ConnectorEditForm: React.FC = () => {
     // TODO: Implement Update to Backend
     
     router.push('/cloud-connectors');
-  };
-
-  const handleToggleChange = (enabled: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      active: enabled
-    }));
   };
 
   const goBack = () => {
@@ -257,9 +249,8 @@ const ConnectorEditForm: React.FC = () => {
             {/* Active/Inactive Toggle */}
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <Toggle enabled={formData.active} setEnabled={handleToggleChange} />
                 <Label className="mb-0">
-                  {formData.active ? "Active" : "Inactive"}
+                  {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
                 </Label>
               </div>
             </div>

@@ -39,12 +39,14 @@ def create_image(session: Session, image: Image) -> Image:
     return image
 
 def delete_image(session: Session, image_id: int) -> bool:
-    """Delete an image by its id."""
+    """Mark an image as deleted by its id without removing it from the database."""
     db_image = find_image_by_id(session, image_id)
     if not db_image:
         return False
 
-    session.delete(db_image)
+    # Update status to "deleted" instead of deleting the record
+    db_image.status = "deleted"
+    session.add(db_image)
     session.commit()
     return True
 
