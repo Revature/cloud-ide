@@ -5,6 +5,8 @@
 secrets.json
 /test/*/config.json
 /monitoring/Sneaky-Scripts
+/test/logs/
+/test/logs/*
 
 # Don't Ignore
 !local-compose.env
