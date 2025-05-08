@@ -111,10 +111,16 @@ const ViewConnector: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{connector.name}</h3>
-              <p className="text-gray-500 dark:text-gray-400">Added on {connector.createdOn}</p>
             </div>
           </div>
           <div className="flex gap-3">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    connector.status 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                  }`}>
+                    {connector.status.charAt(0).toUpperCase() + connector.status.slice(1)}
+                  </span>
             <Button 
               size="sm" 
               variant="outline"
@@ -152,14 +158,8 @@ const ViewConnector: React.FC = () => {
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Configuration</h4>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Status</span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    connector.status 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    {connector.status ? 'Active' : 'Inactive'}
-                  </span>
+                  <span className="text-gray-600 dark:text-gray-300">Created On</span>
+                  <span className="text-gray-800 dark:text-white">{connector.createdOn}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Region</span>

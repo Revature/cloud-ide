@@ -9,7 +9,9 @@ const endpoint = '/api/v1/cloud_connectors/';
 export async function GET(request: NextRequest) {
   try {
     console.log(request);
-
+    console.log(backendServer.defaults.baseURL);
+    console.log(endpoint);
+    
     const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
 
     const backendData = response.data;
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
       name: `${item.provider} ${item.region}`,
       type: item.provider,
       region: item.region,
-      status: 'active',
+      status: item.status,
       accessKey: item.encrypted_access_key,
       secretKey: item.encrypted_secret_key,
       createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
@@ -40,6 +42,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transformedData);
   } catch (error) {
+    console.error('Error fetching cloud connector:', error);
+    if (typeof error === 'object' && error !== null) {
+      for (const key in error) {
+        console.error(`${key}: ${(error as Record<string, unknown>)[key]}`);
+      }
+    }
+
     return handleRouteError(error, { action: 'fetch cloud connectors' });
   }
 }
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
       name: `${connector.provider} ${connector.region}`,
       type: connector.provider,
       region: connector.region,
-      status: 'active',
+      status: connector.status,
       accessKey: connector.encrypted_access_key,
       secretKey: connector.encrypted_secret_key,
       createdOn: new Date(connector.created_on).toLocaleDateString('en-US', {

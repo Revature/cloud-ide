@@ -161,6 +161,12 @@ export default function CloudConnectorsTable() {
                 </TableCell>
                 <TableCell
                   isHeader
+                  className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]"
+                >
+                  Status
+                </TableCell>
+                <TableCell
+                  isHeader
                   className="px-4 py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 w-[80px]"
                 >
                   Actions
@@ -208,6 +214,15 @@ export default function CloudConnectorsTable() {
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400">
                       {item.region}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 min-w-[150px] w-[150px]">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        item.status === 'active'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                      </span>
                     </TableCell>
                     <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
                       <div className="flex items-center gap-2">

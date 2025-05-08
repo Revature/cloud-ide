@@ -1,8 +1,8 @@
 import { withAuth } from '@workos-inc/authkit-nextjs';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'];
-const protocol = deploymentUrl?.includes('localhost') ? 'http://' : 'https://';
+const protocol = deploymentUrl?.includes('revature.com') ? 'https://' : 'http://';
 console.log(`${protocol}${deploymentUrl}`);
 
 export const backendServer =  axios.create({
@@ -28,7 +28,7 @@ backendServer.interceptors.response.use(
     response => response, // Directly return successful responses.
     async error => {
       const originalRequest = error.config;
-      if (error.response.status === 401 && !originalRequest._retry) {
+      if (error instanceof AxiosError && error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true; // Mark the request as retried to avoid infinite loops.
         try {
           return backendServer(originalRequest); // Retry the original request with the new access token.

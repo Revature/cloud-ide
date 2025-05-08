@@ -9,7 +9,7 @@ export interface CloudConnector {
   accessKey: string;
   type?:string;
   secretKey: string;
-  status?: string;
+  status: string;
   image?: string;
   createdOn?: string;
   updatedOn?: string;
