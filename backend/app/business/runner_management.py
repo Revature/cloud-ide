@@ -20,7 +20,7 @@ from app.exceptions.runner_exceptions import RunnerExecException, RunnerRetrieva
 logger = get_task_logger(__name__)
 
 async def launch_runners(
-        image_identifier: str, runner_count: int, initiated_by: str = "system", claimed: bool = False, request_id: Optional[int] = None
+        image_identifier: str, runner_count: int, initiated_by: str = "system", claimed: bool = False, lifecycle_token: Optional[int] = None
     ) -> list[Runner]:
     """
     Launch instances concurrently and create Runner records.
@@ -30,7 +30,7 @@ async def launch_runners(
         runner_count: Number of runners to launch
         initiated_by: Identifier of the service/job that initiated the launch
                      (e.g., "pool_manager", "api_request", "admin_action")
-        request_id: Optional request ID for status tracking
+        lifecycle_token: Optional request ID for status tracking
 
     Each new runner is associated with today's key.
     Returns a list of launched instance IDs.
@@ -54,7 +54,7 @@ async def launch_runners(
     coroutines = []
     for _ in range(runner_count):
         coroutine = launch_runner(
-            config["image"], key_record, config["cloud_service"], initiated_by, claimed=claimed, request_id=request_id
+            config["image"], key_record, config["cloud_service"], initiated_by, claimed=claimed, lifecycle_token=lifecycle_token
         )
         coroutines.append(coroutine)
     for i in range(runner_count):
@@ -81,7 +81,7 @@ async def launch_runner(
     cloud_service,
     initiated_by: str,
     claimed: bool = False,
-    request_id: Optional[str] = None
+    lifecycle_token: Optional[str] = None
 ) -> Runner:
     """Launch a single runner and produce a record for it."""
     try:
@@ -92,9 +92,9 @@ async def launch_runner(
                 raise RunnerDefinitionException(f"Machine not found for image {image.id}")
 
         # Create a dedicated security group for this runner
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "NETWORK_SETUP",
                 "Creating security group for runner",
                 {
@@ -105,9 +105,9 @@ async def launch_runner(
 
         security_group_id = await security_group_management.create_security_group(image.cloud_connector_id)
 
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "NETWORK_SETUP",
                 "Security group created for runner",
                 {
@@ -120,9 +120,9 @@ async def launch_runner(
             )
 
         # Create the instance with the security group
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "VM_CREATION",
                 "Creating virtual machine instance",
                 {
@@ -141,9 +141,9 @@ async def launch_runner(
         if not instance_id:
             raise RunnerExecException("Failed to create instance.")
 
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "VM_CREATION",
                 "Created virtual machine instance",
                 {
@@ -153,9 +153,9 @@ async def launch_runner(
             )
 
         # Begin VM boot sequence
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "INSTANCE_PREPARATION",
                 "Virtual machine is booting",
                 {
@@ -173,9 +173,9 @@ async def launch_runner(
                 state = "runner_starting"
 
             # Create runner record
-            if request_id:
+            if lifecycle_token:
                 await runner_status_management.runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "RUNNER_REGISTRATION",
                     "Creating runner record in database",
                     {
@@ -194,6 +194,8 @@ async def launch_runner(
                 token="",
                 identifier=instance_id,
                 external_hash=uuid.uuid4().hex,
+                terminal_token=uuid.uuid4().hex,
+                lifecycle_token=lifecycle_token,
                 session_start=datetime.utcnow(),
                 session_end=datetime.utcnow() + timedelta(minutes=10)
             )
@@ -213,7 +215,7 @@ async def launch_runner(
                     "security_group_id": security_group_id,
                     "state": state,
                     "initiated_by": initiated_by,
-                    "request_id": request_id
+                    "lifecycle_token": lifecycle_token
                 },
                 created_by=initiated_by
             )
@@ -226,9 +228,9 @@ async def launch_runner(
                 security_group_id
             )
 
-            if request_id:
+            if lifecycle_token:
                 await runner_status_management.runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "RUNNER_REGISTRATION",
                     "Runner record created successfully",
                     {
@@ -243,13 +245,13 @@ async def launch_runner(
 
                 # Start tracking runner state changes in background
                 asyncio.create_task(
-                    runner_status_management.track_runner_state(new_runner.id, request_id)
+                    runner_status_management.track_runner_state(new_runner.id, lifecycle_token)
                 )
 
             # Begin tagging process
-            if request_id:
+            if lifecycle_token:
                 await runner_status_management.runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "RESOURCE_TAGGING",
                     "Adding tags to instance",
                     {
@@ -283,8 +285,8 @@ async def launch_runner(
             except Exception as cleanup_error:
                 logger.error(f"Error cleaning up security group: {cleanup_error!s}")
 
-        # Emit error event if request_id is provided
-        if request_id:
+        # Emit error event if lifecycle_token is provided
+        if lifecycle_token:
             error_type = "unknown"
             if isinstance(e, RunnerDefinitionException):
                 error_type = "invalid_configuration"
@@ -298,7 +300,7 @@ async def launch_runner(
                 error_type = "network"
 
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "ERROR",
                 f"Error launching runner: {e!s}",
                 {
@@ -315,7 +317,7 @@ async def launch_runner(
             # If VM creation was in progress, emit failure status
             if 'instance_id' in locals() and not instance_id:
                 await runner_status_management.runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "VM_CREATION",
                     "Failed to create virtual machine instance",
                     {
@@ -355,7 +357,7 @@ async def claim_runner(
     runner: Runner,
     user: User,
     runner_config: dict,
-    request_id: Optional[str] = None
+    lifecycle_token: Optional[str] = None
 ) -> str:
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
     logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, "+
@@ -370,9 +372,9 @@ async def claim_runner(
         logger.info(f"Updating runner state from {previous_state} to awaiting_client")
         session.commit()
         # Emit instance lifecycle event for state change
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "INSTANCE_LIFECYCLE",
                 f"Runner state changed to awaiting_client",
                 {
@@ -414,14 +416,16 @@ async def claim_runner(
 
         if runner_config["user_ip"]:
             runner.user_ip = runner_config["user_ip"]
+        if lifecycle_token:
+            runner.lifecycle_token = lifecycle_token
 
         logger.info(f"Updated runner: session_end={runner.session_end}, user_id={runner.user_id}, "+
                     f"script_vars_size={len(runner_config["script_vars"])}")
 
         # Emit session status update
-        if request_id:
+        if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
-                request_id,
+                lifecycle_token,
                 "SESSION_STATUS",
                 "User session created",
                 {
@@ -454,9 +458,9 @@ async def claim_runner(
                             logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {runner_config["user_ip"]}")
 
                             # Emit security update event - starting
-                            if request_id:
+                            if lifecycle_token:
                                 await runner_status_management.runner_status_emitter.emit_status(
-                                    request_id,
+                                    lifecycle_token,
                                     "SECURITY_UPDATE",
                                     "Updating security group to allow user access",
                                     {
@@ -478,9 +482,9 @@ async def claim_runner(
                             logger.info(f"Security group update result: {security_group_result}")
 
                             # Emit security update event - completed
-                            if request_id:
+                            if lifecycle_token:
                                 await runner_status_management.runner_status_emitter.emit_status(
-                                    request_id,
+                                    lifecycle_token,
                                     "SECURITY_UPDATE",
                                     "Security group updated to allow user access",
                                     {
@@ -496,9 +500,9 @@ async def claim_runner(
                             logger.error(f"Failed to update security groups: {e!s}", exc_info=True)
 
                             # Emit security update failure event
-                            if request_id:
+                            if lifecycle_token:
                                 await runner_status_management.runner_status_emitter.emit_status(
-                                    request_id,
+                                    lifecycle_token,
                                     "SECURITY_UPDATE",
                                     "Failed to update security group for user access",
                                     {
@@ -515,9 +519,9 @@ async def claim_runner(
                             logger.info(f"Adding tag to instance {runner.identifier} for user {user.email}")
 
                             # Emit tagging event - starting
-                            if request_id:
+                            if lifecycle_token:
                                 await runner_status_management.runner_status_emitter.emit_status(
-                                    request_id,
+                                    lifecycle_token,
                                     "RESOURCE_TAGGING",
                                     "Adding tags to instance",
                                     {
@@ -537,9 +541,9 @@ async def claim_runner(
                             logger.info(f"Tag addition result: {tag_result}")
 
                             # Emit tagging event - completed
-                            if request_id:
+                            if lifecycle_token:
                                 await runner_status_management.runner_status_emitter.emit_status(
-                                    request_id,
+                                    lifecycle_token,
                                     "RESOURCE_TAGGING",
                                     "Instance tag added for user",
                                     {
@@ -555,9 +559,9 @@ async def claim_runner(
                             logger.error(f"Failed to add instance tag: {e!s}", exc_info=True)
 
                             # Emit tagging failure event
-                            if request_id:
+                            if lifecycle_token:
                                 await runner_status_management.runner_status_emitter.emit_status(
-                                    request_id,
+                                    lifecycle_token,
                                     "RESOURCE_TAGGING",
                                     "Failed to add instance tag for user",
                                     {
@@ -574,9 +578,9 @@ async def claim_runner(
                         logger.error(f"Failed to create cloud service: {e!s}", exc_info=True)
 
                         # Emit error event
-                        if request_id:
+                        if lifecycle_token:
                             await runner_status_management.runner_status_emitter.emit_status(
-                                request_id,
+                                lifecycle_token,
                                 "ERROR",
                                 "Failed to create cloud service",
                                 {
@@ -592,9 +596,9 @@ async def claim_runner(
                     logger.error(f"Cloud connector not found for image {image.id}")
 
                     # Emit error event
-                    if request_id:
+                    if lifecycle_token:
                         await runner_status_management.runner_status_emitter.emit_status(
-                            request_id,
+                            lifecycle_token,
                             "ERROR",
                             "Cloud connector not found",
                             {
@@ -609,9 +613,9 @@ async def claim_runner(
                 logger.error(f"Image not found or has no cloud connector for runner {runner.id}")
 
                 # Emit error event
-                if request_id:
+                if lifecycle_token:
                     await runner_status_management.runner_status_emitter.emit_status(
-                        request_id,
+                        lifecycle_token,
                         "ERROR",
                         "Image not found or has no cloud connector",
                         {
@@ -626,9 +630,9 @@ async def claim_runner(
             logger.error(f"Error in cloud operations: {e!s}", exc_info=True)
 
             # Emit error event
-            if request_id:
+            if lifecycle_token:
                 await runner_status_management.runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "ERROR",
                     f"Error in cloud operations: {e!s}",
                     {
@@ -1294,3 +1298,14 @@ async def shutdown_all_runners():
     except Exception as e:
         logger.error(f"[{initiated_by}] Critical error during shutdown_all_runners: {e}")
         return [{"status": "error", "message": f"Global error in shutdown_all_runners: {e!s}"}]
+
+async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
+    with Session(engine) as session:
+        for _ in 10:
+            asyncio.sleep(1)
+            runner: Runner = runner_repository.find_runner_with_lifecycle_token(lifecycle_token)
+            if runner:
+                runner.lifecycle_token = uuid.uuid4().hex
+                runner_repository.update_runner(session, runner)
+            return runner
+        raise RunnerRetrievalException

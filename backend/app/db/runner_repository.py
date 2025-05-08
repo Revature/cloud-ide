@@ -69,6 +69,20 @@ def update_runner(session: Session, runner: Runner) -> Runner:
     session.refresh(runner)
     return runner
 
+def find_runner_with_lifecycle_token(session: Session, token: str) -> Runner:
+    """Select a runner with a matching lifecycle token."""
+    stmt_runner = select(Runner).where(
+        Runner.lifecycle_token == token
+    )
+    return session.exec(stmt_runner).first()
+
+def find_runner_with_terminal_token(session: Session, token: str) -> Runner:
+    """Select a runner with a matching terminal token."""
+    stmt_runner = select(Runner).where(
+        Runner.terminal_token == token
+    )
+    return session.exec(stmt_runner).first()
+
 # Add to runner_repository.py
 def find_runners_by_image_id(session: Session, image_id: int) -> list[Runner]:
     """
