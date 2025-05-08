@@ -25,7 +25,7 @@ export async function GET(
       name: imageData.name,
       identifier: imageData.identifier,
       description: imageData.description,
-      active: typeof imageData.active === 'number' ? Boolean(imageData.active) : !!imageData.active,
+      status: imageData.status,
       createdOn: new Date(imageData.created_on).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',

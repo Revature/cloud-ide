@@ -129,11 +129,11 @@ const ViewImage: React.FC = () => {
               </div>
               <div className="flex gap-3">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      image.active 
+                      image.status === 'active' 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                     }`}>
-                      {image.active ? 'Active' : 'Inactive'}
+                      {image.status.charAt(0).toUpperCase() + image.status.slice(1)}
                     </span>
                 <Button size="sm" variant="outline" onClick={navigateToEdit}>
                   <svg
@@ -354,11 +354,11 @@ const ViewImage: React.FC = () => {
                           <div>
                             <p className="text-lg font-medium text-gray-800 dark:text-white">{cloudConnector.name}</p>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              cloudConnector.active 
+                              cloudConnector.status 
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                             }`}>
-                              {cloudConnector.active ? 'Active' : 'Inactive'}
+                              {cloudConnector.status ? 'Active' : 'Inactive'}
                             </span>
                           </div>
                         </div>
