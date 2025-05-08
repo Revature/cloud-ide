@@ -289,25 +289,11 @@ async def run_script_for_runner(
         return result
     return None
 
-async def runner_config_script(runner_id: int, auth_token: str):
-    """Place a config file on the runner when it starts up so that it can identify itself."""
-    monolith_url: str = constants.domain
-    config_data = {
-        "runnerAuth": auth_token,
-        "runnerId": runner_id,
-        "monolithUrl": monolith_url
-    }
-    config_json = json.dumps(config_data)
-    write_config_script = f"""#!/bin/bash
-echo '{config_json}' > /home/ubuntu/.cloudide.config
-echo 'Setup config'
-"""
-    await execute_script_for_runner("config", runner_id, write_config_script)
-
 async def run_custom_script_for_runner(
     runner_id: int,
     script_path: str,
     env_vars: Optional[dict[str, Any]] = None,
+    script_name: str = "custom_script",
     initiated_by: str = "system"
 ) -> dict[str, Any]:
     """
@@ -339,7 +325,7 @@ async def run_custom_script_for_runner(
 
         # Execute the script on the runner
         result = await execute_script_for_runner(
-            event="custom_script",
+            event=script_name,
             runner_id=runner_id,
             script=script_content,
             initiated_by=initiated_by
@@ -355,7 +341,7 @@ async def run_custom_script_for_runner(
                 runner_history_repository.add_runner_history(
                     session=session,
                     runner=runner_obj,
-                    event_name="custom_script_executed",
+                    event_name=f"{script_name}_executed",
                     event_data={
                         "script_path": script_path,
                         "initiated_by": initiated_by,

@@ -248,7 +248,6 @@ def run_startup_script(runner_id: int):
             if not runner:
                 logger.error(f"Runner {runner_id} not found in the database.")
                 return
-            asyncio.run(script_management.runner_config_script(runner_id, runner.external_hash))
 
             # Create history record
             history = RunnerHistory(

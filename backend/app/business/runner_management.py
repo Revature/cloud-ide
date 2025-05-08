@@ -1,5 +1,6 @@
 """Module for managing runners (EC2 instances) for running scripts."""
 
+import json
 import uuid
 import asyncio
 import json
@@ -362,6 +363,8 @@ async def claim_runner(
     """Assign a runner to a user's session, produce the URL used to connect to the runner."""
     logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, "+
                 f"requested_session_time={runner_config["requested_session_time"]}")
+    logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, "+
+                f"requested_session_time={runner_config["requested_session_time"]}")
 
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(session, runner.id)
@@ -386,6 +389,7 @@ async def claim_runner(
 
         # Update session_end and other attributes
         runner.session_start = datetime.now(timezone.utc)
+        runner.session_end = datetime.now(timezone.utc) + timedelta(minutes=runner_config["requested_session_time"])
         runner.session_end = datetime.now(timezone.utc) + timedelta(minutes=runner_config["requested_session_time"])
         runner.user_id = user.id
         runner.env_data = runner_config["script_vars"]
@@ -433,6 +437,7 @@ async def claim_runner(
                     "session_type": "create",
                     "status": "in_progress",
                     "duration": runner_config["requested_session_time"]
+                    "duration": runner_config["requested_session_time"]
                 }
             )
 
@@ -456,6 +461,7 @@ async def claim_runner(
                         # Update security group rules to allow user IP access
                         try:
                             logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {runner_config["user_ip"]}")
+                            logger.info(f"Updating security groups for runner {runner.id} to allow access from IP {runner_config["user_ip"]}")
 
                             # Emit security update event - starting
                             if lifecycle_token:
@@ -469,12 +475,14 @@ async def claim_runner(
                                         "status": "in_progress",
                                         "details": {
                                             "user_ip": runner_config["user_ip"]
+                                            "user_ip": runner_config["user_ip"]
                                         }
                                     }
                                 )
 
                             security_group_result = await security_group_management.authorize_user_access(
                                 runner.id,
+                                runner_config["user_ip"],
                                 runner_config["user_ip"],
                                 user.email,
                                 cloud_service
@@ -492,6 +500,7 @@ async def claim_runner(
                                         "update_type": "update_security_group",
                                         "status": "succeeded",
                                         "details": {
+                                            "user_ip": runner_config["user_ip"]
                                             "user_ip": runner_config["user_ip"]
                                         }
                                     }

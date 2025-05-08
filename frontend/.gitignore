@@ -49,6 +49,7 @@ logs
 
 # Optional npm cache directory
 .npm
+.env.local
 
 # Optional eslint cache
 .eslintcache

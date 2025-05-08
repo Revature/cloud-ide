@@ -19,7 +19,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 2,
+  "id": 9,
   "links": [],
   "panels": [
     {
@@ -84,7 +84,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -166,7 +166,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -248,7 +248,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -348,7 +348,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -521,7 +521,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -689,10 +689,10 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -703,8 +703,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 75
               }
             ]
           },
@@ -736,7 +740,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -791,10 +795,10 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -805,8 +809,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 75
               }
             ]
           },
@@ -838,7 +846,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1012,7 +1020,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1237,7 +1245,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1462,7 +1470,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1687,7 +1695,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1912,7 +1920,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -2137,7 +2145,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -2362,7 +2370,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -2587,7 +2595,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -2786,7 +2794,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -2985,7 +2993,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -3184,7 +3192,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -3383,7 +3391,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {

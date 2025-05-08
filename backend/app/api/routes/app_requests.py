@@ -30,6 +30,7 @@ class RunnerRequest(BaseModel):
     user_email: str
     session_time: int  # in minutes, limit to 3 hours
     runner_type: str   # temporary/permanent
+    file_path: Optional[str] = None # A starting filepath to be opened on startup
 
 async def emit_status(
     lifecycle_token: Optional[str], 
@@ -662,7 +663,7 @@ async def get_ready_runner(
         logger.error(f"Error processing direct runner request: {e.detail}")
         raise
 
-@router.post("/with-status/", response_model=dict)
+@router.post("/with_status/", response_model=dict)
 async def get_ready_runner_with_status(
     request: RunnerRequest
 ):

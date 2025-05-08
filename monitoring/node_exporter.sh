@@ -22,6 +22,7 @@ mv node_exporter-${NODE_EXPORTER_VERSION}.linux-${EXPORTER_ARCH}/node_exporter /
 # Start Node Exporter in the background
 nohup /usr/local/bin/node_exporter &
 
+# Determine runner IP, set gateway url
 RUNNER_IP=$(curl icanhazip.com)
 MONITOR_VM="34.223.156.189"
 PUSHGATEWAY_URL="http://$MONITOR_VM:9091/metrics/job/$RUNNER_IP"

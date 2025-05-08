@@ -8,7 +8,7 @@ import "flatpickr/dist/flatpickr.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { QueryProvider } from "@/context/QueryContext";
-import { MachineAuthButton } from "@/components/temp_auth/MachineAuthButton";
+import { AuthKitProvider } from '@workos-inc/authkit-nextjs/components';
 
 const outfit = Outfit({
   variable: "--font-outfit-sans",
@@ -23,14 +23,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${outfit.variable} dark:bg-gray-900`}>
-        <QueryProvider>
-          <ThemeProvider>
-            <SidebarProvider>
-                    {children}
-                    <MachineAuthButton />
-            </SidebarProvider>
-          </ThemeProvider>
-        </QueryProvider>
+        <AuthKitProvider>
+          <QueryProvider>
+            <ThemeProvider>
+              <SidebarProvider>
+                      {children}
+              </SidebarProvider>
+            </ThemeProvider>
+          </QueryProvider>
+        </AuthKitProvider>
       </body>
     </html>
   );
