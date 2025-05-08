@@ -230,7 +230,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
           {/* Cloud Provider */}
           <div className="col-span-full md:col-span-1">
             <Label htmlFor="cloudConnector">Cloud Provider</Label>
-            {connectors.filter(c => c.status).length > 0 ? (
+            {connectors.filter(c => c.status === 'active').length > 0 ? (
               <Select
                 options={cloudConnectorOptions}
                 defaultValue={values.selectedConnector}
