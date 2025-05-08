@@ -134,7 +134,11 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
     This function:
     1. Gets the runner information
     2. Uses the appropriate cloud service to create an AMI
-    3. Creates and returns a new Image record
+    3. Creates a new Image record with status 'creating'
+    4. Schedules a background task to monitor the image creation and update status
+
+    Returns:
+        Image: The newly created image record with initial status of 'creating'
     """
     logger = logging.getLogger(__name__)
 
@@ -176,26 +180,33 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
                 logger.error(f"Failed to create AMI: {image_identifier}")
                 raise RunnerExecException(f"Failed to create AMI: {image_identifier}")
 
-            # Create the Image record in the database
+            # Create the Image record in the database with status 'creating'
             new_image = Image(
                 name=image_data["name"],
                 description=image_data.get("description", ""),
                 identifier=image_identifier,
                 machine_id=image_data.get("machine_id"),
                 cloud_connector_id=cloud_connector_id,
-                runner_pool_size=0
+                runner_pool_size=0,
+                status="creating"  # Set initial status to 'creating'
             )
 
             # Save the new image to the database
             db_image = image_repository.create_image(session, new_image)
             session.commit()
-            logger.info(f"Image created with ID: {db_image.id}")
+
+            logger.info(f"Image created with ID: {db_image.id}, status: creating")
+
+            # Schedule a background task to monitor the image creation and update status
+            # Use Celery for this to allow the API to return immediately
+            from app.tasks.image_status_update import update_image_status_task
+            update_image_status_task.delay(db_image.id, image_identifier, cloud_connector_id)
+
             return db_image
 
         except Exception as e:
             logger.error(f"Error creating image from runner {runner_id}: {e!s}")
             raise RunnerExecException(f"Error creating image from runner: {e!s}") from e
-
 
 async def delete_image(image_id: int) -> bool:
     """

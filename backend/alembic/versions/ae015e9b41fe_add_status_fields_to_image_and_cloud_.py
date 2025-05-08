@@ -1,11 +1,12 @@
-"""add status fields to image and cloud_connector
+"""add status fields to image and cloud_connector.
 
 Revision ID: ae015e9b41fe
 Revises: c8894961d2db
 Create Date: 2025-05-06 12:35:28.639572
 
 """
-from typing import Sequence, Union
+from typing import Union
+from collections.abc import Sequence
 
 from alembic import op
 import sqlalchemy as sa
