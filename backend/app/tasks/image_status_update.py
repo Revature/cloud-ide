@@ -12,7 +12,7 @@ import asyncio
 def update_image_status_task(self, image_id: int, image_identifier: str, cloud_connector_id: int):
     """
     Background task to check if an AWS image is available and update its status.
-    
+
     Args:
         image_id: The database ID of the image
         image_identifier: The AWS AMI ID
@@ -20,7 +20,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
     """
     logger = logging.getLogger(__name__)
     logger.info(f"Checking status of image {image_id} (AMI: {image_identifier})")
-    
+
     try:
         # Get the cloud connector
         with Session(engine) as session:
@@ -30,10 +30,10 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
             if not cloud_connector:
                 logger.error(f"Cloud connector with id {cloud_connector_id} not found")
                 return
-        
+
         # Get the cloud service
         cloud_service = cloud_services.cloud_service_factory.get_cloud_service(cloud_connector)
-        
+
         # Check if image is available - this is synchronous in boto3
         try:
             # Use the boto3 client directly without asyncio
@@ -41,7 +41,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
             ec2_client = cloud_service.ec2_client
             waiter = ec2_client.get_waiter('image_available')
             waiter.wait(ImageIds=[image_identifier])
-            
+
             # If we get here, the image is available, so update the status
             with Session(engine) as session:
                 db_image = image_repository.find_image_by_id(session, image_id)
@@ -52,12 +52,12 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
                     logger.info(f"Image {image_id} (AMI: {image_identifier}) is now active")
                 else:
                     logger.warning(f"Image {image_id} not found or not in 'creating' status")
-            
+
         except Exception as e:
             logger.error(f"Error waiting for image {image_identifier} to become available: {e!s}")
             # Retry after delay
             self.retry(countdown=60, exc=e)
-            
+
     except Exception as e:
         logger.error(f"Unexpected error in update_image_status_task: {e!s}")
         self.retry(countdown=60, exc=e)
