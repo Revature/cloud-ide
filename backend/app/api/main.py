@@ -137,9 +137,9 @@ def start_api():
         # print("\n\n================Headers:================")
         # print(request.headers)
 
-        # if request.headers.get("upgrade", "").lower() == "websocket":
-        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
-        #     return await call_next(request)
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            logger.info(f"WebSocket connection detected, bypassing auth middleware")
+            return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware

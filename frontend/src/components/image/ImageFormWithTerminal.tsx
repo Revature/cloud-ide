@@ -98,20 +98,20 @@ const ImageFormWithTerminal: React.FC = () => {
           },
         };
 
-        const { request_id } = await appRequestsApi.createWithStatus(appRequest);
+        const { lifecycle_token } = await appRequestsApi.createWithStatus(appRequest);
 
-        if (!request_id) {
+        if (!lifecycle_token) {
           throw new Error("Invalid requestId received from API.");
         }
 
-        const wsUrl = `${SETUP_WS_URL}/${request_id}`;
+        const wsUrl = `${SETUP_WS_URL}/${lifecycle_token}`;
         const ws = new WebSocket(wsUrl);
         setSetupWebSocket(ws);
-        setWorkflowStage("connecting");
+        setWorkflowStage('connecting');
 
         ws.onopen = () => {
           if (workflowStageRef.current === "connecting") {
-            console.log(`Setup WS Opened (Req ID: ${request_id}).`);
+            console.log(`Setup WS Opened (Req ID: ${lifecycle_token}).`);
           } else {
             ws.close(1000, "Stale connection attempt");
           }
