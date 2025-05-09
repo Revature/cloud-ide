@@ -10,6 +10,7 @@ import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConn
 import ScriptDetails from "@/components/script/ScriptDetails";
 import ScriptForm from "@/components/script/ScriptForm";
 import { useScriptsByImageIdQuery } from "@/hooks/api/scripts/useScriptsQuery";
+import StatusBadge from "../ui/badge/StatusBadge";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
@@ -72,23 +73,6 @@ const ViewImage: React.FC = () => {
 
   return (
     <>
-      <div className="flex items-center mb-6">
-        <Button variant="outline" size="sm" onClick={goBack} className="mr-4">
-          <svg
-            className="w-4 h-4 mr-2"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Back
-        </Button>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Image Details</h2>
-      </div>
-
       {/* Tabs */}
       <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
         <nav className="flex space-x-4">
@@ -128,13 +112,7 @@ const ViewImage: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      image.active 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    }`}>
-                      {image.active ? 'Active' : 'Inactive'}
-                    </span>
+                <StatusBadge status={image.status} />
                 <Button size="sm" variant="outline" onClick={navigateToEdit}>
                   <svg
                     width="20"
@@ -354,11 +332,11 @@ const ViewImage: React.FC = () => {
                           <div>
                             <p className="text-lg font-medium text-gray-800 dark:text-white">{cloudConnector.name}</p>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              cloudConnector.active 
+                              cloudConnector.status 
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                             }`}>
-                              {cloudConnector.active ? 'Active' : 'Inactive'}
+                              {cloudConnector.status ? 'Active' : 'Inactive'}
                             </span>
                           </div>
                         </div>

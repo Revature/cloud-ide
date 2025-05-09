@@ -1,30 +1,27 @@
 import { BackendScript } from '@/types';
 import { Script } from '@/types/scripts';
-import { NextRequest, NextResponse } from 'next/server';
-
-const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
+import {  NextResponse } from 'next/server';
+import { backendServer } from '../../../../../../utils/axios';
+import { handleRouteError } from '@/utils/errorHandler';
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: imageId } = await params;
 
   try {
-    const response = await fetch(`${apiUrl}/api/v1/scripts/image/${imageId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Token': request.headers.get('Access-Token') || '',
-      },
-    });
+    // Backend API endpoint
+    const endpoint = `/api/v1/scripts/image/${imageId}`;
+    console.log(request);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch scripts for image ID ${imageId}. Status: ${response.status}`);
-    }
+    // Use backendServer to make the request
+    const response = await backendServer.get<BackendScript[]>(endpoint);
 
-    const data: BackendScript[] = await response.json();
+    // Extract backend data
+    const data = response.data;
 
+    // Transform the backend data
     const transformedData: Script[] = data.map((item) => ({
       id: item.id,
       name: item.name,
@@ -48,10 +45,6 @@ export async function GET(
 
     return NextResponse.json(transformedData);
   } catch (error) {
-    console.error(`Error fetching scripts for image ID ${imageId}:`, error);
-    return NextResponse.json(
-      { error: `Failed to fetch scripts for image ID ${imageId}` },
-      { status: 500 }
-    );
+    return handleRouteError(error, { id: imageId, action: 'fetch scripts' });
   }
 }

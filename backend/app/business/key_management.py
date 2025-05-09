@@ -27,7 +27,10 @@ async def get_daily_key(cloud_connector_id: int) -> Key:
 
     # Check if today's key exists in the database.
     with Session(engine) as session:
-        stmt = select(Key).where(Key.key_date == today)
+        stmt = select(Key).where(
+            Key.key_date == today,
+            Key.cloud_connector_id == cloud_connector_id
+        )
         key_record = session.exec(stmt).first()
         cloud_connector = session.get(CloudConnector, cloud_connector_id)
         if not cloud_connector:

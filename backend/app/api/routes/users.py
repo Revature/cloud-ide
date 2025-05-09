@@ -20,13 +20,24 @@ def get_all_users(session: Session = Depends(get_session)):
 
 @router.get("/{user_id}")
 @router.get("/{user_id}/")
-def get_user(user_id: int, session: Session = Depends(get_session)):
+def get_user(user_id: int):
     """Retrieve a single user by ID."""
     user = user_management.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
+        )
+    return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
+
+@router.get("/email/{email}")
+def get_user_by_email_path(email: str,  session: Session = Depends(get_session)):
+    """Retrieve a single user by email address using path parameter."""
+    user = user_management.get_user_by_email(email, session)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with email {email} not found"
         )
     return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
 

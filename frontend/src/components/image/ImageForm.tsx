@@ -11,6 +11,7 @@ import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConn
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import Link from "next/link";
 import { useSyncedFormState } from "@/hooks/useSyncedFormState";
+import CodeEditor from "../ui/codeEditor/codeEditor";
 
 interface ImageFormDataForHook {
   name: string;
@@ -84,35 +85,13 @@ const ImageForm: React.FC<ImageFormProps> = ({
   const [scriptVarsError, setScriptVarsError] = useState(false);
   const [envVarsError, setEnvVarsError] = useState(false);
 
-  // Convert machine types for select dropdown
-  const machineOptions = machineTypes.map(machine => ({
-    value: machine.identifier,
-    label: `${machine.name} (${machine.cpuCount} CPU, ${machine.memorySize} GB RAM, ${machine.storageSize} GB Storage)`
-  }));
-
-  // Create options for cloud connectors dropdown
-  const cloudConnectorOptions = connectors
-    .filter(connector => connector.active)
-    .map(connector => { 
-      if(connector.name)  
-      return {
-          value: connector.name,
-          label: `${connector.name} (${connector.region})`
-      }
-      else 
-      return {
-        value: 'aws',
-        label: `${connector.provider} (${connector.region})`
-      }
-    });
-
   useEffect(() => {
     let needsUpdate = false;
     const newState = { ...values };
 
     // Set default connector only if not already set and the form is being initialized
     if (!initialData?.selectedConnector && !values.selectedConnector && connectors && connectors.length > 0) {
-      const defaultConnector = connectors.find((c) => c.active)?.name ?? "";
+      const defaultConnector = connectors.find((c) => c.status)?.name ?? "";
       if (defaultConnector) {
         newState.selectedConnector = defaultConnector;
         needsUpdate = true;
@@ -137,7 +116,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
     return machineTypes.find(m => m.identifier === values.selectedMachine) || machineTypes[1];
   };
   const getSelectedConnectorObject = (): CloudConnector | undefined => {
-    return connectors.find(c => c.name === values.selectedConnector && c.active);
+    return connectors.find(c => c.name === values.selectedConnector && c.status);
   };
 
   // Create options for the base image dropdown
@@ -227,37 +206,6 @@ const ImageForm: React.FC<ImageFormProps> = ({
             />
           </div>
 
-          {/* Cloud Provider */}
-          <div className="col-span-full md:col-span-1">
-            <Label htmlFor="cloudConnector">Cloud Provider</Label>
-            {connectors.filter(c => c.active).length > 0 ? (
-              <Select
-                options={cloudConnectorOptions}
-                defaultValue={values.selectedConnector}
-                onChange={(value) => handleChange('selectedConnector', value)}
-              />
-            ) : (
-              <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No active cloud connectors available. 
-                  <Link href="/cloud-connectors" className="text-brand-500 ml-1 hover:underline">
-                    Add a connector
-                  </Link>
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Machine Type */}
-          <div className="col-span-full md:col-span-1">
-            <Label htmlFor="machine">Machine Type</Label>
-            <Select
-              options={machineOptions}
-              defaultValue={values.selectedMachine}
-              onChange={(value) => handleChange('selectedMachine', value)}
-            />
-          </div>
-
           {/* Base Image */}
           <div className="col-span-full md:col-span-1">
             <Label htmlFor="image">Base Image</Label>
@@ -292,7 +240,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
             />
           </div>
 
-          {/* Script Variables */}
+          {/* Script Variables
           <div className="col-span-full">
             <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -311,9 +259,9 @@ const ImageForm: React.FC<ImageFormProps> = ({
             {scriptVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
             )}
-          </div>
+          </div> */}
 
-          {/* Environment Variables */}
+          {/* Environment Variables
           <div className="col-span-full">
             <Label htmlFor="envVars">Environment Variables (JSON)</Label>
             <textarea
@@ -329,7 +277,38 @@ const ImageForm: React.FC<ImageFormProps> = ({
             {envVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
             )}
+          </div> */}
+
+        <div className="col-span-full">
+            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(values.scriptVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("scriptVars", value)}
+            />
+            {scriptVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
           </div>
+          
+          {/* Environment Variables */}
+          <div className="col-span-full">
+            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any environment variables required for your runner. For example, you can include fields like <code>API_KEY</code> and <code>SECRET</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(values.envVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("envVars", value)}
+              />
+            {envVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div>   
 
           {/* Selected Cloud Provider Info */}
           {values.selectedConnector && (() => {
@@ -384,7 +363,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
                       <p className="text-base font-medium dark:text-gray-200">
-                        {connector.active ? "Active" : "Inactive"}
+                        {connector.status ? "Active" : "Inactive"}
                       </p>
                     </div>
                   </div>
@@ -445,11 +424,11 @@ const ImageForm: React.FC<ImageFormProps> = ({
               disabled={
                 isLoading ||
                 !values.selectedConnector ||
-                connectors.filter((c) => c.active).length === 0 ||
+                connectors.filter((c) => c.status).length === 0 ||
                 !areAllFieldsEdited()
               }
               title={
-                !values.selectedConnector || connectors.filter((c) => c.active).length === 0
+                !values.selectedConnector || connectors.filter((c) => c.status).length === 0
                   ? "You need an active cloud connector"
                   : "Prepare terminal session"
               }

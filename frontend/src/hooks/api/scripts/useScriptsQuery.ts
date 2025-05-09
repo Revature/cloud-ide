@@ -10,7 +10,7 @@ function useScriptsQuery(id: number): UseQueryResult<Script, Error>;
 
 // Implementation
 function useScriptsQuery(id?: number): UseQueryResult<Script | Script[], Error> {
-  const queryKey: QueryKey = id ? ["scripts", id] : ["scripts"];
+  const queryKey: QueryKey = id ? ["scripts", id.toString()] : ["scripts"];
 
   const queryFn = async (): Promise<Script | Script[]> =>
     id ? scriptsApi.getById(id) : scriptsApi.getAll();

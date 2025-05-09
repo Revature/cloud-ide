@@ -10,6 +10,14 @@ TEST_DIR="$SCRIPT_DIR"
 TEST_TYPE="sanity"
 TEST_FILE="test.py"  # Fixed test file name
 
+# Create logs directory if it doesn't exist
+LOGS_DIR="${SCRIPT_DIR}/logs"
+mkdir -p "$LOGS_DIR"
+
+# Timestamp for log files
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+LOG_PREFIX="${LOGS_DIR}/${TIMESTAMP}_${TEST_TYPE}"
+
 # Parse command line arguments
 # Usage: ./run_tests.sh [test_type]
 if [ ! -z "$1" ]; then
@@ -75,7 +83,7 @@ TEARDOWN_SQL="$TEST_DIR/$TEST_TYPE/teardown.sql"
 # Try to bring down containers, redirect stderr to stdout for logging
 echo "Starting docker containers..."
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down & \
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build web & \
+docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build backend & \
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build celery-worker & \
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build celery-beat & \
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build nginx && \
@@ -193,7 +201,6 @@ if [ -f "$SETUP_SQL" ]; then
   echo "  Port: $DB_PORT"
   echo "  Database: $DB_NAME"
   
-  # Show available databases
   # Actually execute it with the real password - FIXED COMMAND SYNTAX
   mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" -P "$DB_PORT" $DB_NAME < "$SETUP_SQL"
   SETUP_RESULT=$?
@@ -244,20 +251,53 @@ if [ -f "$TEARDOWN_SQL" ]; then
   fi
 fi
 
+# Create a summary log file
+SUMMARY_LOG="${LOG_PREFIX}_summary.log"
+{
+  echo "=========================================="
+  echo "TEST SUMMARY: ${TEST_TYPE}"
+  echo "Date: $(date)"
+  echo "=========================================="
+  echo ""
+  if [ $TEST_RESULT -eq 0 ]; then
+    echo "RESULT: PASS"
+  else
+    echo "RESULT: FAIL (exit code: $TEST_RESULT)"
+  fi
+  echo ""
+  echo "Test directory: $TEST_DIR/$TEST_TYPE"
+  echo "Config file: $CONFIG_FILE"
+  echo ""
+  echo "See individual container logs in: $LOGS_DIR"
+  echo "=========================================="
+} > "$SUMMARY_LOG"
+
 # Check test results and dump logs if failed
 if [ $TEST_RESULT -ne 0 ]; then
   echo "Tests failed with exit code $TEST_RESULT"
   echo ""
-  echo "=========== DOCKER LOGS ==========="
+  echo "=========== DUMPING CONTAINER LOGS TO FILES ==========="
   # Get all running container IDs from this docker-compose project
   CONTAINERS=$(docker-compose -f "$SCRIPT_DIR/../local-compose.yml" ps -q)
   for CONTAINER_ID in $CONTAINERS; do
     # Get container name for better log identification
     CONTAINER_NAME=$(docker inspect --format '{{.Name}}' $CONTAINER_ID | sed 's/^\///')
-    echo ""
-    echo "===== Logs for container: $CONTAINER_NAME ====="
-    docker logs $CONTAINER_ID
+    echo "Dumping logs for container: $CONTAINER_NAME"
+    LOG_FILE="${LOG_PREFIX}_${CONTAINER_NAME}.log"
+    # Add header to log file
+    {
+      echo "=========================================="
+      echo "CONTAINER LOGS: ${CONTAINER_NAME}"
+      echo "Container ID: ${CONTAINER_ID}"
+      echo "Date: $(date)"
+      echo "=========================================="
+      echo ""
+    } > "$LOG_FILE"
+    # Append the container logs to the file
+    docker logs $CONTAINER_ID >> "$LOG_FILE" 2>&1
+    echo "Logs saved to: $LOG_FILE"
   done
+  echo "Complete summary saved to: $SUMMARY_LOG"
   echo "======================================="
 else
   echo "All tests passed successfully!"

@@ -5,9 +5,12 @@ import os
 import boto3
 import paramiko
 import re
+import logging
 from io import StringIO
 from app.business.cloud_services.base import CloudService
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 class AWSCloudService(CloudService):
     """AWS implementation of the CloudService interface."""
@@ -476,9 +479,22 @@ class AWSCloudService(CloudService):
             return str(e)
 
     async def wait_for_image_available(self, image_id: str):
-        """Wait for an image to be in the available state."""
-        waiter = self.ec2_client.get_waiter('image_available')
-        waiter.wait(InstanceIds=[image_id])
+        """
+        Wait for an image to be in the available state.
+
+        Args:
+            image_id: The AWS AMI ID to check
+
+        Raises:
+            Exception: If the image fails to reach the available state
+        """
+        try:
+            waiter = self.ec2_client.get_waiter('image_available')
+            waiter.wait(ImageIds=[image_id])  # Corrected parameter name from InstanceIds to ImageIds
+            return True
+        except Exception as e:
+            logger.error(f"Error waiting for image {image_id} to become available: {e!s}")
+            raise
 
     ###################
     # S3 Functionality

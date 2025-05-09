@@ -36,10 +36,10 @@ class RunnerStatusEmitter:
     """Helper class for emitting runner status events."""
 
     @staticmethod
-    async def emit_status(request_id: str, status_type: StatusType, message: str, data: Optional[dict[str, Any]] = None):
+    async def emit_status(lifecycle_token: str, status_type: StatusType, message: str, data: Optional[dict[str, Any]] = None):
         """Emit a status update to a connected WebSocket client."""
         try:
-            if not request_id:
+            if not lifecycle_token:
                 return False
 
             status_data = {
@@ -51,15 +51,15 @@ class RunnerStatusEmitter:
             if data:
                 status_data.update(data)
 
-            success = await websocket_management.connection_manager.send_json("runner_status", request_id, status_data)
+            success = await websocket_management.connection_manager.send_json("runner_status", lifecycle_token, status_data)
             if success:
-                logger.debug(f"Emitted status {status_type} for request {request_id}")
+                logger.debug(f"Emitted status {status_type} for request {lifecycle_token}")
             return success
         except Exception as e:
             logger.error(f"Error emitting status: {e}")
             return False
 
-async def track_runner_state(runner_id: int, request_id: str):
+async def track_runner_state(runner_id: int, lifecycle_token: str):
     """Track runner state changes and emit events to WebSocket clients."""
     # Last processed event ID
     last_event_id = 0
@@ -91,7 +91,7 @@ async def track_runner_state(runner_id: int, request_id: str):
             runner = runner_repository.find_runner_by_id(session, runner_id)
             if not runner:
                 await runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "ERROR",
                     "Runner not found",
                     {
@@ -107,7 +107,7 @@ async def track_runner_state(runner_id: int, request_id: str):
             if runner.state in ["ready", "ready_claimed", "active", "terminated", "error", "awaiting_client"]:
                 # Emit final state
                 await runner_status_emitter.emit_status(
-                    request_id,
+                    lifecycle_token,
                     "INSTANCE_LIFECYCLE",
                     f"Runner is in {runner.state} state",
                     {
@@ -118,19 +118,10 @@ async def track_runner_state(runner_id: int, request_id: str):
 
                 # If runner is ready, emit connection info and progress update
                 if runner.state in ["ready", "ready_claimed", "active", "awaiting_client"]:
-                    await runner_status_emitter.emit_status(
-                        request_id,
-                        "CONNECTION_STATUS",
-                        "Runner is ready for connection",
-                        {
-                            "runner_id": runner_id,
-                            "status": "succeeded",
-                        }
-                    )
 
                     # Also emit a final progress update
                     await runner_status_emitter.emit_status(
-                        request_id,
+                        lifecycle_token,
                         "PROGRESS_UPDATE",
                         "Your development environment is ready",
                         {
@@ -148,12 +139,12 @@ async def track_runner_state(runner_id: int, request_id: str):
             last_event_id = event.id
 
             # Map history events to WebSocket messages
-            await process_runner_event(request_id, runner_id, event)
+            await process_runner_event(lifecycle_token, runner_id, event)
 
         # Wait before checking again
         await asyncio.sleep(5)
 
-async def process_runner_event(request_id: str, runner_id: int, event: RunnerHistory):
+async def process_runner_event(lifecycle_token: str, runner_id: int, event: RunnerHistory):
     """Process a runner event and emit appropriate status."""
     # Map runner history events to standardized event types
     event_map = {
@@ -301,16 +292,16 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
 
         # Emit the status
         await runner_status_emitter.emit_status(
-            request_id,
+            lifecycle_token,
             event_config["type"],
             event_config["message"],
             event_data
         )
 
         # Also emit a progress update based on the event
-        # await emit_progress_update(request_id, runner_id, event.event_name)
+        # await emit_progress_update(lifecycle_token, runner_id, event.event_name)
 
-# async def emit_progress_update(request_id: str, runner_id: int, event_name: str):
+# async def emit_progress_update(lifecycle_token: str, runner_id: int, event_name: str):
 #     """Emit a progress update based on the current stage of runner creation."""
 #     # Map events to progress stages and percentages
 #     progress_map = {
@@ -371,7 +362,7 @@ async def process_runner_event(request_id: str, runner_id: int, event: RunnerHis
 #             progress_data["status"] = "succeeded"
 
 #         await runner_status_emitter.emit_status(
-#             request_id,
+#             lifecycle_token,
 #             "PROGRESS_UPDATE",
 #             progress_data["message"],
 #             progress_data

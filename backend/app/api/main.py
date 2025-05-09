@@ -1,5 +1,6 @@
 """Main application file for the API."""
 import re
+import os
 from http import HTTPStatus
 from fastapi import APIRouter
 from app.api.routes import user_auth, machine_auth, registration, users
@@ -17,6 +18,7 @@ from app.business.pkce import verify_token_exp
 from app.exceptions.authentication_exceptions import NoMatchingKeyException
 from app.models.workos_session import get_refresh_token, refresh_session
 from workos import exceptions as workos_exceptions
+from app.exceptions.authentication_exceptions import NoRefreshSessionFound
 
 API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
@@ -28,7 +30,9 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/user_auth/authkit_url/',
     f'{API_VERSION}/user_auth/authkit_redirect/',
     f'{API_VERSION}/user_auth/callback/',
-    f'{API_VERSION}/runners/\\d+/state/?$'
+    f'{API_VERSION}/runners/\\d+/state/?$',
+    f'{API_VERSION}/app_requests/runner_status/?$', # Getting runner status websocket connection
+    f'{API_VERSION}/runners/connect/\\d+/?$'  # Terminal WebSocket connection
     )
 
 RUNNER_ACCESS_ROUTES: tuple = (
@@ -120,14 +124,20 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        wos_cookie = request.cookies.get("wos_session")
+        # wos_cookie = request.cookies.get("wos-session")
         #print route
         print(f"\n\nRequest Path: {request.url.path}")
 
         if not access_token:
             print('not access-token')
-        if not wos_cookie:
-            print('not workos cookie')
+        # if not wos_cookie:
+        #     print('not workos cookie')
+
+        # What's with these cookies?
+        # print("\n\n================Cookies:================")
+        # print(request.cookies)
+        # print("\n\n================Headers:================")
+        # print(request.headers)
 
         # if request.headers.get("upgrade", "").lower() == "websocket":
         #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
@@ -153,22 +163,25 @@ def start_api():
                         final_response = await call_next(request)
 
             # Check for wos_session cookie, if needed refresh it
-            if (not final_response) and wos_cookie:
-                print('wos_cookie secured route entered.')
-                auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
-                if auth_result.authenticated:
-                    final_response = await call_next(request)
-                else:
-                    print('Failed to auth with cookie, refreshing...')
-                    refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
-                    final_response = await call_next(request)
-                    final_response.set_cookie(
-                        key = "wos_session",
-                        value = refresh_result.sealed_session,
-                        secure = True,
-                        httponly = True,
-                        samesite = "lax"
-                    )
+            # if (not final_response) and wos_cookie:
+            #     print('wos_cookie secured route entered.')
+            #     auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
+            #     if auth_result.authenticated:
+            #         final_response = await call_next(request)
+            #     else:
+            #         print('Failed to auth with cookie, refreshing...')
+            #         refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
+            #         final_response = await call_next(request)
+            #         final_response.set_cookie(
+            #             key = "wos-session",
+            #             value = refresh_result.sealed_session,
+            #             secure = True,
+            #             httponly = True,
+            #             samesite = "lax",
+            #             domain = os.getenv("DOMAIN"),
+            #             path = "/"
+            #         )
+
 
             # If none of the above, we must find an access token
             if not final_response and not access_token:
@@ -184,7 +197,7 @@ def start_api():
                     final_response = response
                 else:
                     print('Failed to auth with token, refreshing...')
-                    refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token=get_refresh_token(access_token))
+                    refresh_response = workos.user_management.authenticate_with_refresh_token(refresh_token = get_refresh_token(access_token))
                     refresh_session(access_token, refresh_response.access_token, refresh_response.refresh_token)
                     access_token = refresh_response.access_token
                     response: Response = await call_next(request)
@@ -201,6 +214,11 @@ def start_api():
             final_response = Response(
                 status_code = HTTPStatus.BAD_REQUEST,
                 content = "Bad Token Header")
+        except NoRefreshSessionFound as e:
+            logger.exception(f'No PKCE key matched token header')
+            final_response = Response(
+                status_code = HTTPStatus.UNAUTHORIZED,
+                content = "Session expired, unable to refresh.")
         except Exception as e:
             logger.exception(f'Exception raised in the authentication middleware.')
             final_response = Response(

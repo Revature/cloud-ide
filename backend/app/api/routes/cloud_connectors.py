@@ -11,42 +11,15 @@ router = APIRouter()
 @router.get("/", response_model=list[CloudConnector])
 async def read_cloud_connectors(request: Request):
     """Retrieve a list of all cloud_connectors."""
-    # Log request details
-    print(f"Request received for cloud_connectors endpoint")
-    print(f"Client host: {request.client.host}")
-
-    # Log all headers to see what's being sent
-    print("Request headers:")
-    for header_name, header_value in request.headers.items():
-        print(f"  {header_name}: {header_value}")
-
-    # Log query parameters if any
-    print("Query parameters:")
-    for param_name, param_value in request.query_params.items():
-        print(f"  {param_name}: {param_value}")
-
     try:
-        # Log before the database call
-        print("Attempting to fetch cloud connectors from database")
         cloud_connectors = cloud_connector_management.get_all_cloud_connectors()
 
-        # Log the result
         if not cloud_connectors:
-            print("No cloud connectors found in database")
             raise HTTPException(status_code=204, detail="No cloud connectors found")
-
-        print(f"Successfully retrieved {len(cloud_connectors)} cloud connectors")
-
-        # Optionally log some data about what's being returned
-        for i, connector in enumerate(cloud_connectors):
-            print(f"Connector {i+1}: ID={connector.id}, Provider={connector.provider}")
 
         return cloud_connectors
 
     except Exception as e:
-        # Log any exceptions that occur
-        print(f"Error fetching cloud connectors: {e!s}")
-        print("Detailed exception information:")
         raise HTTPException(status_code=500, detail=f"Internal server error: {e!s}") from e
 
 @router.get("/{cloud_connector_id}", response_model=CloudConnector)
@@ -58,6 +31,56 @@ def read_cloud_connector(cloud_connector_id: int,
     if not cloud_connector:
         raise HTTPException(status_code=400, detail="cloud_connector not found")
     return cloud_connector
+
+@router.put("/{cloud_connector_id}", response_model=CloudConnector)
+async def update_cloud_connector(
+    cloud_connector_id: int,
+    updated_cloud_connector: CloudConnector
+):
+    """Update an existing cloud_connector."""
+    # Get the existing cloud_connector
+    success = cloud_connector_management.update_cloud_connector(cloud_connector_id, updated_cloud_connector)
+    if not success:
+        raise HTTPException(status_code=404, detail="Cloud Connector not found")
+    return {"message": f"Cloud Connector {cloud_connector_id} updated successfully"}
+
+class CloudConnectorStatusUpdate(BaseModel):
+    """Data model for updating the status of a cloud connector."""
+
+    is_active: bool
+
+@router.put("/{cloud_connector_id}/toggle", response_model=CloudConnector)
+async def toggle_cloud_connector_status(
+    cloud_connector_id: int,
+    status_update: CloudConnectorStatusUpdate
+):
+    """Update the active status of a cloud connector."""
+    try:
+        # Call business logic to update the status
+        updated_connector = cloud_connector_management.update_cloud_connector_status(
+            cloud_connector_id,
+            status_update.is_active
+        )
+
+        if not updated_connector:
+            raise HTTPException(status_code=404, detail="Cloud connector not found")
+
+        return updated_connector
+    except Exception as e:
+        # Log the error for debugging
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update cloud connector status: {e!s}"
+        ) from e
+
+@router.delete("/{cloud_connector_id}", response_model=dict)
+async def delete_cloud_connector(cloud_connector_id: int):
+    """Delete a cloud connector."""
+    # Call business logic to delete the cloud connector
+    success = cloud_connector_management.delete_cloud_connector(cloud_connector_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Cloud Connector not found")
+    return {"message": f"Cloud Connector {cloud_connector_id} deleted successfully"}
 
 class CloudConnectorCreate(BaseModel):
     """Data model for creating a new cloud connector."""

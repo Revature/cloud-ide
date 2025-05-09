@@ -12,6 +12,10 @@ services:
     volumes:
       - /var/log/:/var/log/
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     networks:
       - monitor
     restart: always
@@ -29,6 +33,10 @@ services:
       - "/sys:/sys"
       - "/var/lib/docker/:/var/lib/docker"
       - "/dev/disk/:/dev/disk"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     networks:
       - monitor
     privileged: true
@@ -46,6 +54,10 @@ services:
     volumes: 
       - "./prometheus.yml:/etc/prometheus/prometheus.yml"
       - "./prometheus-data:/prometheus"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     networks:
       - monitor
     depends_on:
@@ -56,4 +68,4 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=10d'
-      - '--storage.tsdb.retention.size=20MB'
+      - '--storage.tsdb.retention.size=200MB'

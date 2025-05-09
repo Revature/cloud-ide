@@ -21,6 +21,7 @@ try:
     from app.tasks import cleanup_runners
     from app.tasks import runner_pool_management
     from app.tasks import shutdown_runner
+    from app.tasks import image_status_update
 except ImportError as e:
     print("Error importing tasks:", e)
 

@@ -46,6 +46,7 @@ export interface Runner {
   createdOn?: string;
   updatedOn?: string;
   modifiedBy?: string;
+  terminalToken?: string; // Token for the terminal session
 }
 
 // Define a separate interface for new runners

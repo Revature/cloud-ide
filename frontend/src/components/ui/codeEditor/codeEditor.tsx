@@ -11,14 +11,16 @@ import { autocompletion } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
 import { githubLight, githubDark } from "@uiw/codemirror-theme-github";
 import { useTheme } from "@/context/ThemeContext"; // Import the ThemeContext hook
+import { json } from "@codemirror/lang-json"; // JSON language for syntax highlighting
 
 interface CodeEditorProps {
   value: string;
+  language: string; // Optional language prop for future use
   onChange?: (value: string) => void; // Optional for read-only mode
   readOnly?: boolean; // New prop to control editability
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = false }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = false, language }) => {
   const { theme } = useTheme(); // Get the current theme from ThemeContext
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,7 +41,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
         value={value}
         height="300px"
         extensions={[
-          StreamLanguage.define(shell), // Shell syntax highlighting
+          language === 'shell' ? StreamLanguage.define(shell) : json(), // Shell syntax highlighting
           history(), // Undo/redo history
           highlightSelectionMatches(), // Highlight search matches
           autocompletion(), // Autocomplete support
