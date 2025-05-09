@@ -25,7 +25,7 @@ export default authkitMiddleware({
   middlewareAuth: {
     enabled: AUTH_MODE, 
     unauthenticatedPaths: [
-      '/',                            // Home page
+      '/home',                            // Home page
       '/frontend-api/auth/callback'   // Auth callback
     ], 
   },
