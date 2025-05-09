@@ -164,3 +164,14 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
             session.rollback()
             logger.error(f"Error in update_cloud_connector_status: {e!s}")
             raise
+
+def delete_cloud_connector(cloud_connector_id: int) -> bool:
+    """Delete an existing cloud connector."""
+    with Session(engine) as session:
+        # Get the cloud connector from repository
+        success = cloud_connector_repository.delete_cloud_connector(session, cloud_connector_id)
+        if not success:
+            return False
+        session.commit()
+
+    return True

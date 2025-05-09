@@ -59,3 +59,14 @@ def update_connector_status(session: Session, cloud_connector_id: int, is_active
         session.add(cloud_connector)
 
     return cloud_connector
+
+def delete_cloud_connector(session: Session, cloud_connector_id: int) -> CloudConnector:
+    """Delete a cloud connector."""
+    db_cloud_connector = find_cloud_connector_by_id(session, cloud_connector_id)
+    if not db_cloud_connector:
+        return False
+
+    db_cloud_connector.status = "deleted"
+    session.add(db_cloud_connector)
+    session.commit()
+    return True
