@@ -11,7 +11,7 @@ function useMachineQuery(): UseQueryResult<Machine[], Error>;
 
 function useMachineQuery(id?:number):UseQueryResult<Machine | Machine[], Error>{
 
-    const queryKey: QueryKey = id ? ['machine', id] : ['machines']
+    const queryKey: QueryKey = id ? ['machines', id.toString()] : ['machines']
 
     const queryFn = async (): Promise<Machine | Machine[]> => id ? machinesApi.getById(id) : machinesApi.getAll();
 

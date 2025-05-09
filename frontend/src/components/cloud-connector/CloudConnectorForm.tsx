@@ -28,11 +28,7 @@ interface ProviderOption {
   label: string;
 }
 
-interface CloudConnectorFormProps {
-  onCancel: () => void;
-}
-
-const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onCancel }) => {
+const CloudConnectorForm: React.FC = () => {
   const [showAccessKey, setShowAccessKey] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [buttonState, setButtonState] = useState<"idle" | "testing" | "failed" | "success">("idle");
@@ -191,7 +187,7 @@ const CloudConnectorForm: React.FC<CloudConnectorFormProps> = ({ onCancel }) => 
 
         {/* Form Actions */}
         <div className="flex justify-end gap-3 mt-4">
-          <Button size="sm" variant="outline" onClick={onCancel}>
+          <Button size="sm" variant="outline" onClick={() => router.back()}>
             Cancel
           </Button>
           <Button

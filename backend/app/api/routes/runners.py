@@ -17,6 +17,7 @@ from app.business import runner_management, script_management
 from app.db import runner_repository
 import logging
 import asyncio
+from app.exceptions.runner_exceptions import RunnerRetrievalException
 
 logger = logging.getLogger(__name__)
 
@@ -398,6 +399,7 @@ async def websocket_terminal(
     websocket: WebSocket,
     runner_id: int,
     session: Session = Depends(get_session),
+    terminal_token: str = Query(...),
 ):
     """WebSocket endpoint for terminal connection to a runner.
 
@@ -407,7 +409,19 @@ async def websocket_terminal(
         session (Session, optional): Database session. Defaults to Depends(get_session).
     """
     await websocket.accept()
+    try:
+        runner_management.validate_terminal_token(runner_id, terminal_token)
+    except RunnerRetrievalException as err:
+        await websocket.send_json({
+                "type": "ERROR",
+                "status": 403,
+                "error": "FORBIDDEN",
+                "message": "Terminal token invalid or expired"
+            })
 
+            # 2. Close with 1008 (Policy Violation) - closest WebSocket equivalent to HTTP 403
+        await websocket.close(code=1008)
+        return
     try:
         # Get runner and validate it's available
         runner = runner_repository.find_runner_by_id(session, runner_id)

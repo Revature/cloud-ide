@@ -7,42 +7,7 @@ import { useImageForItems } from "@/hooks/api/images/useImageForItems";
 import Link from "next/link";
 import CodeEditor from "../ui/codeEditor/codeEditor";
 import ScriptEditForm from "./ScriptEditForm";
-
-// Function to get event color
-const getEventColor = (event: string) => {
-  switch (event) {
-    case "on_create":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-    case "on_awaiting_client":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-    case "on_connect":
-      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-    case "on_disconnect":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-    case "on_terminate":
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-    default:
-      return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
-  }
-};
-
-// Function to get event label
-const getEventLabel = (event: string) => {
-  switch (event) {
-    case "on_create":
-      return "On Create";
-    case "on_awaiting_client":
-      return "Awaiting Client";
-    case "on_connect":
-      return "On Connect";
-    case "on_disconnect":
-      return "On Disconnect";
-    case "on_terminate":
-      return "On Terminate";
-    default:
-      return event;
-  }
-};
+import StatusBadge from "../ui/badge/StatusBadge";
 
 interface ScriptViewProps {
   scriptId: number;
@@ -185,13 +150,7 @@ const ScriptView: React.FC<ScriptViewProps> = ({scriptId, onBack}) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-300">Event</span>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEventColor(
-                    script.event
-                  )}`}
-                >
-                  {getEventLabel(script.event)}
-                </span>
+                <StatusBadge status={script.event} />
               </div>
             </div>
           </div>
@@ -200,7 +159,7 @@ const ScriptView: React.FC<ScriptViewProps> = ({scriptId, onBack}) => {
         <div>
           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Script Content</h4>
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <CodeEditor value={script.script || "No script content available."} readOnly={true} />
+            <CodeEditor value={script.script || "No script content available."} readOnly={true} language="shell"/>
           </div>
         </div>
       </div>

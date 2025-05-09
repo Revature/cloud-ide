@@ -4,26 +4,21 @@ import { useRouter, useParams } from "next/navigation";
 import { CloudConnector } from "@/types/cloudConnectors"
 import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
-import Select from "@/components/form/Select";
 import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { machineTypes } from "@/types";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
 
-// Convert machine types for select dropdown
-const machineOptions = machineTypes.map(machine => ({
-  value: machine.identifier,
-  label: `${machine.name} (${machine.cpuCount} CPU, ${machine.memorySize} GB RAM, ${machine.storageSize} GB Storage)`
-}));
 
 const EditImageForm: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const imageIndex = parseInt(params.id as string, 10);
+  const imageId = parseInt(params.id as string, 10);
 
   // Obtain images from ImagesTable ReactQuery
-  const { data:images = [] } = useImageQuery()
+  const { data:image } = useImageQuery(imageId)
+  const { connectorsById } = useConnectorForItems([image!]);
 
   // State for form data
   const [formData, setFormData] = useState<{
@@ -35,39 +30,28 @@ const EditImageForm: React.FC = () => {
   }>({
     name: "",
     description: "",
-    machineIdentifier: "",
+    machineIdentifier: "t4g medium",
     status: '',
-    cloudConnector: undefined
+    cloudConnector: connectorsById[image!.cloudConnectorId!],
   });
 
-  // Get the selected machine object
-  const getSelectedMachine = () => {
-    return machineTypes.find(m => m.identifier === formData.machineIdentifier) || machineTypes[1]; // Default to Medium
-  };
-  
   // State for displaying form
   const [loading, setLoading] = useState(true);
   
   // Load image data
   useEffect(() => {
-    if (!isNaN(imageIndex) && images[imageIndex]) {
-      const image = images[imageIndex];
-      if (image.machine){
+      if (image){
         setFormData({
           name: image.name,
           description: image.description || "",
-          machineIdentifier: image.machine.identifier,
+          machineIdentifier: 't4g.medium',
           status: image.status,
-          cloudConnector: image.cloudConnector
+          cloudConnector: connectorsById[image.cloudConnectorId!],
         });
-      }
-      
+        
       setLoading(false);
-    } else {
-      // Handle invalid index
-      router.push('/images');
-    }
-  }, [imageIndex, images, router]);
+      }
+  }, [image, router, connectorsById]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -89,39 +73,8 @@ const EditImageForm: React.FC = () => {
     );
   }
 
-  // Get the current machine details for display
-  const currentMachine = getSelectedMachine();
-
   return (
     <>
-      <div className="flex items-center mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={goBack}
-          className="mr-4"
-        >
-          <svg
-            className="w-4 h-4 mr-2"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M19 12H5M5 12L12 19M5 12L12 5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </Button>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Edit Image</h2>
-      </div>
-
       <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
         <Form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -174,26 +127,6 @@ const EditImageForm: React.FC = () => {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Cloud provider cannot be changed after image creation
               </p>
-            </div>
-
-            {/* Machine Type */}
-            <div className="col-span-full md:col-span-1">
-              <Label htmlFor="machine">Machine Type</Label>
-              <Select
-                defaultValue={formData.machineIdentifier}
-                options={machineOptions}
-                onChange={(value) => setFormData(prev => ({ ...prev, machineIdentifier: value }))}
-              />
-            </div>
-
-            {/* Active/Inactive Toggle */}
-            <div className="col-span-full md:col-span-1">
-              <Label>Status</Label>
-              <div className="flex items-center gap-3 mt-2">
-                <Label className="mb-0">
-                  {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
-                </Label>
-              </div>
             </div>
 
             {/* Description */}
@@ -263,37 +196,7 @@ const EditImageForm: React.FC = () => {
               </div>
             )}
 
-            {/* Machine Configuration Preview Section */}
-            <div className="col-span-full mb-4 mt-4">
-              <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-                Machine Configuration
-              </h2>
-              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Resource specifications for VM instances
-              </div>
-            </div>
-
-            {/* Machine Details Preview */}
-            <div className="col-span-full p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.cpuCount} {currentMachine.cpuCount === 1 ? "Core" : "Cores"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.memorySize} GB</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
-                  <p className="text-base font-medium dark:text-gray-200">{currentMachine.storageSize} GB</p>
-                </div>
-              </div>
-              <div className="mt-3">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Instance Type</p>
-                <p className="text-base font-medium dark:text-gray-200">{currentMachine.identifier}</p>
-              </div>
-            </div>
+  
           </div>
 
           {/* Form Actions */}

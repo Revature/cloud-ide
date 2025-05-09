@@ -6,6 +6,8 @@ import ProxyImage from "@/components/ui/images/ProxyImage";
 import { EyeOpenIcon, EyeClosedIcon } from "@/icons";
 import { CloudConnector } from '@/types/cloudConnectors';
 import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
+import StatusBadge from '../ui/badge/StatusBadge';
+import StatusToggle from '../ui/toggle/StatusToggle';
 
 const ViewConnector: React.FC = () => {
   const router = useRouter();
@@ -68,36 +70,17 @@ const ViewConnector: React.FC = () => {
     );
   }
 
+  const handleStatusToggle = async (isActive: boolean) => {
+    try {
+      await cloudConnectorsApi.toggle(id, { is_active: isActive });
+      console.log(`Status updated to: ${isActive ? "Active" : "Inactive"}`);
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
   return (
     <>
-      <div className="flex items-center mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={goBack}
-          className="mr-4"
-        >
-          <svg
-            className="w-4 h-4 mr-2"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M19 12H5M5 12L12 19M5 12L12 5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </Button>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Cloud Connector Details</h2>
-      </div>
-
       <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
@@ -114,13 +97,12 @@ const ViewConnector: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    connector.status 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    {connector.status.charAt(0).toUpperCase() + connector.status.slice(1)}
-                  </span>
+          <StatusToggle
+            isActive={connector.status === "active"}
+            onToggle={handleStatusToggle}
+            queryKey={["cloud-connectors", id.toString()]} // Pass the query key for invalidation
+          />
+          <StatusBadge status={connector.status} />
             <Button 
               size="sm" 
               variant="outline"
@@ -152,89 +134,61 @@ const ViewConnector: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Configuration</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Created On</span>
-                  <span className="text-gray-800 dark:text-white">{connector.createdOn}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Region</span>
-                  <span className="text-gray-800 dark:text-white">{connector.region}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Service Type</span>
-                  <span className="text-gray-800 dark:text-white">{connector.type}</span>
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+          {/* Configuration Section */}
+          <div className="flex flex-col h-full">
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Configuration</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4 flex-grow">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Created On</span>
+                <span className="text-gray-800 dark:text-white">{connector.createdOn}</span>
               </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Credentials</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Access Key</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white mr-2">
-                      {showAccessKey 
-                        ? connector.accessKey 
-                        : `••••••••••••${connector.accessKey ? connector.accessKey.slice(-4) : ''}`
-                      }
-                    </span>
-                    <button
-                      onClick={() => setShowAccessKey(!showAccessKey)}
-                      className="text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
-                    >
-                      {showAccessKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">Secret Key</span>
-                  <div className="flex items-center">
-                    <span className="text-gray-800 dark:text-white mr-2">
-                      {showSecretKey 
-                        ? connector.secretKey 
-                        : `••••••••••••${connector.secretKey ? connector.secretKey.slice(-4) : ''}`
-                      }
-                    </span>
-                    <button
-                      onClick={() => setShowSecretKey(!showSecretKey)}
-                      className="text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
-                    >
-                      {showSecretKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
-                    </button>
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Region</span>
+                <span className="text-gray-800 dark:text-white">{connector.region}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Service Type</span>
+                <span className="text-gray-800 dark:text-white">{connector.type}</span>
               </div>
             </div>
           </div>
-
+        
+          {/* Credentials Section */}
           <div className="flex flex-col h-full">
-            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow flex items-center justify-center">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No usage data available</h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Usage statistics will appear here once the connector becomes active.
-                </p>
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Credentials</h4>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4 flex-grow">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-300">Access Key</span>
+                <div className="flex items-center">
+                  <span className="text-gray-800 dark:text-white mr-2">
+                    {showAccessKey
+                      ? connector.accessKey
+                      : `••••••••••••${connector.accessKey ? connector.accessKey.slice(-4) : ""}`}
+                  </span>
+                  <button
+                    onClick={() => setShowAccessKey(!showAccessKey)}
+                    className="text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+                  >
+                    {showAccessKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-300">Secret Key</span>
+                <div className="flex items-center">
+                  <span className="text-gray-800 dark:text-white mr-2">
+                    {showSecretKey
+                      ? connector.secretKey
+                      : `••••••••••••${connector.secretKey ? connector.secretKey.slice(-4) : ""}`}
+                  </span>
+                  <button
+                    onClick={() => setShowSecretKey(!showSecretKey)}
+                    className="text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+                  >
+                    {showSecretKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

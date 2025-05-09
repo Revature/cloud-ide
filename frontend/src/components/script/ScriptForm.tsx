@@ -47,7 +47,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ imageId, existingEvents, onCanc
       setSubmitStatus("success");
       
       // Invalidate the query to refresh the script data
-      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId] });
+      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId.toString()] });
 
       // Wait for 2 seconds before navigating back to the scripts list
       setTimeout(() => {
@@ -100,7 +100,7 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ imageId, existingEvents, onCanc
 
       <div>
         <Label htmlFor="script">Script</Label>
-        <CodeEditor value={script} onChange={setScript} />
+        <CodeEditor value={script} onChange={setScript} language="shell"/>
       </div>
 
       <div className="flex justify-end items-center space-x-4">

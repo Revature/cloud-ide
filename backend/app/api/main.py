@@ -30,7 +30,9 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/user_auth/authkit_url/',
     f'{API_VERSION}/user_auth/authkit_redirect/',
     f'{API_VERSION}/user_auth/callback/',
-    f'{API_VERSION}/runners/\\d+/state/?$'
+    f'{API_VERSION}/runners/\\d+/state/?$',
+    f'{API_VERSION}/app_requests/runner_status/?$', # Getting runner status websocket connection
+    f'{API_VERSION}/runners/connect/\\d+/?$'  # Terminal WebSocket connection
     )
 
 RUNNER_ACCESS_ROUTES: tuple = (

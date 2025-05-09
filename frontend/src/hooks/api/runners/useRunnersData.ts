@@ -11,7 +11,7 @@ function useRunnerQuery(): UseQueryResult<Runner[], Error>;
 
 function useRunnerQuery(id?:number):UseQueryResult<Runner | Runner[], Error>{
 
-    const queryKey: QueryKey = id ? ['runner', id] : ['runners']
+    const queryKey: QueryKey = id ? ['runners', id.toString()] : ['runners']
 
     const queryFn = async (): Promise<Runner | Runner[]> => id ? runnersApi.getById(id) : runnersApi.getAll();
 
