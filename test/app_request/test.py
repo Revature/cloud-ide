@@ -3,9 +3,8 @@ import json
 import sys
 import time
 import logging
-from typing import Dict, Any, Optional
-
 import requests
+from typing import Dict, Any, Optional
 from requests.exceptions import RequestException
 
 # Configure logging
@@ -16,8 +15,8 @@ logging.basicConfig(
 logger = logging.getLogger("api_tests")
 
 
-class APITester:
-    """Test runner for API functionality tests."""
+class RunnerAPITester:
+    """Basic test runner for Runner API functionality tests with focus on error handling."""
 
     def __init__(self, config_path: str):
         """Initialize the API tester with configuration.
@@ -30,13 +29,12 @@ class APITester:
         self.timeout = self.config.get('timeout', 30)
         self.max_retries = self.config.get('max_retries', 1)
         self.retry_delay = self.config.get('retry_delay', 2)
-        self.access_token = self.config.get('access_token', 'Auth-Disabled')
+        self.access_token = self.config.get('access_token', None)
         
         # Common headers for requests
-        self.headers = {
-            "Content-Type": "application/json", 
-            "Access-Token": self.access_token
-        }
+        self.headers = {"Content-Type": "application/json"}
+        if self.access_token:
+            self.headers["Access-Token"] = self.access_token
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load the configuration from a JSON file.
@@ -62,9 +60,7 @@ class APITester:
 
     def _make_request(self, method: str, url: str, 
                      json_data: Optional[Dict] = None,
-                     expected_status: int = 200,
-                     custom_headers: Optional[Dict] = None,
-                     expect_json: bool = True) -> Optional[Dict]:
+                     expected_status: int = 200) -> Optional[Dict]:
         """Make an HTTP request with retry logic.
         
         Args:
@@ -72,17 +68,11 @@ class APITester:
             url: URL to send the request to
             json_data: Optional JSON payload
             expected_status: Expected HTTP status code
-            custom_headers: Optional custom headers to use instead of default
-            expect_json: Whether to expect and parse JSON response
             
         Returns:
-            Response JSON data if successful and expect_json=True,
-            Response object if successful and expect_json=False,
-            None if request failed
+            Response JSON data if successful, None if request failed
         """
-        headers = custom_headers if custom_headers else self.headers
-        
-        for attempt in range(self.max_retries):
+        for attempt in range(self.max_retries + 1):  # +1 for initial attempt
             try:
                 if attempt > 0:
                     logger.info(f"Retry attempt {attempt} after {self.retry_delay}s delay")
@@ -92,38 +82,49 @@ class APITester:
                     method=method,
                     url=url,
                     json=json_data,
-                    headers=headers,
+                    headers=self.headers,
                     timeout=self.timeout
                 )
                 
+                # Log the response status
+                logger.info(f"Request {method} {url} - Status: {response.status_code}")
+                
                 if response.status_code == expected_status:
-                    logger.info(f"Request successful: {method} {url}")
-                    if expect_json:
+                    # For successful requests with content, parse as JSON
+                    if response.content:
                         try:
-                            return response.json() if response.content else {}
+                            return response.json()
                         except json.JSONDecodeError:
                             logger.error(f"Response is not valid JSON: {response.text[:100]}")
                             return None
-                    else:
-                        return response
+                    return {}  # Empty but successful response
                 else:
-                    logger.error(f"Request failed: {method} {url} - Status: {response.status_code}")
-                    logger.error(f"Response: {response.text[:200]}")  # Limit response text length
+                    # Log error response
+                    logger.error(f"Unexpected status code: {response.status_code}")
+                    logger.error(f"Response: {response.text[:200]}")  # Limit length of output
+                    
+                    # If we're expecting an error code and got it, still try to parse the response
+                    if response.status_code == expected_status:
+                        try:
+                            return response.json() if response.content else {}
+                        except json.JSONDecodeError:
+                            logger.error(f"Error response is not valid JSON: {response.text[:100]}")
+                            return None
             except RequestException as e:
                 logger.error(f"Request exception: {method} {url} - {str(e)}")
         
         return None
 
+    # 1.1 - Standard runner creation (baseline)
     def test_request_runner(self) -> bool:
-        """Test that app_requests produces a valid response.
+        """Test that app_requests produces a valid response with standard parameters.
         
         Returns:
             True if test passes, False otherwise
         """
-        logger.info("TEST: Verifying app_requests endpoint")
+        logger.info("TEST 1.1: Standard runner creation")
         payload = self.config.get("app_request_payload", {})
         
-        logger.info(f"Testing app_requests with payload: {payload}")
         url = f"{self.domain}/api/v1/app_requests/"
         
         response = self._make_request("POST", url, json_data=payload)
@@ -138,113 +139,164 @@ class APITester:
             logger.error(f"Response missing required fields: {missing_fields}")
             return False
             
-        logger.info("✓ app_requests test passed")
+        logger.info(f"✓ Test 1.1 passed - Runner created with ID: {response.get('runner_id')}")
         return True
 
-    def test_runner_terminate(self) -> bool:
-        """Test that a runner can be terminated.
+    # 1.2 - Test invalid image ID
+    def test_invalid_image_id(self) -> bool:
+        """Test app_requests with a non-existent image ID.
         
         Returns:
-            True if test passes, False otherwise
+            True if test correctly returns 400 error, False otherwise
         """
-        logger.info("TEST: Verifying runner termination")
-        payload = self.config.get("app_request_payload", {})
+        logger.info("TEST 1.2: Invalid image ID error handling")
         
-        # Create a runner first
+        # Clone the payload and modify image_id
+        payload = self.config.get("app_request_payload", {}).copy()
+        payload["image_id"] = 999  # Non-existent image ID
+        
         url = f"{self.domain}/api/v1/app_requests/"
-        response = self._make_request("POST", url, json_data=payload)
-        if response is None:
-            return False
-            
-        runner_id = response.get("runner_id")
-        if not runner_id:
-            logger.error("No runner_id in response")
-            return False
-            
-        # Now terminate the runner
-        url = f"{self.domain}/api/v1/runners/{runner_id}"
-        terminate_response = self._make_request("DELETE", url)
         
-        if terminate_response is None:
-            return False
-            
-        logger.info("✓ Runner termination test passed")
-        return True
-
-    def test_runner_reachable(self) -> bool:
-        """Test that a runner can be reached via its URL.
-        
-        Returns:
-            True if test passes, False otherwise
-        """
-        logger.info("TEST: Verifying runner reachability")
-        payload = self.config.get("app_request_payload", {})
-        
-        # Create a runner first
-        url = f"{self.domain}/api/v1/app_requests/"
-        response = self._make_request("POST", url, json_data=payload)
-        if response is None:
-            return False
-            
-        runner_url = response.get("url")
-        if not runner_url:
-            logger.error("No URL in response")
-            return False
-            
-        # Try to access the runner - we only care about HTTP status,
-        # not parsing the response as JSON
-        reachable_response = self._make_request(
-            "GET", 
-            runner_url, 
-            custom_headers={"Content-Type": "application/json"},
-            expect_json=False  # Don't try to parse response as JSON
+        # Expect a 400 Bad Request
+        response = self._make_request(
+            "POST", 
+            url, 
+            json_data=payload,
+            expected_status=400  # We expect a 400 error
         )
         
-        if reachable_response is None:
+        # In this case, we expect a response with an error
+        if response is None:
+            logger.error("No response received for invalid image ID test")
             return False
             
-        logger.info(f"Runner is reachable with status code: {reachable_response.status_code}")
-        logger.info("✓ Runner reachability test passed")
+        # Check if the error message contains "Image not found"
+        detail = response.get("detail", "")
+        if "Image not found" not in detail:
+            logger.error(f"Expected 'Image not found' in error detail, got: {detail}")
+            return False
+            
+        logger.info("✓ Test 1.2 passed - Invalid image ID correctly rejected with 400 error")
         return True
+
+    # 1.3 - Test invalid user email
+    def test_invalid_user_email(self) -> bool:
+        """Test app_requests with a non-existent user email.
         
+        Returns:
+            True if test correctly returns 400 error, False otherwise
+        """
+        logger.info("TEST 1.3: Invalid user email error handling")
+        
+        # Clone the payload and modify user_email
+        payload = self.config.get("app_request_payload", {}).copy()
+        payload["user_email"] = "nonexistent-user@example.com"  # Non-existent user
+        
+        url = f"{self.domain}/api/v1/app_requests/"
+        
+        # Expect a 400 Bad Request
+        response = self._make_request(
+            "POST", 
+            url, 
+            json_data=payload,
+            expected_status=400  # We expect a 400 error
+        )
+        
+        # In this case, we expect a response with an error
+        if response is None:
+            logger.error("No response received for invalid user email test")
+            return False
+            
+        # Check if the error message contains "User not found"
+        detail = response.get("detail", "")
+        if "User not found" not in detail:
+            logger.error(f"Expected 'User not found' in error detail, got: {detail}")
+            return False
+            
+        logger.info("✓ Test 1.3 passed - Invalid user email correctly rejected with 400 error")
+        return True
+
+    # 1.4 - Test session time exceeds maximum
+    def test_excessive_session_time(self) -> bool:
+        """Test app_requests with a session time that exceeds the maximum.
+        
+        Returns:
+            True if test correctly returns 400 error, False otherwise
+        """
+        logger.info("TEST 1.4: Excessive session time error handling")
+        
+        # Clone the payload and modify session_time
+        payload = self.config.get("app_request_payload", {}).copy()
+        
+        # Set session_time to a very high value (e.g., 24 hours in minutes)
+        payload["session_time"] = 999999
+        
+        url = f"{self.domain}/api/v1/app_requests/"
+        
+        # Expect a 400 Bad Request
+        response = self._make_request(
+            "POST", 
+            url, 
+            json_data=payload,
+            expected_status=400  # We expect a 400 error
+        )
+        
+        # In this case, we expect a response with an error
+        if response is None:
+            logger.error("No response received for excessive session time test")
+            return False
+            
+        # Check if the error message contains "exceeds maximum"
+        detail = response.get("detail", "")
+        if "exceeds maximum" not in detail.lower():
+            logger.error(f"Expected 'exceeds maximum' in error detail, got: {detail}")
+            return False
+            
+        logger.info("✓ Test 1.4 passed - Excessive session time correctly rejected with 400 error")
+        return True
+
     def run_all_tests(self) -> bool:
-        """Run tests until the first failure.
+        """Run all tests in sequence.
         
         Returns:
             True if all tests pass, False if any test fails
         """
         tests = [
-            self.test_request_runner,
-            self.test_runner_reachable,
-            self.test_runner_terminate
+            self.test_request_runner,      # 1.1
+            self.test_invalid_image_id,    # 1.2
+            self.test_invalid_user_email,  # 1.3
+            self.test_excessive_session_time  # 1.4
         ]
         
-        logger.info(f"Starting test suite with {len(tests)} tests (stopping at first failure)")
+        logger.info(f"Starting test suite with {len(tests)} tests")
         
+        all_passed = True
         for i, test in enumerate(tests, 1):
             logger.info(f"Running test {i}/{len(tests)}: {test.__name__}")
             try:
                 if not test():
                     logger.error(f"✗ Test failed: {test.__name__}")
-                    logger.error("Stopping test execution to save resources")
-                    return False
+                    all_passed = False
             except Exception as e:
                 logger.exception(f"Test {test.__name__} raised exception: {str(e)}")
-                logger.error("Stopping test execution to save resources")
-                return False
+                all_passed = False
         
-        logger.info("✓ All tests passed successfully")
-        return True
+        if all_passed:
+            logger.info("✓ All tests passed successfully")
+        else:
+            logger.error("✗ One or more tests failed")
+            
+        return all_passed
 
 
 def main():
     """Main entry point for the test script."""
     if len(sys.argv) != 2:
-        logger.error("Usage: python test.py <config_file_path>")
+        logger.error("Usage: python error_tests.py <config_file_path>")
         sys.exit(1)
         
     config_path = sys.argv[1]
-    tester = APITester(config_path)
+    tester = RunnerAPITester(config_path)
     
     success = tester.run_all_tests()
     sys.exit(0 if success else 1)

@@ -1,308 +1,196 @@
 #!/bin/bash
 
+# Set colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-# Set test directory to be the same as script directory
 TEST_DIR="$SCRIPT_DIR"
-
-# Default test type
-TEST_TYPE="sanity"
-TEST_FILE="test.py"  # Fixed test file name
-
-# Create logs directory if it doesn't exist
 LOGS_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "$LOGS_DIR"
 
-# Timestamp for log files
+# Default values
+TEST_TYPE="sanity"
+MAX_WAIT_TIME=120
+START_TIME=$(date +%s)
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_PREFIX="${LOGS_DIR}/${TIMESTAMP}_${TEST_TYPE}"
 
+# Handle script termination
+trap 'echo -e "\n${YELLOW}Script interrupted. Cleaning up...${NC}"; 
+      [ -f "$MYSQL_TEMP_CNF" ] && rm -f "$MYSQL_TEMP_CNF"; 
+      docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down; 
+      exit 1' SIGINT SIGTERM
+
 # Parse command line arguments
-# Usage: ./run_tests.sh [test_type]
-if [ ! -z "$1" ]; then
-  TEST_TYPE="$1"
-fi
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    -t|--test-type) TEST_TYPE="$2"; shift 2 ;;
+    -w|--wait) MAX_WAIT_TIME="$2"; shift 2 ;;
+    -h|--help) 
+      echo "Usage: $0 [OPTIONS]"
+      echo "Options:"
+      echo "  -t, --test-type TYPE     Specify test type (default: sanity)"
+      echo "  -w, --wait TIME          Maximum wait time in seconds (default: 120)"
+      echo "  -h, --help               Display this help message"
+      exit 1 ;;
+    *) TEST_TYPE="$1"; shift ;;
+  esac
+done
 
-# Check if we need to install mysql client
-if ! command -v mysql &> /dev/null; then
-  echo "MySQL client not found. Attempting to install..."
-  
-  # Detect OS and install mysql client
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    # Linux - try with apt-get (Debian/Ubuntu) first, then yum (RHEL/CentOS)
-    if command -v apt-get &> /dev/null; then
-      sudo apt-get update && sudo apt-get install -y mysql-client
-    elif command -v yum &> /dev/null; then
-      sudo yum install -y mysql
-    else
-      echo "Error: Could not install MySQL client. Please install it manually."
-      exit 1
-    fi
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS - try with brew
-    if command -v brew &> /dev/null; then
-      brew install mysql-client
-      echo "You may need to add MySQL to your PATH:"
-      echo "echo 'export PATH=\"/usr/local/opt/mysql-client/bin:\$PATH\"' >> ~/.zshrc"
-    else
-      echo "Error: Homebrew not found. Please install MySQL client manually."
-      exit 1
-    fi
-  else
-    echo "Error: Unsupported OS for automatic MySQL client installation."
-    exit 1
-  fi
-  
-  # Check if installation was successful
-  if ! command -v mysql &> /dev/null; then
-    echo "Error: Failed to install MySQL client. Please install it manually."
-    exit 1
-  fi
-fi
-
-# Check if test type directory exists
+# Check for test directory and feature files
 if [ ! -d "$TEST_DIR/$TEST_TYPE" ]; then
-  echo "Error: Test type directory '$TEST_TYPE' not found in $TEST_DIR"
+  echo -e "${RED}Error: Test type directory '$TEST_TYPE' not found in $TEST_DIR${NC}"
   echo "Available test types:"
-  ls -1 "$TEST_DIR"
+  ls -1 "$TEST_DIR" | grep -v logs
   exit 1
 fi
 
-# Path to config file for this test type
-CONFIG_FILE="$TEST_DIR/$TEST_TYPE/config.json"
-if [ ! -f "$CONFIG_FILE" ]; then
-  echo "Error: Config file not found at $CONFIG_FILE"
+# Check for at least one feature file
+FEATURE_COUNT=$(find "$TEST_DIR/$TEST_TYPE" -name "*.feature" | wc -l)
+if [ "$FEATURE_COUNT" -eq 0 ]; then
+  echo -e "${RED}Error: No feature files found in $TEST_DIR/$TEST_TYPE${NC}"
   exit 1
 fi
 
-# Check for setup and teardown SQL scripts
+# Setup and teardown SQL
 SETUP_SQL="$TEST_DIR/$TEST_TYPE/setup.sql"
 TEARDOWN_SQL="$TEST_DIR/$TEST_TYPE/teardown.sql"
 
-# Try to bring down containers, redirect stderr to stdout for logging
-echo "Starting docker containers..."
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down & \
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build backend & \
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build celery-worker & \
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build celery-beat & \
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build nginx && \
+# Stop and start containers
+echo "Building and starting containers..."
+docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
+docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" up -d
 
-# Wait for services to be fully initialized
-echo "Waiting for services to initialize..."
-sleep 20
+# Wait for backend to be ready
+echo -e "${YELLOW}Waiting for backend service...${NC}"
+for ((i=1; i<=MAX_WAIT_TIME/2; i++)); do
+  if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/docs 2>/dev/null | grep -q '200\|301\|302'; then
+    echo -e "\n${GREEN}Backend service is ready!${NC}"
+    break
+  fi
+  echo -n "."
+  sleep 2
+  if [ $i -eq $((MAX_WAIT_TIME/2)) ]; then
+    echo -e "\n${RED}Backend service failed to start.${NC}"
+    docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
+    exit 1
+  fi
+done
 
-# Source the .env file from parent directory to get DB connection string
-ENV_FILE="$SCRIPT_DIR/../.env"
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Error: .env file not found at $ENV_FILE"
+# Load database connection info
+if [ ! -f "$SCRIPT_DIR/../.env" ]; then
+  echo -e "${RED}Error: .env file not found${NC}"
   docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
   exit 1
 fi
 
-# Source the .env file to get environment variables
-source "$ENV_FILE"
+source "$SCRIPT_DIR/../.env"
 
-# Parse DATABASE_URL connection string
-parse_connection_string() {
-  local conn_string="$1"
-  
-  # Check if string contains '://'
-  if [[ "$conn_string" == *"://"* ]]; then
-    # Split by '://'
-    local protocol="${conn_string%%://*}"
-    local rest="${conn_string#*://}"
+# Parse connection string and create temp MySQL config
+parse_db_url() {
+  if [[ "$DATABASE_URL" == *"://"* ]]; then
+    local rest="${DATABASE_URL#*://}"
+    local auth="${rest%%@*}"
+    local server="${rest#*@}"
     
-    # Handle case where protocol might be 'mysql+pyadmin'
-    if [[ "$protocol" == *"+"* ]]; then
-      # For mysql+pyadmin:// format, extract actual protocol
-      local dialect="${protocol}"
-      protocol="${dialect%%+*}"
-    fi
+    local username="${auth%%:*}"
+    local password="${auth#*:}"
+    local host="${server%%:*}"
+    local port_db="${server#*:}"
+    local port="${port_db%%/*}"
+    local database="${port_db#*/}"
+    database="${database%%\?*}"
     
-    # Split auth and server parts by '@'
-    local auth_part="${rest%%@*}"
-    local server_part="${rest#*@}"
-    
-    # Split username and password
-    local username="${auth_part%%:*}"
-    local password="${auth_part#*:}"
-    
-    # Split host, port and database
-    local host_port="${server_part%%/*}"
-    
-    # Handle case where there's no database specified
-    local database=""
-    if [[ "$server_part" == *"/"* ]]; then
-      database="${server_part#*/}"
-      # Handle query parameters in database name
-      database="${database%%\?*}"
-      # Remove quotes, carriage returns, and other control characters
-      database=$(echo "$database" | tr -d "'\"" | tr -d '\r')
-    fi
-    
-    # Split host and port
-    local host="${host_port%%:*}"
-    local port
-    if [[ "$host_port" == *":"* ]]; then
-      port="${host_port#*:}"
-    else
-      port="3306"  # Default MySQL port
-    fi
-    # Return the variables in a format that can be evaluated
-    echo "HOST=\"$host\"; USERNAME=\"$username\"; PASSWORD=\"$password\"; PORT=\"$port\"; DATABASE=\"$database\";"
+    echo "HOST=$host PORT=$port USER=$username PASSWORD=$password DATABASE=$database"
   else
-    echo "ERROR: Invalid connection string format"
     return 1
   fi
 }
 
-# Extract connection parameters from DATABASE_URL
-if ! connection_info=$(parse_connection_string "$DATABASE_URL"); then
-  echo "Error parsing DATABASE_URL: $connection_info"
-  docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-  exit 1
-fi
+eval $(parse_db_url)
 
-# Load connection variables
-eval "$connection_info"
+# Create MySQL config
+MYSQL_TEMP_CNF=$(mktemp)
+chmod 600 "$MYSQL_TEMP_CNF"
+cat > "$MYSQL_TEMP_CNF" <<EOF
+[client]
+host=$HOST
+user=$USER
+password=$PASSWORD
+port=$PORT
+EOF
 
-# Check essential connection parameters
-if [ -z "$HOST" ] || [ -z "$USERNAME" ] || [ -z "$DATABASE" ]; then
-  echo "Error: Missing essential database connection parameters"
-  echo "Parsed connection info:"
-  echo "$connection_info"
-  docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-  exit 1
-fi
+# Run setup SQL if exists
+[ -f "$SETUP_SQL" ] && mysql --defaults-file="$MYSQL_TEMP_CNF" $DATABASE < "$SETUP_SQL"
 
-# Use these variables
-DB_HOST="$HOST"
-DB_USER="$USERNAME"
-DB_PASSWORD="$PASSWORD"
-DB_PORT="$PORT"
-DB_NAME="$DATABASE"
-
-
-# Set default port if not specified
-if [ -z "$DB_PORT" ]; then
-  DB_PORT="3306"
-fi
-
-# Add option to choose MySQL client path if standard command fails
-MYSQL_CMD="mysql"
-
-# Run setup SQL if it exists
-if [ -f "$SETUP_SQL" ]; then
-  echo "Connection parameters:"
-  echo "  Host: $DB_HOST"
-  echo "  User: $DB_USER"
-  echo "  Port: $DB_PORT"
-  echo "  Database: $DB_NAME"
-  
-  # Actually execute it with the real password - FIXED COMMAND SYNTAX
-  mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" -P "$DB_PORT" $DB_NAME < "$SETUP_SQL"
-  SETUP_RESULT=$?
-  
-  if [ $SETUP_RESULT -ne 0 ]; then
-    echo "Setup SQL failed with exit code $SETUP_RESULT"
-    echo "Database connection failed. Please check your credentials and database name."
-    docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-    exit 1
-  else
-    echo "Setup SQL executed successfully"
-  fi
-fi
-
-# Try to print the actual test.py file to help debug
-if [ -f "$TEST_DIR/$TEST_TYPE/test.py" ]; then
-  echo "Found test.py at: $TEST_DIR/$TEST_TYPE/test.py"
-else
-  echo "ERROR: test.py not found at: $TEST_DIR/$TEST_TYPE/test.py"
-  exit 1
-fi
-
-# Run tests with explicit path to config file
-echo "Running tests from $TEST_DIR/$TEST_TYPE/test.py..."
+# Run Karate tests using CLI
+echo -e "${YELLOW}Running Karate tests from $TEST_DIR/$TEST_TYPE...${NC}"
 echo "=========== TEST BEGIN ==========="
-python "$TEST_DIR/$TEST_TYPE/$TEST_FILE" "$CONFIG_FILE"
+TEST_START_TIME=$(date +%s)
+
+# Create output directory for Karate
+KARATE_OUTPUT="${LOGS_DIR}/karate-${TIMESTAMP}"
+mkdir -p "$KARATE_OUTPUT"
+
+# Run Karate CLI with the specific test type directory
+karate -e "$TEST_TYPE" -o "$KARATE_OUTPUT" "$TEST_DIR/$TEST_TYPE"
 TEST_RESULT=$?
 
-# Check test results
-if [ $TEST_RESULT -ne 0 ]; then
-  echo "Tests failed with exit code $TEST_RESULT"
+TEST_END_TIME=$(date +%s)
+TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
+TEST_DURATION_FORMATTED=$(printf "%02d:%02d" $((TEST_DURATION/60)) $((TEST_DURATION%60)))
+
+# Output results
+if [ $TEST_RESULT -eq 0 ]; then
+  echo -e "${GREEN}All tests passed successfully!${NC}"
 else
-  echo "All tests passed successfully!"
+  echo -e "${RED}Tests failed with exit code $TEST_RESULT${NC}"
+  
+  # Save container logs if failed
+  echo "Saving container logs..."
+  for CONTAINER_ID in $(docker-compose -f "$SCRIPT_DIR/../local-compose.yml" ps -q); do
+    CONTAINER_NAME=$(docker inspect --format '{{.Name}}' $CONTAINER_ID | sed 's/^\///')
+    docker logs $CONTAINER_ID > "${LOG_PREFIX}_${CONTAINER_NAME}.log" 2>&1
+  done
 fi
 echo "============ TEST END ============"
+echo "Test duration: $TEST_DURATION_FORMATTED (mm:ss)"
+echo "Karate test reports available at: $KARATE_OUTPUT"
 
-# Run teardown SQL if it exists, regardless of test result
-if [ -f "$TEARDOWN_SQL" ]; then
-    
-  # Actually execute it with the real password - FIXED COMMAND SYNTAX
-  mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" -P "$DB_PORT" $DB_NAME < "$TEARDOWN_SQL"
-  TEARDOWN_RESULT=$?
-  
-  if [ $TEARDOWN_RESULT -ne 0 ]; then
-    echo "Warning: Teardown SQL failed with exit code $TEARDOWN_RESULT"
-  else
-    echo "Teardown SQL executed successfully"
-  fi
-fi
+# Run teardown SQL if exists
+[ -f "$TEARDOWN_SQL" ] && mysql --defaults-file="$MYSQL_TEMP_CNF" $DATABASE < "$TEARDOWN_SQL"
 
-# Create a summary log file
-SUMMARY_LOG="${LOG_PREFIX}_summary.log"
-{
-  echo "=========================================="
-  echo "TEST SUMMARY: ${TEST_TYPE}"
-  echo "Date: $(date)"
-  echo "=========================================="
-  echo ""
-  if [ $TEST_RESULT -eq 0 ]; then
-    echo "RESULT: PASS"
-  else
-    echo "RESULT: FAIL (exit code: $TEST_RESULT)"
-  fi
-  echo ""
-  echo "Test directory: $TEST_DIR/$TEST_TYPE"
-  echo "Config file: $CONFIG_FILE"
-  echo ""
-  echo "See individual container logs in: $LOGS_DIR"
-  echo "=========================================="
-} > "$SUMMARY_LOG"
-
-# Check test results and dump logs if failed
-if [ $TEST_RESULT -ne 0 ]; then
-  echo "Tests failed with exit code $TEST_RESULT"
-  echo ""
-  echo "=========== DUMPING CONTAINER LOGS TO FILES ==========="
-  # Get all running container IDs from this docker-compose project
-  CONTAINERS=$(docker-compose -f "$SCRIPT_DIR/../local-compose.yml" ps -q)
-  for CONTAINER_ID in $CONTAINERS; do
-    # Get container name for better log identification
-    CONTAINER_NAME=$(docker inspect --format '{{.Name}}' $CONTAINER_ID | sed 's/^\///')
-    echo "Dumping logs for container: $CONTAINER_NAME"
-    LOG_FILE="${LOG_PREFIX}_${CONTAINER_NAME}.log"
-    # Add header to log file
-    {
-      echo "=========================================="
-      echo "CONTAINER LOGS: ${CONTAINER_NAME}"
-      echo "Container ID: ${CONTAINER_ID}"
-      echo "Date: $(date)"
-      echo "=========================================="
-      echo ""
-    } > "$LOG_FILE"
-    # Append the container logs to the file
-    docker logs $CONTAINER_ID >> "$LOG_FILE" 2>&1
-    echo "Logs saved to: $LOG_FILE"
-  done
-  echo "Complete summary saved to: $SUMMARY_LOG"
-  echo "======================================="
-else
-  echo "All tests passed successfully!"
-fi
-
-# Always shut down containers after tests, regardless of test result
-echo "Shutting down containers..."
+# Clean up
+rm -f "$MYSQL_TEMP_CNF"
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
+
+# Write summary
+cat > "${LOG_PREFIX}_summary.log" <<EOF
+========================================
+TEST SUMMARY: ${TEST_TYPE}
+Date: $(date)
+========================================
+
+RESULT: $([ $TEST_RESULT -eq 0 ] && echo "PASS" || echo "FAIL (exit code: $TEST_RESULT)")
+
+Test directory: $TEST_DIR/$TEST_TYPE
+Karate Reports: $KARATE_OUTPUT
+Test duration: $TEST_DURATION_FORMATTED (mm:ss)
+
+See individual container logs in: $LOGS_DIR
+========================================
+EOF
+
+# Print final message
+END_TIME=$(date +%s)
+TOTAL_DURATION=$((END_TIME - START_TIME))
+TOTAL_DURATION_FORMATTED=$(printf "%02d:%02d" $((TOTAL_DURATION/60)) $((TOTAL_DURATION%60)))
+echo -e "${YELLOW}Total execution time: $TOTAL_DURATION_FORMATTED (mm:ss)${NC}"
+
+exit $TEST_RESULT
