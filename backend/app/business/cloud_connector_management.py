@@ -128,7 +128,7 @@ def update_cloud_connector(cloud_connector_id: int, updated_cloud_connector: Clo
         # Get the updated cloud connector from repository
         db_cloud_connector = cloud_connector_repository.update_cloud_connector(session, cloud_connector_id, updated_cloud_connector)
         session.commit()
-        
+
     return True
 
 def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> CloudConnector:
@@ -146,8 +146,8 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
         try:
             # Get the cloud connector from repository
             updated_connector = cloud_connector_repository.update_connector_status(
-                session, 
-                cloud_connector_id, 
+                session,
+                cloud_connector_id,
                 is_active
             )
 
@@ -159,8 +159,8 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
             session.refresh(updated_connector)
 
             return updated_connector
-            
+
         except Exception as e:
             session.rollback()
-            logger.error(f"Error in update_cloud_connector_status: {str(e)}")
+            logger.error(f"Error in update_cloud_connector_status: {e!s}")
             raise

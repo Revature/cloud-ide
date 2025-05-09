@@ -24,7 +24,7 @@ def update_cloud_connector(session: Session, cloud_connector_id: int, cloud_conn
     db_cloud_connector = find_cloud_connector_by_id(session, cloud_connector_id)
     if not db_cloud_connector:
         return None
-    
+
     for key, value in cloud_connector_data.dict(exclude_unset=True).items():
         if hasattr(db_cloud_connector, key) and key != "id":
             setattr(db_cloud_connector, key, value)

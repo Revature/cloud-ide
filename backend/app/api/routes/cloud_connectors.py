@@ -45,6 +45,8 @@ async def update_cloud_connector(
     return {"message": f"Cloud Connector {cloud_connector_id} updated successfully"}
 
 class CloudConnectorStatusUpdate(BaseModel):
+    """Data model for updating the status of a cloud connector."""
+
     is_active: bool
 
 @router.put("/{cloud_connector_id}/toggle", response_model=CloudConnector)
@@ -56,7 +58,7 @@ async def toggle_cloud_connector_status(
     try:
         # Call business logic to update the status
         updated_connector = cloud_connector_management.update_cloud_connector_status(
-            cloud_connector_id, 
+            cloud_connector_id,
             status_update.is_active
         )
 
@@ -67,9 +69,9 @@ async def toggle_cloud_connector_status(
     except Exception as e:
         # Log the error for debugging
         raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to update cloud connector status: {str(e)}"
-        )
+            status_code=500,
+            detail=f"Failed to update cloud connector status: {e!s}"
+        ) from e
 
 class CloudConnectorCreate(BaseModel):
     """Data model for creating a new cloud connector."""
