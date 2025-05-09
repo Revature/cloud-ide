@@ -166,7 +166,7 @@ export default function ImagesTable() {
       searchPlaceholder="Search images..."
       onSearchChange={(value) => console.log("Search term:", value)} // Optional: Handle search term changes
       actions={actions}
-      onDelete={(item) => handleDelete(item.id)}
+      onDelete={(item) => item && handleDelete(item.id)}
       itemsPerPage={5} 
       onAddClick={() => router.push("/images/add")} // Add Button functionality
       addButtonText="Add Image" // Custom Add Button text

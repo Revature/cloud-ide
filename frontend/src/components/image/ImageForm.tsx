@@ -11,6 +11,7 @@ import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConn
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import Link from "next/link";
 import { useSyncedFormState } from "@/hooks/useSyncedFormState";
+import CodeEditor from "../ui/codeEditor/codeEditor";
 
 interface ImageFormDataForHook {
   name: string;
@@ -239,7 +240,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
             />
           </div>
 
-          {/* Script Variables */}
+          {/* Script Variables
           <div className="col-span-full">
             <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -258,9 +259,9 @@ const ImageForm: React.FC<ImageFormProps> = ({
             {scriptVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
             )}
-          </div>
+          </div> */}
 
-          {/* Environment Variables */}
+          {/* Environment Variables
           <div className="col-span-full">
             <Label htmlFor="envVars">Environment Variables (JSON)</Label>
             <textarea
@@ -276,7 +277,38 @@ const ImageForm: React.FC<ImageFormProps> = ({
             {envVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
             )}
+          </div> */}
+
+        <div className="col-span-full">
+            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(values.scriptVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("scriptVars", value)}
+            />
+            {scriptVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
           </div>
+          
+          {/* Environment Variables */}
+          <div className="col-span-full">
+            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any environment variables required for your runner. For example, you can include fields like <code>API_KEY</code> and <code>SECRET</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(values.envVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("envVars", value)}
+              />
+            {envVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div>   
 
           {/* Selected Cloud Provider Info */}
           {values.selectedConnector && (() => {

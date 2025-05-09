@@ -84,7 +84,8 @@ const RunnersTable: React.FC = () => {
   });
 
   // Handle delete functionality
-  const handleDelete = async (item: Runner) => {
+  const handleDelete = async (item?: Runner) => {
+    if (!item) return;
     try {
       await runnersApi.terminate(item.id);
       queryClient.invalidateQueries({ queryKey: ["runners"] });
@@ -136,8 +137,8 @@ const RunnersTable: React.FC = () => {
       columns={columns}
       title="Runners"
       searchPlaceholder="Search runners..."
+      onDelete={(item) => handleDelete(item)}
       actions={actions}
-      onDelete={handleDelete}
       onAddClick={() => router.push("/runners/add")}
       addButtonText="Add Runner"
       queryKeys={["runners"]}

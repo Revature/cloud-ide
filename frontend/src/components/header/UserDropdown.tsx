@@ -29,7 +29,7 @@ export default function UserDropdown() {
           />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{user?.firstName}</span>
+        <span className="block mr-1 font-medium text-theme-sm">{user?.firstName || "User"}</span>
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${

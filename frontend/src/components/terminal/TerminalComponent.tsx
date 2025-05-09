@@ -1,4 +1,5 @@
 "use client";
+import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
 import React, { useEffect, useState, useRef } from 'react';
 
 // Export the props interface so it can be imported by parent components
@@ -44,6 +45,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
   const websocketRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<IFitAddon | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const { refetch } = useRunnerQuery(runnerId);
   
   // Initialize terminal when component mounts
   useEffect(() => {
@@ -143,7 +145,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
     };
   }, [initialized, runnerId]);
   
-  const connectToTerminal = () => {
+  const connectToTerminal = async () => {
     const terminal = terminalInstance.current;
     if (!terminal) return;
 
@@ -153,17 +155,26 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
     // Construct proper absolute WebSocket URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'];
-    // const deploymentUrl = process.env['NEXT_PUBLIC_LOCAL_URL'];
+    // const deploymentUrl = 'localhost:8000'; // For local testing
 
-    // const wsUrl = `${wsProtocol}//devide.revature.com/api/v1/runners/connect/${runnerId}`;
-    const wsUrl = `${wsProtocol}//${deploymentUrl}/api/v1/runners/connect/${runnerId}`;
-    console.log(`Connecting to WebSocket: ${wsUrl}`);
-    
-
-    // Close existing connection if any
-    disconnectTerminal();
 
     try {
+      // Fetch runner data to get the terminal token
+      const runner = await refetch();
+      const terminalToken = runner.data?.terminalToken;
+
+      if (!terminalToken) {
+        throw new Error('Failed to retrieve terminal token.');
+      }
+
+      // Construct WebSocket URL with terminal token
+      const wsUrl = `${wsProtocol}//${deploymentUrl}/api/v1/runners/connect/${runnerId}?terminal_token=${terminalToken}`;
+      console.log(`Connecting to WebSocket: ${wsUrl}`);
+
+    
+      // Close existing connection if any
+      disconnectTerminal();
+      
       // Create new WebSocket connection
       console.log('Creating new WebSocket connection...');
       console.log('WebSocket URL:', wsUrl);

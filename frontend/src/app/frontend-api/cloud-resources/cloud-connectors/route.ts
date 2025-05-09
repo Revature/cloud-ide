@@ -6,12 +6,8 @@ import { handleRouteError } from '@/utils/errorHandler';
 
 const endpoint = '/api/v1/cloud_connectors/';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    console.log(request);
-    console.log(backendServer.defaults.baseURL);
-    console.log(endpoint);
-    
     const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
 
     const backendData = response.data;

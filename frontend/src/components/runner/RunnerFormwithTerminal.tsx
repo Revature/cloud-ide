@@ -6,6 +6,7 @@ import ConnectingStatusDisplay from "@/components/ui/connection/ConnectingStatus
 import { useRouter } from "next/navigation";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 import { appRequestsApi } from '@/services/cloud-resources/appRequests'
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 
 type WorkflowStage = "form" | "webSocketSetup" | "connecting" | "error";
 
@@ -14,6 +15,7 @@ const RunnerFormWithTerminal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
 
   const workflowStageRef = useRef(workflowStage);
   useEffect(() => {
@@ -44,6 +46,7 @@ const RunnerFormWithTerminal: React.FC = () => {
     setWorkflowStage('webSocketSetup');
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'localhost:8000'; 
+    // const deploymentUrl = 'localhost:8000'; 
     const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`
 
     try {
@@ -56,7 +59,7 @@ const RunnerFormWithTerminal: React.FC = () => {
         image_id: data.image.id,
         session_time: data.durationMinutes,
         runner_type: "temporary",
-        user_email: 'ashoka.shringla@revature.com', // Replace with dynamic user email
+        user_email: user?.email || 'ashoka.shringla@revature.com', // Replace with dynamic user email
         env_data: {
           script_vars: JSON.parse(enrichedEnvData.script_vars),
           env_vars: JSON.parse(enrichedEnvData.env_vars),
@@ -65,7 +68,7 @@ const RunnerFormWithTerminal: React.FC = () => {
 
       const { lifecycle_token } = await appRequestsApi.createWithStatus(appRequest);
 
-      const wsUrl = `${SETUP_WS_URL}/${lifecycle_token}`;
+      const wsUrl = `${SETUP_WS_URL}?lifecycle_token=${lifecycle_token}`;
       const ws = new WebSocket(wsUrl);
       setSetupWebSocket(ws);
       setWorkflowStage('connecting');
@@ -74,7 +77,7 @@ const RunnerFormWithTerminal: React.FC = () => {
       setWorkflowStage('error');
       cleanupConnections();
     }
-  }, [cleanupConnections, enrichEnvDataWithUserIp]);
+  }, [cleanupConnections, enrichEnvDataWithUserIp, user]);
 
   /**
    * Handles the completion of the WebSocket connection process.

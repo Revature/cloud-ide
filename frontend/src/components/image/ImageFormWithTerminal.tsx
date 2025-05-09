@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { SuccessIcon } from "../ui/icons/CustomIcons";
 import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 
 type WorkflowStage =
   | "form"
@@ -36,6 +37,7 @@ const ImageFormWithTerminal: React.FC = () => {
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
   const runnerIdReceivedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { user } = useAuth();
 
   const router = useRouter();
 
@@ -77,8 +79,8 @@ const ImageFormWithTerminal: React.FC = () => {
       setWorkflowStage("webSocketSetup");
 
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const deploymentUrl =
-        process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] || "localhost:8000";
+      const deploymentUrl = process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] || "localhost:8000";
+      // const deploymentUrl = "localhost:8000";
       const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`;
 
       try {
@@ -89,7 +91,7 @@ const ImageFormWithTerminal: React.FC = () => {
 
         const appRequest: BackendAppRequest = {
           image_id: data.baseImageIdentifier || 0,
-          user_email: "ashoka.shringla@revature.com", // Replace with dynamic user email if available
+          user_email: user?.email || "ashoka.shringla@revature.com", // Replace with dynamic user email if available
           session_time: 60, // Default session time
           runner_type: "temporary", // Default runner type
           env_data: {
@@ -104,7 +106,7 @@ const ImageFormWithTerminal: React.FC = () => {
           throw new Error("Invalid requestId received from API.");
         }
 
-        const wsUrl = `${SETUP_WS_URL}/${lifecycle_token}`;
+        const wsUrl = `${SETUP_WS_URL}?lifecycle_token=${lifecycle_token}`;
         const ws = new WebSocket(wsUrl);
         setSetupWebSocket(ws);
         setWorkflowStage('connecting');
@@ -144,7 +146,7 @@ const ImageFormWithTerminal: React.FC = () => {
         }
       }
     },
-    [cleanupConnections, enrichEnvDataWithUserIp]
+    [cleanupConnections, enrichEnvDataWithUserIp, user]
   );
 
   /**

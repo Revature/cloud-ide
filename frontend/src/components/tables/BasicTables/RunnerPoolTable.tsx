@@ -8,6 +8,7 @@ import { imagesApi } from "@/services/cloud-resources/images";
 import { BaseTable } from "./BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { VMImage } from "@/types";
+import Button from "@/components/ui/button/Button";
 
 export default function RunnerPoolTable() {
   const { data: images = [], isLoading, error, refetch } = useImageQuery();
@@ -19,21 +20,27 @@ export default function RunnerPoolTable() {
 
   // Handle updating the runner pool size
   const handleUpdatePoolSize = async (id: number) => {
-    if (editingPoolId === id) {
-      if (newPoolSize !== null) {
-        try {
-          await imagesApi.patchRunnerPoolSize(id, newPoolSize);
-          await refetch();
-        } catch (error) {
-          console.error(`Error updating runner pool size for image ID ${id}:`, error);
-        }
+    if (newPoolSize !== null) {
+      try {
+        await imagesApi.patchRunnerPoolSize(id, newPoolSize);
+        await refetch();
+      } catch (error) {
+        console.error(`Error updating runner pool size for image ID ${id}:`, error);
       }
       setEditingPoolId(null);
       setNewPoolSize(null);
-    } else {
-      setEditingPoolId(id);
-      const currentPoolSize = images.find((image) => image.id === id)?.runnerPoolSize || 0;
-      setNewPoolSize(currentPoolSize);
+    }
+  };
+
+  // Handle deleting a runner pool
+  const handleDeleteRunnerPool = async (item?: VMImage) => {
+    if (item?.id) {
+      try {
+        await imagesApi.patchRunnerPoolSize(item.id, 0);
+        await refetch();
+      } catch (error) {
+        console.error(`Error deleting runner pool with ID ${item.id}:`, error);
+      }
     }
   };
 
@@ -72,14 +79,23 @@ export default function RunnerPoolTable() {
       header: "Runner Pool Size",
       accessor: (item: VMImage) =>
         editingPoolId === item.id ? (
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={newPoolSize ?? ""}
-            onChange={(e) => setNewPoolSize(Number(e.target.value))}
-            className="w-16 border border-gray-300 rounded-md text-center dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={newPoolSize ?? ""}
+              onChange={(e) => setNewPoolSize(Number(e.target.value))}
+              className="w-16 border border-gray-300 rounded-md text-center dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => handleUpdatePoolSize(item.id)}
+            >
+              Confirm
+            </Button>
+          </div>
         ) : (
           <span className="text-gray-700 text-theme-sm dark:text-gray-400">
             {item.runnerPoolSize}
@@ -91,7 +107,11 @@ export default function RunnerPoolTable() {
 
   // Define actions for the table
   const actions = (item: VMImage) => ({
-    "Edit Pool Size": () => handleUpdatePoolSize(item.id),
+    "Edit Pool Size": () => {
+      setEditingPoolId(item.id);
+      const currentPoolSize = images.find((image) => image.id === item.id)?.runnerPoolSize || 0;
+      setNewPoolSize(currentPoolSize);
+    },
   });
 
   if (isLoading) {
@@ -123,6 +143,7 @@ export default function RunnerPoolTable() {
       onAddClick={() => router.push("/runner-pools/add")}
       addButtonText="Add Runner Pool"
       queryKeys={["images"]}
+      onDelete={handleDeleteRunnerPool}
       itemsPerPage={5}
     />
   );

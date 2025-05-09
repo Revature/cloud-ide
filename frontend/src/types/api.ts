@@ -73,6 +73,8 @@ export interface BackendRunner{
   updated_on: string,
   modified_by: string,
   created_by: string,
+  terminal_token: string,
+  lifecycle_token: string,
 }
 
 export interface BackendAppRequest{

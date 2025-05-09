@@ -100,7 +100,7 @@ const ViewConnector: React.FC = () => {
           <StatusToggle
             isActive={connector.status === "active"}
             onToggle={handleStatusToggle}
-            queryKey={["cloudConnector", id.toString()]} // Pass the query key for invalidation
+            queryKey={["cloud-connectors", id.toString()]} // Pass the query key for invalidation
           />
           <StatusBadge status={connector.status} />
             <Button 

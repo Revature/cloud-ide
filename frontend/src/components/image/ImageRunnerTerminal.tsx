@@ -2,7 +2,14 @@
 
 import React, { useState, useCallback } from "react";
 // Import the shared component and its props
-import TerminalComponent from "../terminal/TerminalComponent"; // Adjust path as needed
+import dynamic from "next/dynamic";
+import { TerminalComponentProps } from "../terminal/TerminalComponent";
+
+// Import terminal component with ssr: false to prevent server-side rendering
+const TerminalComponent = dynamic<TerminalComponentProps>(
+  () => import('../terminal/TerminalComponent'),
+  { ssr: false }
+);
 
 // Props required by this Host/Wrapper component
 export interface ImageRunnerTerminalProps {

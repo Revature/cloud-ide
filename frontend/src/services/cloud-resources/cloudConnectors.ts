@@ -26,8 +26,9 @@ export const cloudConnectorsApi = {
   //   }),
 
   toggle: (id: number, status: object) => 
-    apiRequest<CloudConnector>(`/cloud_connectors/${id}/toggle`, {
+    apiRequest<CloudConnector>(`/cloud-resources/cloud-connectors/${id}/toggle`, {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(status),
     }),
     

@@ -50,7 +50,7 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
   const handleDeleteScript = async (scriptId: number) => {
     try {
       await scriptsApi.delete(scriptId);
-      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId] });
+      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId.toString()] });
     } catch (error) {
       console.error("Failed to delete script:", error);
     }

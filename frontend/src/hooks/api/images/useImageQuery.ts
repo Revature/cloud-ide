@@ -11,7 +11,7 @@ function useImageQuery(): UseQueryResult<VMImage[], Error>;
 
 function useImageQuery(id?:number):UseQueryResult<VMImage | VMImage[], Error>{
 
-    const queryKey: QueryKey = id ? ['image', id] : ['images']
+    const queryKey: QueryKey = id ? ['images', id.toString()] : ['images']
 
     const queryFn = async (): Promise<VMImage | VMImage[]> => id ? imagesApi.getById(id) : imagesApi.getAll();
 

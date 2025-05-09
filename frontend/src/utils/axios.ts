@@ -3,7 +3,6 @@ import axios, { AxiosError } from 'axios';
 
 const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'];
 const protocol = deploymentUrl?.includes('revature.com') ? 'https://' : 'http://';
-console.log(`${protocol}${deploymentUrl}`);
 
 export const backendServer =  axios.create({
   baseURL: `${protocol}${deploymentUrl}`,

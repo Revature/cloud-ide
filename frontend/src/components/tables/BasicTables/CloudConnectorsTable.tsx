@@ -67,8 +67,8 @@ export default function CloudConnectorsTable() {
   });
 
   // Handle delete functionality
-  const handleDelete = (item: CloudConnector) => {
-    console.log(`Delete connector with ID: ${item.id}`);
+  const handleDelete = (item?: CloudConnector) => {
+    console.log(`Delete connector with ID: ${item?.id}`);
     // Add your delete logic here
   };
 

@@ -7,6 +7,7 @@ import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import { VMImage } from "@/types";
+import CodeEditor from "../ui/codeEditor/codeEditor";
 
 export interface RunnerFormData {
   image: VMImage;
@@ -160,7 +161,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
             />
           </div>
 
-          {/* Script Variables */}
+          {/* Script Variables
           <div className="col-span-full">
             <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -182,7 +183,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
           </div>
 
           {/* Environment Variables */}
-          <div className="col-span-full">
+          {/* <div className="col-span-full">
             <Label htmlFor="envVars">Environment Variables (JSON)</Label>
             <textarea
               id="envVars"
@@ -194,6 +195,37 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
                 envVarsError ? "border-red-500" : "border-gray-300"
               } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
             />
+            {envVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div> */} 
+                    {/* Script Variables */}
+          <div className="col-span-full">
+            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(scriptVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("scriptVars", value)}
+            />
+            {scriptVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div>
+          
+          {/* Environment Variables */}
+          <div className="col-span-full">
+            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any environment variables required for your runner. For example, you can include fields like <code>API_KEY</code> and <code>SECRET</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(envVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("envVars", value)}
+              />
             {envVarsError && (
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
             )}

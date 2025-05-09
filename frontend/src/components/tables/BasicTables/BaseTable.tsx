@@ -20,7 +20,7 @@ interface BaseTableProps<T> {
   searchPlaceholder?: string;
   onSearchChange?: (searchTerm: string) => void;
   actions?: (item: T) => Record<string, () => void>; // Record of action names and their functions
-  onDelete?: (item: T) => void; // Function to handle delete
+  onDelete?: (item?: T) => void; // Function to handle delete
   onAddClick?: () => void; // Function to handle Add Button click
   addButtonText?: string; // Text for the Add Button
   itemsPerPage?: number;
@@ -125,7 +125,7 @@ export function BaseTable<T>({
 
       {/* Table */}
       <div className="overflow-hidden">
-        <div className="max-w-full px-5 overflow-x-auto sm:px-6">
+        <div className="max-w-full px-5 overflow-x-auto sm:px-6 z-18">
           <Table>
             <TableHeader className="border-gray-100 border-y dark:border-white/[0.05]">
               <TableRow>

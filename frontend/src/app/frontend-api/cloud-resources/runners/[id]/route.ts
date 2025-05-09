@@ -46,6 +46,7 @@ export async function GET(
       createdOn: new Date(runnerData.created_on).toLocaleDateString('en-US'),
       updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US'),
       modifiedBy: runnerData.modified_by,
+      terminalToken: runnerData.terminal_token,
     };
 
     return NextResponse.json(transformedData);

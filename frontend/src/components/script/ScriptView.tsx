@@ -159,7 +159,7 @@ const ScriptView: React.FC<ScriptViewProps> = ({scriptId, onBack}) => {
         <div>
           <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Script Content</h4>
           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <CodeEditor value={script.script || "No script content available."} readOnly={true} />
+            <CodeEditor value={script.script || "No script content available."} readOnly={true} language="shell"/>
           </div>
         </div>
       </div>
