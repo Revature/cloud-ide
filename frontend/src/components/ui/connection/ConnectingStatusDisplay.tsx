@@ -155,7 +155,7 @@ const ConnectingStatusDisplay: React.FC<ConnectingStatusDisplayProps> = ({
     let completionResult: Parameters<ConnectingStatusDisplayProps['onComplete']>[0] | null = null;
     let finalMessageText: string | null = null;
 
-    if (runnerEvent.type === 'CONNECTION_STATUS' && runnerEvent.status === 'succeeded') {
+    if (runnerEvent.type === 'CONNECTION_STATUS' && runnerEvent.status === 'succeeded' && runnerEvent.url){
       completionResult = { status: 'succeeded', runnerId: runnerEvent.runner_id, url: runnerEvent.url };
       finalMessageText = "succeeded! Connecting to terminal...";
     } else if (runnerEvent.type === 'RUNNER_READY') {

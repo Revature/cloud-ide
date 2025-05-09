@@ -66,12 +66,6 @@ export default function CloudConnectorsTable() {
     "View Details": () => router.push(`/cloud-connectors/view/${item.id}`),
   });
 
-  // Handle delete functionality
-  const handleDelete = (item?: CloudConnector) => {
-    console.log(`Delete connector with ID: ${item?.id}`);
-    // Add your delete logic here
-  };
-
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -97,7 +91,6 @@ export default function CloudConnectorsTable() {
       title="Cloud Connectors"
       searchPlaceholder="Search connectors..."
       actions={actions}
-      onDelete={handleDelete}
       onAddClick={() => router.push("/cloud-connectors/add")}
       addButtonText="Add Connector"
       queryKeys={["cloud-connectors"]}
