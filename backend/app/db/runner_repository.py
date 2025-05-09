@@ -76,6 +76,14 @@ def find_runner_with_lifecycle_token(session: Session, token: str) -> Runner:
     )
     return session.exec(stmt_runner).first()
 
+def find_runner_with_id_and_terminal_token(session: Session, runner_id:int, token: str) -> Runner:
+    """Select a runner with a matching terminal token."""
+    stmt_runner = select(Runner).where(
+        Runner.id == runner_id,
+        Runner.terminal_token == token
+    )
+    return session.exec(stmt_runner).first()
+
 def find_runner_with_terminal_token(session: Session, token: str) -> Runner:
     """Select a runner with a matching terminal token."""
     stmt_runner = select(Runner).where(

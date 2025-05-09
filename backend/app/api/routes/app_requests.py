@@ -739,11 +739,18 @@ async def runner_status_websocket(
     The lifecycle_token is provided as a query parameter.
     """
     try:
-        print(f"got token: {lifecycle_token}")
         await runner_management.wait_for_lifecycle_token(lifecycle_token)
     except Exception as err:
-        print(f"rejected token: {lifecycle_token}")
-        raise HTTPException(403, "Lifecycle token invalid.") from err
+        await websocket.send_json({
+                "type": "ERROR",
+                "status": 403,
+                "error": "FORBIDDEN",
+                "message": "Lifecycle token invalid or expired"
+            })
+
+            # 2. Close with 1008 (Policy Violation) - closest WebSocket equivalent to HTTP 403
+        await websocket.close(code=1008)
+        return
     try:
         # Connect the client (will send any buffered messages)
         await websocket_management.connection_manager.connect(websocket, "runner_status", lifecycle_token)

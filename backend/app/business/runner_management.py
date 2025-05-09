@@ -1308,11 +1308,21 @@ async def shutdown_all_runners():
 async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
     """Wait 30 seconds for a runner record to be created, so that we can track its lifecycle token."""
     with Session(engine) as session:
-        for _ in 30:
-            asyncio.sleep(1)
-            runner: Runner = runner_repository.find_runner_with_lifecycle_token(lifecycle_token)
+        for _ in range(30):
+            await asyncio.sleep(1)
+            runner: Runner = runner_repository.find_runner_with_lifecycle_token(session, lifecycle_token)
             if runner:
                 runner.lifecycle_token = uuid.uuid4().hex
                 runner_repository.update_runner(session, runner)
+                return runner
+        raise RunnerRetrievalException
+
+def validate_terminal_token(runner_id, terminal_token : str) -> Runner:
+    """Check runner with a matching terminal token and replace."""
+    with Session(engine) as session:
+        runner: Runner = runner_repository.find_runner_with_id_and_terminal_token(session, runner_id, terminal_token)
+        if runner:
+            runner.terminal_token = uuid.uuid4().hex
+            runner_repository.update_runner(session, runner)
             return runner
         raise RunnerRetrievalException

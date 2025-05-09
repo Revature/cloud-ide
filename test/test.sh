@@ -83,7 +83,7 @@ TEARDOWN_SQL="$TEST_DIR/$TEST_TYPE/teardown.sql"
 # Try to bring down containers, redirect stderr to stdout for logging
 echo "Starting docker containers..."
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down & \
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build web & \
+docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build backend & \
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build celery-worker & \
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build celery-beat & \
 docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build nginx && \
