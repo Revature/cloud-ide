@@ -121,3 +121,46 @@ async def create_and_validate_cloud_connector(region: str, provider: str, access
 
         # Re-raise the exception
         raise
+
+def update_cloud_connector(cloud_connector_id: int, updated_cloud_connector: CloudConnector) -> bool:
+    """Update an existing cloud connector."""
+    with Session(engine) as session:
+        # Get the updated cloud connector from repository
+        db_cloud_connector = cloud_connector_repository.update_cloud_connector(session, cloud_connector_id, updated_cloud_connector)
+        session.commit()
+        
+    return True
+
+def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> CloudConnector:
+    """
+    Update the active status of a cloud connector.
+
+    Args:
+        cloud_connector_id: The ID of the cloud connector to update
+        is_active: The new status to set (True for active, False for inactive)
+
+    Returns:
+        Updated CloudConnector object or None if not found
+    """
+    with Session(engine) as session:
+        try:
+            # Get the cloud connector from repository
+            updated_connector = cloud_connector_repository.update_connector_status(
+                session, 
+                cloud_connector_id, 
+                is_active
+            )
+
+            if not updated_connector:
+                return None
+
+            # Commit the transaction
+            session.commit()
+            session.refresh(updated_connector)
+
+            return updated_connector
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error in update_cloud_connector_status: {str(e)}")
+            raise
