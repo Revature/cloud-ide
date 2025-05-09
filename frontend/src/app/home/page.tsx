@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
+  
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section with Gradient Background */}
@@ -23,36 +25,24 @@ export default function HomePage() {
             </p>
             <div className="mt-10">
               <Link 
-                href="/home" 
+                href={`/cloud-connectors`}
                 className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700"
               >
-                Go to Dashboard
+                Go to Cloud Connectors
               </Link>
             </div>
           </div>
           
-          {/* Mockup Image */}
+          {/* Theia IDE Image */}
           <div className="mt-16 relative mx-auto max-w-5xl">
-            <div className="rounded-xl shadow-xl overflow-hidden bg-gray-800">
-              <div className="h-6 bg-gray-900 flex items-center px-4">
-                <div className="flex space-x-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                </div>
-              </div>
-              <div className="relative bg-gray-900 w-full pt-6 pb-8 px-8">
-                <div className="grid grid-cols-12 gap-6 h-80">
-                  <div className="col-span-2 bg-gray-800 rounded-md shadow"></div>
-                  <div className="col-span-10 grid grid-rows-2 gap-6">
-                    <div className="row-span-1 bg-gray-800 rounded-md shadow"></div>
-                    <div className="row-span-1 grid grid-cols-2 gap-6">
-                      <div className="col-span-1 bg-gray-800 rounded-md shadow"></div>
-                      <div className="col-span-1 bg-gray-800 rounded-md shadow"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="rounded-xl shadow-xl overflow-hidden">
+              <Image 
+                src="https://raw.githubusercontent.com/AshokaShringla/res-images/refs/heads/main/theia-ide.png"
+                alt="Theia IDE Interface"
+                width={1200}
+                height={720}
+                className="w-full h-auto"
+              />
             </div>
           </div>
         </div>
@@ -100,23 +90,6 @@ export default function HomePage() {
                 Secure browser-based terminal access to development environments.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Simple CTA Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-indigo-600 dark:bg-indigo-900">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-6">
-            Ready to start?
-          </h2>
-          <div>
-            <Link 
-              href="/home" 
-              className="inline-flex items-center justify-center rounded-md border border-transparent bg-white px-6 py-3 text-base font-medium text-indigo-600 shadow-sm hover:bg-indigo-50"
-            >
-              Go to Dashboard
-            </Link>
           </div>
         </div>
       </section>
