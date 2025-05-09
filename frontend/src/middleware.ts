@@ -5,7 +5,7 @@ const AUTH_MODE = process.env.AUTH_MODE === 'OFF' ? false : true;
 
 export default authkitMiddleware({middlewareAuth:{
   enabled: AUTH_MODE, 
-  unauthenticatedPaths: ['/', '/frontend-api/auth/callback', '/home'], 
+  unauthenticatedPaths: ['/frontend-api/auth/callback'], 
 },
 redirectUri: process.env['NEXT_PUBLIC_WORKOS_REDIRECT_URI'],
 });

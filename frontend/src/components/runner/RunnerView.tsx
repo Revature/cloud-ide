@@ -1,6 +1,5 @@
 "use client";
 import Button from "@/components/ui/button/Button";
-import { RunnerState } from '@/types/runner';
 import dynamic from 'next/dynamic';
 import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
 import { runnersApi } from '@/services/cloud-resources/runners';
@@ -9,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import the props interface from the terminal component
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
+import StatusBadge from "../ui/badge/StatusBadge";
 
 // Import terminal component with ssr: false to prevent server-side rendering
 const TerminalComponent = dynamic<TerminalComponentProps>(
@@ -16,46 +16,6 @@ const TerminalComponent = dynamic<TerminalComponentProps>(
   { ssr: false }
 );
 
-const getStateColor = (state: RunnerState) => {
-  switch (state) {
-    case "active":
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case "ready":
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    case "awaiting_client":
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-    case "starting":
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
-    case "runner_starting":
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
-    case "ready_claimed":
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    case "terminated":
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-  }
-};
-
-const getStateLabel = (state: RunnerState) => {
-  switch (state) {
-    case "active":
-      return 'Active';
-    case "ready":
-      return 'Ready';
-    case "awaiting_client":
-      return 'Awaiting Client';
-    case "starting":
-      return 'Starting';
-    case "runner_starting":
-      return 'Starting';
-    case "ready_claimed":
-      return 'Ready';
-    case "terminated":
-      return 'Terminated';
-    default:
-      return state;
-  }
-};
 
 const RunnerView: React.FC = () => {
   const router = useRouter();
@@ -151,97 +111,69 @@ const RunnerView: React.FC = () => {
 
   return (
     <>
-      <div className="flex items-center mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={goBack}
-          className="mr-4"
-        >
-          <svg
-            className="w-4 h-4 mr-2"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+      <div className="relative">
+        {/* Buttons Container */}
+      <div className="flex justify-end items-start mb-6">
+      <div className="flex space-x-3">
+        {cloudIdeUrl && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => window.open(cloudIdeUrl, '_blank')}
+            className="text-green-600 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30"
           >
-            <path
-              d="M19 12H5M5 12L12 19M5 12L12 5"
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
               stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </Button>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Runner Details</h2>
-        <div className="ml-auto flex space-x-3">
-          {cloudIdeUrl && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => window.open(cloudIdeUrl, '_blank')}
-              className="text-green-600 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30"
+              className="size-6"
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke-width="1.5" 
-                stroke="currentColor" 
-                className="size-6"
-              >
-                <path 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round" 
-                  d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" 
-                />
-              </svg>
-              Open Cloud IDE
-            </Button>
-          )}
-          {canConnect && (
-            <Button 
-              size="sm" 
-              variant="secondary"
-              onClick={toggleTerminal}
-              className={terminalVisible 
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"
+              />
+            </svg>
+            Open Cloud IDE
+          </Button>
+        )}
+        {canConnect && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={toggleTerminal}
+            className={
+              terminalVisible
                 ? "text-yellow-600 bg-yellow-50 hover:bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/30"
                 : "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
-              }
-            >
-              {terminalVisible ? (
-                <>
-                  Disconnect
-                </>
-              ) : (
-                <>
-                  Connect
-                </>
-              )}
-            </Button>
-          )}
-          {canTerminate && (
-            <Button 
-              size="sm" 
-              variant="destructive"
-              onClick={handleTerminate}
-              disabled={isTerminating}
-            >
-              {isTerminating ? (
-                <div className="flex items-center">
-                  Terminating
-                </div>
-              ) : (
-                confirmTerminate ? "Confirm Termination" : "Terminate"
-              )}
-            </Button>
-          )}
-        </div>
+            }
+          >
+            {terminalVisible ? <>Disconnect</> : <>Connect</>}
+          </Button>
+        )}
+        {canTerminate && (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleTerminate}
+            disabled={isTerminating}
+          >
+            {isTerminating ? (
+              <div className="flex items-center">Terminating</div>
+            ) : confirmTerminate ? (
+              "Confirm Termination"
+            ) : (
+              "Terminate"
+            )}
+          </Button>
+        )}
+      </div>
+      </div>
       </div>
 
+       
       {/* UI Message Section */}
       {uiMessage && (
         <div
@@ -302,9 +234,7 @@ const RunnerView: React.FC = () => {
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">Runner Information</h3>
             <p className="text-gray-500 dark:text-gray-400">ID: {runner.id}</p>
           </div>
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStateColor(runner.state)}`}>
-            {getStateLabel(runner.state)}
-          </span>
+          <StatusBadge status={runner.state} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           {/* Basic Information */}
@@ -313,7 +243,7 @@ const RunnerView: React.FC = () => {
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-300">State</span>
-                <span className="text-gray-800 dark:text-white">{getStateLabel(runner.state)}</span>
+                <StatusBadge status={runner.state} />
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-300">Created On</span>
@@ -331,42 +261,34 @@ const RunnerView: React.FC = () => {
           </div>
 
           {/* Usage Statistics */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex items-center justify-center">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No usage data available</h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Usage statistics will appear here once the runner becomes active.
-                </p>
+          <div className="flex flex-col h-full">
+              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow">
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <svg 
+                      className="w-12 h-12 mx-auto text-gray-400" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth="2" 
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" 
+                      />
+                    </svg>
+                    <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">
+                      Usage statistics coming soon
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Runner usage statistics will be available in a future update.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Machine Details</h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-300">Machine Name</span>
-                <span className="text-gray-800 dark:text-white">{runner.machine?.name || 'N/A'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Machine Identifier</span>
-              <span className="text-gray-800 dark:text-white">{runner.machine?.identifier || 'N/A'}</span>
-            </div>
-          </div>
         </div>   
       </div>      
     </>
