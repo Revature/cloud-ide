@@ -84,28 +84,6 @@ const ImageForm: React.FC<ImageFormProps> = ({
   const [scriptVarsError, setScriptVarsError] = useState(false);
   const [envVarsError, setEnvVarsError] = useState(false);
 
-  // Convert machine types for select dropdown
-  const machineOptions = machineTypes.map(machine => ({
-    value: machine.identifier,
-    label: `${machine.name} (${machine.cpuCount} CPU, ${machine.memorySize} GB RAM, ${machine.storageSize} GB Storage)`
-  }));
-
-  // Create options for cloud connectors dropdown
-  const cloudConnectorOptions = connectors
-    .filter(connector => connector.status)
-    .map(connector => { 
-      if(connector.name)  
-      return {
-          value: connector.name,
-          label: `${connector.name} (${connector.region})`
-      }
-      else 
-      return {
-        value: 'aws',
-        label: `${connector.provider} (${connector.region})`
-      }
-    });
-
   useEffect(() => {
     let needsUpdate = false;
     const newState = { ...values };
@@ -224,37 +202,6 @@ const ImageForm: React.FC<ImageFormProps> = ({
               placeholder="e.g., Ubuntu Developer"
               defaultValue={values.name}
               onChange={(e) => handleChange('name', e.target.value)}
-            />
-          </div>
-
-          {/* Cloud Provider */}
-          <div className="col-span-full md:col-span-1">
-            <Label htmlFor="cloudConnector">Cloud Provider</Label>
-            {connectors.filter(c => c.status === 'active').length > 0 ? (
-              <Select
-                options={cloudConnectorOptions}
-                defaultValue={values.selectedConnector}
-                onChange={(value) => handleChange('selectedConnector', value)}
-              />
-            ) : (
-              <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No active cloud connectors available. 
-                  <Link href="/cloud-connectors" className="text-brand-500 ml-1 hover:underline">
-                    Add a connector
-                  </Link>
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Machine Type */}
-          <div className="col-span-full md:col-span-1">
-            <Label htmlFor="machine">Machine Type</Label>
-            <Select
-              options={machineOptions}
-              defaultValue={values.selectedMachine}
-              onChange={(value) => handleChange('selectedMachine', value)}
             />
           </div>
 

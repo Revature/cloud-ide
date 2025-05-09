@@ -99,7 +99,7 @@ const ImageRunnerTerminal: React.FC<ImageRunnerTerminalProps> = ({
       </div>
 
       {/* Continue Button */}
-      <div className="mt-4 flex items-center">
+      <div className="mt-4 flex items-right justify-end">
         <button
           onClick={handleUserContinue}
           disabled={!!internalError} // Disable if there was an error
