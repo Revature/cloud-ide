@@ -72,7 +72,7 @@ async def toggle_cloud_connector_status(
             status_code=500,
             detail=f"Failed to update cloud connector status: {e!s}"
         ) from e
-        
+
 @router.delete("/{cloud_connector_id}", response_model=dict)
 async def delete_cloud_connector(cloud_connector_id: int):
     """Delete a cloud connector."""
