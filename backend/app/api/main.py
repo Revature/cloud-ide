@@ -30,7 +30,9 @@ UNSECURE_ROUTES: tuple = (
     f'{API_VERSION}/user_auth/authkit_url/',
     f'{API_VERSION}/user_auth/authkit_redirect/',
     f'{API_VERSION}/user_auth/callback/',
-    f'{API_VERSION}/runners/\\d+/state/?$'
+    f'{API_VERSION}/runners/\\d+/state/?$',
+    f'{API_VERSION}/app_requests/runner_status/?$', # Getting runner status websocket connection
+    f'{API_VERSION}/runners/connect/\\d+/?$'  # Terminal WebSocket connection
     )
 
 RUNNER_ACCESS_ROUTES: tuple = (
@@ -137,9 +139,9 @@ def start_api():
         # print("\n\n================Headers:================")
         # print(request.headers)
 
-        if request.headers.get("upgrade", "").lower() == "websocket":
-            logger.info(f"WebSocket connection detected, bypassing auth middleware")
-            return await call_next(request)
+        # if request.headers.get("upgrade", "").lower() == "websocket":
+        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
+        #     return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
