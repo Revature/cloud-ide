@@ -8,6 +8,7 @@ import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
 
 
 const EditImageForm: React.FC = () => {
@@ -17,6 +18,7 @@ const EditImageForm: React.FC = () => {
 
   // Obtain images from ImagesTable ReactQuery
   const { data:image } = useImageQuery(imageId)
+  const { connectorsById } = useConnectorForItems([image!]);
 
   // State for form data
   const [formData, setFormData] = useState<{
@@ -30,7 +32,7 @@ const EditImageForm: React.FC = () => {
     description: "",
     machineIdentifier: "t4g medium",
     status: '',
-    cloudConnector: undefined
+    cloudConnector: connectorsById[image!.cloudConnectorId!],
   });
 
   // State for displaying form
@@ -38,21 +40,18 @@ const EditImageForm: React.FC = () => {
   
   // Load image data
   useEffect(() => {
-      if (image?.machine){
+      if (image){
         setFormData({
           name: image.name,
           description: image.description || "",
-          machineIdentifier: image.machine.identifier,
+          machineIdentifier: 't4g.medium',
           status: image.status,
-          cloudConnector: image.cloudConnector
+          cloudConnector: connectorsById[image.cloudConnectorId!],
         });
         
       setLoading(false);
-      } else {
-      // Handle invalid index
-      router.push('/images');
-    }
-  }, [image, router]);
+      }
+  }, [image, router, connectorsById]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -76,10 +75,6 @@ const EditImageForm: React.FC = () => {
 
   return (
     <>
-      <div className="flex items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Edit Image</h2>
-      </div>
-
       <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
         <Form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

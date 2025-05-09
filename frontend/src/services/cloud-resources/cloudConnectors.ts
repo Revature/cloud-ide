@@ -25,11 +25,11 @@ export const cloudConnectorsApi = {
   //     body: connector,
   //   }),
 
-  // toggle: (id: number, active: boolean) => 
-  //   apiRequest<CloudConnector>(`/cloud_connectors/${id}/toggle`, {
-  //     method: 'PATCH',
-  //     body: { active },
-  //   }),
+  toggle: (id: number, status: object) => 
+    apiRequest<CloudConnector>(`/cloud_connectors/${id}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify(status),
+    }),
     
   // delete: (id: number) => 
   //   apiRequest<void>(`/cloud_connectors/${id}`, {
