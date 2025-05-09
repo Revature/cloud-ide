@@ -118,15 +118,6 @@ async def track_runner_state(runner_id: int, lifecycle_token: str):
 
                 # If runner is ready, emit connection info and progress update
                 if runner.state in ["ready", "ready_claimed", "active", "awaiting_client"]:
-                    await runner_status_emitter.emit_status(
-                        lifecycle_token,
-                        "CONNECTION_STATUS",
-                        "Runner is ready for connection",
-                        {
-                            "runner_id": runner_id,
-                            "status": "succeeded",
-                        }
-                    )
 
                     # Also emit a final progress update
                     await runner_status_emitter.emit_status(
