@@ -90,8 +90,7 @@ class ImageStatusUpdate(BaseModel):
 
     is_active: bool
 
-# Router endpoint
-@router.put("/{image_id}/toggle", response_model=Image)
+@router.patch("/{image_id}/toggle", response_model=Image)
 async def toggle_image_status(
     image_id: int,
     status_update: ImageStatusUpdate

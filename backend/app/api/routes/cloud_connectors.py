@@ -49,7 +49,7 @@ class CloudConnectorStatusUpdate(BaseModel):
 
     is_active: bool
 
-@router.put("/{cloud_connector_id}/toggle", response_model=CloudConnector)
+@router.patch("/{cloud_connector_id}/toggle", response_model=CloudConnector)
 async def toggle_cloud_connector_status(
     cloud_connector_id: int,
     status_update: CloudConnectorStatusUpdate
