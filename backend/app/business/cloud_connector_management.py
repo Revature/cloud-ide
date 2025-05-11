@@ -6,6 +6,7 @@ from app.db.database import engine
 from app.models import CloudConnector
 from app.db import cloud_connector_repository
 from app.business.cloud_services import cloud_service_factory
+from app.business import image_management
 from app.exceptions import cloud_connector_exceptions as cc_exceptions
 import asyncio
 
@@ -165,13 +166,74 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
             logger.error(f"Error in update_cloud_connector_status: {e!s}")
             raise
 
-def delete_cloud_connector(cloud_connector_id: int) -> bool:
-    """Delete an existing cloud connector."""
-    with Session(engine) as session:
-        # Get the cloud connector from repository
-        success = cloud_connector_repository.delete_cloud_connector(session, cloud_connector_id)
-        if not success:
-            return False
-        session.commit()
+async def delete_cloud_connector(cloud_connector_id: int) -> bool:
+    """
+    Delete an existing cloud connector and all associated images.
 
-    return True
+    This function:
+    1. Checks if the cloud connector exists
+    2. Gets all associated images
+    3. Properly deletes each image using image_management.delete_image
+    4. Deletes the cloud connector itself
+    5. Handles any errors during the process
+
+    Args:
+        cloud_connector_id: ID of the cloud connector to delete
+
+    Returns:
+        bool: True if the cloud connector was successfully deleted
+
+    Raises:
+        RunnerExecException: If an error occurs during image deletion or connector deletion
+    """
+    logger.info(f"Deleting cloud connector with ID {cloud_connector_id} and all associated images")
+
+    # Get the cloud connector and associated images
+    try:
+        with Session(engine) as session:
+            # Verify the cloud connector exists
+            db_connector = cloud_connector_repository.find_cloud_connector_by_id(session, cloud_connector_id)
+            if not db_connector:
+                logger.error(f"Cloud connector with ID {cloud_connector_id} not found")
+                return False
+
+            # Get all images associated with this cloud connector
+            images = image_management.get_images_by_cloud_connector_id(cloud_connector_id)
+            logger.info(f"Found {len(images)} images associated with cloud connector {cloud_connector_id}")
+
+            # Track the images for deletion
+            image_ids = [image.id for image in images]
+
+        # Process image deletion first - outside the main session to allow for new transactions
+        deletion_results = []
+        for image_id in image_ids:
+            try:
+                logger.info(f"Deleting image {image_id} associated with cloud connector {cloud_connector_id}")
+                # Use await since delete_image is an async function
+                result = await image_management.delete_image(image_id)
+                deletion_results.append({"image_id": image_id, "success": result})
+                logger.info(f"Image {image_id} deletion result: {result}")
+            except Exception as e:
+                logger.error(f"Error deleting image {image_id}: {e!s}")
+                deletion_results.append({"image_id": image_id, "success": False, "error": str(e)})
+                # Continue with other images rather than failing completely
+
+        # Log the summary of image deletion results
+        logger.info(f"Image deletion results: {deletion_results}")
+
+        # Finally delete the cloud connector
+        with Session(engine) as session:
+            success = cloud_connector_repository.delete_cloud_connector(session, cloud_connector_id)
+            if not success:
+                logger.error(f"Failed to delete cloud connector {cloud_connector_id} from database")
+                return False
+
+            session.commit()
+            logger.info(f"Cloud connector {cloud_connector_id} successfully deleted")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Error deleting cloud connector {cloud_connector_id}: {e!s}")
+        # Re-raise the exception for proper error handling at API level
+        raise RuntimeError(f"Error deleting cloud connector: {e!s}") from e
