@@ -94,7 +94,7 @@ def create_image(session: Session, image: Image) -> Image:
 
 def delete_image(session: Session, image_id: int) -> bool:
     """Mark an image as deleted by its id without removing it from the database."""
-    db_image = find_image_by_id(session, image_id)
+    db_image = find_image_by_id(session, image_id, include_deleted=False, include_inactive=True)
     if not db_image:
         return False
 
