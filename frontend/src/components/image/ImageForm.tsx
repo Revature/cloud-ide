@@ -120,7 +120,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
   };
 
   // Create options for the base image dropdown
-  const imageOptions = images.map((image) => ({
+  const imageOptions = images.filter((image) => image.status === 'active').map((image) => ({
     value: image.id.toString(), // Convert the ID to a string
     label: `${image.name || "Unnamed Image"}`,
   }));
