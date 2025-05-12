@@ -62,7 +62,14 @@ def find_runner_by_image_id_and_states(session: Session, image_id: int, states: 
     )
     return session.exec(stmt_runner).first()
 
-def update_runner(session: Session, runner_id: int, runner_data: Runner) -> Runner:
+def update_runner(session: Session, runner: Runner) -> Runner:
+    """Update a runner."""
+    session.add(runner)
+    session.commit()
+    session.refresh(runner)
+    return runner
+
+def update_whole_runner(session: Session, runner_id: int, runner_data: Runner) -> Runner:
     """Update an image by its id."""
     db_runner = find_runner_by_id(session, runner_id)
     if not db_runner:
