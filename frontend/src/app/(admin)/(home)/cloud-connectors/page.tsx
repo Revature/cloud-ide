@@ -1,29 +1,21 @@
-import { Metadata } from "next";
 import React from "react";
 import CloudConnectorsTable from "@/components/tables/BasicTables/CloudConnectorsTable";
-import Breadcrumb from "@/components/ui/breadcrumb/Breadcrumb";
+import AdminPageLayout from "@/components/layout/AdminPageLayout";
+import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Cloud Connectors | Cloud IDE",
-  description: "Manage your cloud provider connections",
+  description: "Manage your cloud connections",
 };
 
 export default function CloudConnectors() {
   const breadcrumbItems = [
-    { label: "Home", href: "/" },
-    { label: "Cloud Connectors" }
+    { label: "Cloud Connectors" },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Breadcrumb items={breadcrumbItems} variant="withIcon" />
-      </div>
-      <div className="grid grid-cols-12 gap-4 md:gap-6">
-        <div className="col-span-12">
-          <CloudConnectorsTable />
-        </div>
-      </div>
-    </div>
+    <AdminPageLayout breadcrumbs={breadcrumbItems}>
+      <CloudConnectorsTable />
+    </AdminPageLayout>
   );
 }

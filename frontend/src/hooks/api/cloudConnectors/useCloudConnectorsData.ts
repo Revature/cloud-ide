@@ -11,7 +11,7 @@ function useCloudConnectorQuery(): UseQueryResult<CloudConnector[], Error>;
 
 function useCloudConnectorQuery(id?:number):UseQueryResult<CloudConnector | CloudConnector[], Error>{
 
-    const queryKey: QueryKey = id ? ['cloud-connector', id] : ['cloud-connectors']
+    const queryKey: QueryKey = id ? ['cloud-connectors', id.toString()] : ['cloud-connectors']
 
     const queryFn = async (): Promise<CloudConnector | CloudConnector[]> => id ? cloudConnectorsApi.getById(id) : cloudConnectorsApi.getAll();
 

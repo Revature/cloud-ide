@@ -3,33 +3,41 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageForm, { ImageFormData } from "./ImageForm";
 import { runnersApi } from "@/services/cloud-resources/runners";
-import { imagesApi } from '@/services/cloud-resources/images';
-import { appRequestsApi } from '@/services/cloud-resources/appRequests'
+import { imagesApi } from "@/services/cloud-resources/images";
+import { appRequestsApi } from "@/services/cloud-resources/appRequests";
 import ImageRunnerTerminal from "./ImageRunnerTerminal";
-import ConnectingStatusDisplay from '../ui/connection/ConnectingStatusDisplay'; 
-import type { ConnectingStatusDisplayProps } from '../ui/connection/ConnectingStatusDisplay';
+import ConnectingStatusDisplay from "../ui/connection/ConnectingStatusDisplay";
+import type { ConnectingStatusDisplayProps } from "../ui/connection/ConnectingStatusDisplay";
 import Button from "../ui/button/Button";
 import { useRouter } from "next/navigation";
 import { SuccessIcon } from "../ui/icons/CustomIcons";
 import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 
-type WorkflowStage = 'form' | 'webSocketSetup' | 'connecting' | 'terminal' | 'readyToSubmit' | 'submitting' | 'success' | 'error';
+type WorkflowStage =
+  | "form"
+  | "webSocketSetup"
+  | "connecting"
+  | "terminal"
+  | "submitting"
+  | "success"
+  | "error";
 
 /**
  * A React component that combines an image form with a terminal for interactive workflows.
  * It manages multiple stages of the workflow, including form submission, WebSocket setup,
  * terminal interaction, and final submission.
  */
-
 const ImageFormWithTerminal: React.FC = () => {
-  const [workflowStage, setWorkflowStage] = useState<WorkflowStage>('form');
+  const [workflowStage, setWorkflowStage] = useState<WorkflowStage>("form");
   const [imageFormData, setImageFormData] = useState<ImageFormData | null>(null);
   const [runnerId, setRunnerId] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
   const runnerIdReceivedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { user } = useAuth();
 
   const router = useRouter();
 
@@ -38,7 +46,6 @@ const ImageFormWithTerminal: React.FC = () => {
     workflowStageRef.current = workflowStage;
   }, [workflowStage]);
 
-  // Move the hook call to the top level
   const { enrichEnvDataWithUserIp } = useEnrichEnvData();
 
   /**
@@ -61,98 +68,102 @@ const ImageFormWithTerminal: React.FC = () => {
    * @param data - The data submitted from the image form.
    * @param e - The form submission event.
    */
-  const handleFormSubmitAndConnect = useCallback(async (data: ImageFormData, e?: React.FormEvent<HTMLFormElement>) => {
-    e?.preventDefault();
-    cleanupConnections();
-    setImageFormData(data);
-    setErrorMessage(null);
-    runnerIdReceivedRef.current = false;
-    setRunnerId(0);
-    setWorkflowStage('webSocketSetup');
+  const handleFormSubmitAndConnect = useCallback(
+    async (data: ImageFormData, e?: React.FormEvent<HTMLFormElement>) => {
+      e?.preventDefault();
+      cleanupConnections();
+      setImageFormData(data);
+      setErrorMessage(null);
+      runnerIdReceivedRef.current = false;
+      setRunnerId(0);
+      setWorkflowStage("webSocketSetup");
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'localhost:8000'; 
-    const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`;
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const deploymentUrl = process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] || "localhost:8000";
+      // const deploymentUrl = "localhost:8000";
+      const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`;
 
-    try {
-      const enrichedEnvData = await enrichEnvDataWithUserIp({
-        script_vars: JSON.stringify(data.scriptVars || {}),
-        env_vars: JSON.stringify(data.envVars || {}),
-      });
+      try {
+        const enrichedEnvData = await enrichEnvDataWithUserIp({
+          script_vars: JSON.stringify(data.scriptVars || {}),
+          env_vars: JSON.stringify(data.envVars || {}),
+        });
 
-      const appRequest: BackendAppRequest = {
-        image_id: data.baseImageIdentifier || 0,
-        user_email: "ashoka.shringla@revature.com", // Replace with dynamic user email if available
-        session_time: 60, // Default session time
-        runner_type: "temporary", // Default runner type
-        env_data: {
-          script_vars: JSON.parse(enrichedEnvData.script_vars),
-          env_vars: JSON.parse(enrichedEnvData.env_vars),
-        },
-      };
+        const appRequest: BackendAppRequest = {
+          image_id: data.baseImageIdentifier || 0,
+          user_email: user?.email || "ashoka.shringla@revature.com", // Replace with dynamic user email if available
+          session_time: 60, // Default session time
+          runner_type: "temporary", // Default runner type
+          env_data: {
+            script_vars: JSON.parse(enrichedEnvData.script_vars),
+            env_vars: JSON.parse(enrichedEnvData.env_vars),
+          },
+        };
 
-      const { lifecycle_token } = await appRequestsApi.createWithStatus(appRequest);
+        const { lifecycle_token } = await appRequestsApi.createWithStatus(appRequest);
 
-      if (!lifecycle_token) {
-        throw new Error("Invalid requestId received from API.");
-      }
-
-      const wsUrl = `${SETUP_WS_URL}/${lifecycle_token}`;
-      const ws = new WebSocket(wsUrl);
-      setSetupWebSocket(ws);
-      setWorkflowStage('connecting');
-
-      ws.onopen = () => {
-        if (workflowStageRef.current === 'connecting') {
-          console.log(`Setup WS Opened (Req ID: ${lifecycle_token}).`);
-        } else {
-          ws.close(1000, "Stale connection attempt");
+        if (!lifecycle_token) {
+          throw new Error("Invalid requestId received from API.");
         }
-      };
 
-      ws.onerror = (event) => {
-        if (workflowStageRef.current === 'connecting') {
-          setErrorMessage(`Failed to establish WebSocket connection. ${event}`);
-          setWorkflowStage('error');
+        const wsUrl = `${SETUP_WS_URL}?lifecycle_token=${lifecycle_token}`;
+        const ws = new WebSocket(wsUrl);
+        setSetupWebSocket(ws);
+        setWorkflowStage('connecting');
+
+        ws.onopen = () => {
+          if (workflowStageRef.current === "connecting") {
+            console.log(`Setup WS Opened (Req ID: ${lifecycle_token}).`);
+          } else {
+            ws.close(1000, "Stale connection attempt");
+          }
+        };
+
+        ws.onerror = (event) => {
+          if (workflowStageRef.current === "connecting") {
+            setErrorMessage(
+              `Failed to establish WebSocket connection. ${event}`
+            );
+            setWorkflowStage("error");
+            cleanupConnections();
+          }
+        };
+
+        ws.onclose = (event) => {
+          if (workflowStageRef.current === "connecting") {
+            console.warn(`Setup WS closed early: Code=${event.code}`);
+          }
+        };
+      } catch (error) {
+        if (workflowStageRef.current === "connecting") {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to initiate terminal session."
+          );
+          setWorkflowStage("error");
           cleanupConnections();
         }
-      };
-
-      ws.onclose = (event) => {
-        if (workflowStageRef.current === 'connecting') {
-          console.warn(`Setup WS closed early: Code=${event.code}`);
-        }
-      };
-    } catch (error) {
-      if (workflowStageRef.current === 'connecting') {
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to initiate terminal session.');
-        setWorkflowStage('error');
-        cleanupConnections();
       }
-    }
-  }, [cleanupConnections, enrichEnvDataWithUserIp]);
-
-  /**
-   * Handles the completion of the terminal interaction step.
-   *
-   * @param e - The form submission event.
-   */
-  const handleTerminalClose = useCallback((e?: React.FormEvent<HTMLFormElement>) => {
-    e?.preventDefault();
-    setWorkflowStage('readyToSubmit');
-  }, []);
+    },
+    [cleanupConnections, enrichEnvDataWithUserIp, user]
+  );
 
   /**
    * Handles the final submission of the image creation request.
    */
   const handleFinalSubmit = useCallback(async () => {
     if (!imageFormData) {
-      setErrorMessage('Image Form Data is Missing');
-      setWorkflowStage('error');
+      setErrorMessage("Image Form Data is Missing");
+      setWorkflowStage("error");
       return;
     }
 
-    setWorkflowStage('submitting');
+  /**
+   * Handles the completion of the terminal interaction step.
+   */
+
+    setWorkflowStage("submitting");
 
     try {
       const payload = {
@@ -167,10 +178,14 @@ const ImageFormWithTerminal: React.FC = () => {
 
       await imagesApi.create(payload);
 
-      setWorkflowStage('success');
+      setWorkflowStage("success");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "An unknown error has occurred");
-      setWorkflowStage('error');
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "An unknown error has occurred"
+      );
+      setWorkflowStage("error");
     }
   }, [imageFormData, runnerId]);
 
@@ -180,7 +195,7 @@ const ImageFormWithTerminal: React.FC = () => {
   const handleCancel = useCallback(async () => {
     const currentRunnerId = runnerId;
 
-    setWorkflowStage('form');
+    setWorkflowStage("form");
     setImageFormData(null);
     setRunnerId(0);
     setErrorMessage(null);
@@ -201,53 +216,87 @@ const ImageFormWithTerminal: React.FC = () => {
    *
    * @param result - The result of the connection process.
    */
-  const handleConnectionComplete: ConnectingStatusDisplayProps['onComplete'] = useCallback((result) => {
-    if (result.status !== 'failed') {
-      setRunnerId(result.runnerId);
-      setWorkflowStage('terminal');
-    } else {
-      setErrorMessage(result.message);
-      setWorkflowStage('error');
-      setRunnerId(0);
-    }
-  }, []);
+  const handleConnectionComplete: ConnectingStatusDisplayProps["onComplete"] =
+    useCallback((result) => {
+      if (result.status !== "failed") {
+        setRunnerId(result.runnerId);
+        setWorkflowStage("terminal");
+      } else {
+        setErrorMessage(result.message);
+        setWorkflowStage("error");
+        setRunnerId(0);
+      }
+    }, []);
 
-  const isLoading = workflowStage === 'connecting' || workflowStage === 'submitting';
-  const canFinalSubmit = workflowStage === 'readyToSubmit' && imageFormData !== null;
+  const isLoading =
+    workflowStage === "connecting" || workflowStage === "submitting";
+    
+  const handleTerminalClose = useCallback(() => {
+    // Directly proceed to final submission after terminal interaction
+    handleFinalSubmit();
+  }, [handleFinalSubmit]);
 
   return (
     <div>
-      {errorMessage && <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {errorMessage}</div>}
-
-      {workflowStage === 'success' && (
-        <div style={{ color: 'green' }}>Request Submitted Successfully!</div>
+      {errorMessage && (
+        <div style={{ color: "red", marginBottom: "1rem" }}>
+          Error: {errorMessage}
+        </div>
       )}
 
-      {(workflowStage === 'form' || workflowStage === 'submitting' || workflowStage === 'readyToSubmit' || workflowStage === 'error') && (
+      {workflowStage === "success" && (
+        <div style={{ color: "green" }}>Request Submitted Successfully!</div>
+      )}
+
+      {(workflowStage === "form" ||
+        workflowStage === "submitting" ||
+        workflowStage === "error") && (
         <ImageForm
           onSubmitAndConnect={handleFormSubmitAndConnect}
           onFinalSubmit={handleFinalSubmit}
           isLoading={isLoading}
-          canFinalSubmit={canFinalSubmit}
+          canFinalSubmit={false} // Disable final submit button in the form
           onCancel={handleCancel}
           initialData={imageFormData}
         />
       )}
 
-      {workflowStage === 'webSocketSetup' && (
+      {workflowStage === "webSocketSetup" && (
         <div className="flex flex-col items-center justify-center p-8 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 mt-4">
-          <svg className="animate-spin h-8 w-8 text-blue-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg
+            className="animate-spin h-8 w-8 text-blue-500 mb-3"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
           </svg>
-          <h3 className="text-lg font-semibold dark:text-white mb-1">Initiating Instance...</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Requesting connection details, please wait.</p>
+          <h3 className="text-lg font-semibold dark:text-white mb-1">
+            Initiating Instance...
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Requesting connection details, please wait.
+          </p>
         </div>
       )}
 
-      {workflowStage === 'connecting' && (
+      {workflowStage === "connecting" && (
         <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-          <h3 className="text-lg font-semibold mb-3 dark:text-white">Connecting to Instance...</h3>
+          <h3 className="text-lg font-semibold mb-3 dark:text-white">
+            Connecting to Instance...
+          </h3>
           <ConnectingStatusDisplay
             webSocket={setupWebSocket}
             onComplete={handleConnectionComplete}
@@ -255,12 +304,12 @@ const ImageFormWithTerminal: React.FC = () => {
         </div>
       )}
 
-      {workflowStage === 'terminal' && (
+      {workflowStage === "terminal" && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <div className="h-150 w-full">
             <ImageRunnerTerminal
               runnerId={runnerId}
-              onInteractionComplete={handleTerminalClose}
+              onInteractionComplete={() => handleTerminalClose()} // Directly proceed to final submission
               onWorkflowError={(error) => {
                 setErrorMessage(`Terminal session error: ${error}`);
                 setRunnerId(0);
@@ -270,19 +319,20 @@ const ImageFormWithTerminal: React.FC = () => {
         </div>
       )}
 
-      {workflowStage === 'success' && (
+      {workflowStage === "success" && (
         <div className="flex flex-col items-center justify-center p-6 border border-green-300 rounded-lg bg-green-50 dark:bg-green-900/50 dark:border-green-700 mt-4 text-center shadow-sm">
           <SuccessIcon className="w-12 h-12 text-green-500 dark:text-green-400 mb-3" />
           <h3 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
             Submission Successful!
           </h3>
           <p className="text-sm text-gray-700 dark:text-gray-300 mb-5 max-w-md">
-            Your image creation request has been submitted. It should appear in the Images tab within a few minutes once processing is complete.
+            Your image creation request has been submitted. It should appear in
+            the Images tab within a few minutes once processing is complete.
           </p>
           <Button
             variant="primary"
             size="sm"
-            onClick={() => router.push('/images')}
+            onClick={() => router.push("/images")}
           >
             Go to Images
           </Button>

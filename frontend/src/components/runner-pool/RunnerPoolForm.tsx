@@ -1,31 +1,41 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { imagesApi } from "@/services/cloud-resources/images";
 import Button from "@/components/ui/button/Button";
 
-interface RunnerPoolFormProps {
-  onSubmit: (imageId: number, poolSize: number) => void;
-  onCancel?: () => void;
-}
-
-const RunnerPoolForm: React.FC<RunnerPoolFormProps> = ({ onSubmit, onCancel }) => {
+const RunnerPoolForm: React.FC = () => {
+  const router = useRouter();
   const { data: images = [], isLoading, error } = useImageQuery();
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
   const [poolSize, setPoolSize] = useState<number>(1); // Default pool size
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (selectedImageId !== null) {
-      onSubmit(selectedImageId, poolSize);
+      try {
+        // Use the imagesApi to patch the runner pool size
+        await imagesApi.patchRunnerPoolSize(selectedImageId, poolSize);
+        console.log(`Runner pool size updated to ${poolSize} for image ID ${selectedImageId}.`);
+        router.push("/runner-pools");
+      } catch (error) {
+        console.error("Error updating runner pool size:", error);
+        console.log("Failed to update runner pool size.");
+      }
     }
   };
 
+  const handleCancel = () => {
+    router.push("/runner-pools");
+  };
+
   if (isLoading) {
-    return <div>Loading available images...</div>;
+    return <div>Loading available pools...</div>;
   }
 
   if (error) {
-    return <div>Error loading images: {error instanceof Error ? error.message : "Unknown error"}</div>;
+    return <div>Error loading pools: {error instanceof Error ? error.message : "Unknown error"}</div>;
   }
 
   const availableImages = images.filter((image) => image.runnerPoolSize === 0);
@@ -91,11 +101,9 @@ const RunnerPoolForm: React.FC<RunnerPoolFormProps> = ({ onSubmit, onCancel }) =
 
           {/* Form Actions */}
           <div className="flex justify-end gap-3">
-            {onCancel && (
-              <Button size="sm" variant="outline" onClick={onCancel}>
-                Cancel
-              </Button>
-            )}
+            <Button size="sm" variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
             <Button
               size="sm"
               variant="primary"

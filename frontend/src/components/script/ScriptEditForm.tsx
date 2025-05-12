@@ -59,8 +59,8 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel}) =>
       setSaveStatus("success");
 
       // Invalidate the query to refresh the script data
-      queryClient.invalidateQueries({ queryKey: ["scripts", scriptId] });
-      queryClient.invalidateQueries({ queryKey: ["scripts", "image", script?.imageId] });
+      queryClient.invalidateQueries({ queryKey: ["scripts", scriptId.toString()] });
+      queryClient.invalidateQueries({ queryKey: ["scripts", "image", script?.imageId.toString()] });
 
       // Wait for 2 seconds before navigating back to the script's view page
       setTimeout(() => {
@@ -125,7 +125,7 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel}) =>
 
       <div>
         <Label htmlFor="script">Script</Label>
-        <CodeEditor value={scriptContent} onChange={setScriptContent} />
+        <CodeEditor value={scriptContent} onChange={setScriptContent} language="shell"/>
       </div>
 
       <div className="flex justify-end items-center space-x-4">
