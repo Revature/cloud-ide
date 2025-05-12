@@ -7,12 +7,12 @@ import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { CloudConnector } from "@/types";
 import Link from "next/link";
 // import { cloudConnectorsApi } from "@/services";
-import { useQueryClient } from "@tanstack/react-query";
+// import { useQueryClient } from "@tanstack/react-query";
 
 export default function CloudConnectorsTable() {
   const { data: connectorsData = [], isLoading, error } = useCloudConnectorQuery();
   const router = useRouter();
-  const queryClient = useQueryClient();
+  // const queryClient = useQueryClient();
 
   // Define columns for the table
   const columns = [
