@@ -1,9 +1,11 @@
 """Module for managing images, templates for runners (AWS AMI & their config)."""
 
+import asyncio
+import logging
 from celery.utils.log import get_task_logger
 from sqlmodel import Session
 from sqlalchemy import text
-import asyncio
+from typing import Optional
 from datetime import datetime
 from app.db.database import engine
 from app.models import Image, Runner
@@ -11,7 +13,6 @@ from app.db import image_repository, machine_repository, cloud_connector_reposit
 from app.business import runner_management, cloud_services, security_group_management
 from app.exceptions.runner_exceptions import RunnerExecException
 from app.util import constants
-import logging
 
 logger = get_task_logger(__name__)
 
@@ -20,21 +21,26 @@ def get_all_images() -> list[Image]:
     with Session(engine) as session:
         return image_repository.find_all_images(session)
 
-def get_image_by_identifier(identifier:str) -> Image:
+def get_image_by_identifier(identifier: str) -> Image:
     """Get an image by its identifier (AWS string)."""
     with Session(engine) as session:
         return image_repository.find_image_by_identifier(session, identifier)
 
-def get_image_by_id(id:int) -> Image:
+def get_image_by_id(id: int,  include_deleted: bool = False, include_inactive: bool = False) -> Image:
     """Get an image by its id (numeric)."""
     with Session(engine) as session:
-        return image_repository.find_image_by_id(session, id)
+        return image_repository.find_image_by_id(session, id, include_deleted, include_inactive)
+
+def get_images_by_cloud_connector_id(cloud_connector_id: int) -> list[Image]:
+    """Get all images associated with a specific cloud connector."""
+    with Session(engine) as session:
+        return image_repository.find_images_by_cloud_connector_id(session, cloud_connector_id)
 
 def update_image(image_id: int, updated_image: Image) -> bool:
     """Update an existing image with new values."""
     with Session(engine) as session:
         # Get the existing image first to check if pool size will change
-        existing_image = image_repository.find_image_by_id(session, image_id)
+        existing_image = image_repository.find_image_by_id(session, image_id, include_deleted=False, include_inactive=True)
         if not existing_image:
             logger.error(f"Image with id {image_id} not found for updating")
             return False
@@ -91,6 +97,51 @@ def update_runner_pool(image_id: int, runner_pool_size: int) -> bool:
             manage_runner_pool.delay()
 
         return True
+
+async def update_image_status(image_id: int, is_active: bool) -> Optional[Image]:
+    """
+    Update the status of an image to active or inactive.
+
+    Args:
+        image_id: The ID of the image to update
+        is_active: The new status to set (True for active, False for inactive)
+
+    Returns:
+        Updated Image object or None if not found
+
+    Raises:
+        RuntimeError: If there's an error updating the image status
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        with Session(engine) as session:
+            # Get the image using find_image_by_id which excludes deleted images
+            # but can retrieve inactive ones
+            image = image_repository.find_image_by_id(
+                session,
+                image_id,
+                include_deleted=False,  # Don't include deleted images
+                include_inactive=True   # Do include inactive images
+            )
+
+            if not image:
+                logger.warning(f"Image with ID {image_id} not found or is deleted")
+                return None
+
+            # Determine the new status
+            new_status = "active" if is_active else "inactive"
+
+            # Update the image status
+            updated_image = image_repository.update_image_status(session, image.id, new_status)
+
+            # Commit changes
+            session.commit()
+            return updated_image
+
+    except Exception as e:
+        logger.error(f"Error updating image status for image {image_id}: {e!s}")
+        raise RuntimeError(f"Error updating image status: {e!s}") from e
 
 def get_image_config(image_id: int, initiated_by: str = "default") -> dict:
     """Get all the config necessary for cloud manipulation on an image. TODO: Refactor to use sql joins."""
@@ -229,7 +280,7 @@ async def delete_image(image_id: int) -> bool:
 
     with Session(engine) as session:
         # Get the image
-        db_image = image_repository.find_image_by_id(session, image_id)
+        db_image = image_repository.find_image_by_id(session, image_id, include_deleted=False, include_inactive=True)
         if not db_image:
             logger.error(f"Image with id {image_id} not found")
             raise RunnerExecException(f"Image with id {image_id} not found")
