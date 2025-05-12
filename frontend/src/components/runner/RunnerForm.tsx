@@ -25,7 +25,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
   const { data: images = [] } = useImageQuery();
 
   // Convert images for select dropdown
-  const imageOptions = images.map((image) => ({
+  const imageOptions = images.filter((image) => image.status === 'active').map((image) => ({
     value: image.id.toString(),
     label: `${image.name}`,
   }));
