@@ -51,11 +51,12 @@ services:
       - app-network
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=http://backend:8000
+    image: frontend:latest
+    # build:
+    #   context: ./frontend
+    #   dockerfile: Dockerfile
+    #   args:
+    #     - NEXT_PUBLIC_API_URL=http://backend:8000
     container_name: frontend
     ports:
       - "3500:3500"
