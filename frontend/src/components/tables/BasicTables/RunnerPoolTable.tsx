@@ -9,6 +9,7 @@ import { BaseTable } from "./BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { VMImage } from "@/types";
 import Button from "@/components/ui/button/Button";
+import Link from "next/link";
 
 export default function RunnerPoolTable() {
   const { data: images = [], isLoading, error, refetch } = useImageQuery();
@@ -49,9 +50,14 @@ export default function RunnerPoolTable() {
     {
       header: "Image Name",
       accessor: (item: VMImage) => (
-        <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-          {item.name}
-        </span>
+        <div>
+          <Link
+            href={`/images/view/${item.id}`}
+            className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-500 cursor-pointer"
+          >
+            {item.name}
+          </Link>
+        </div>
       ),
       searchAccessor: (item: VMImage) => item.name || "",
     },

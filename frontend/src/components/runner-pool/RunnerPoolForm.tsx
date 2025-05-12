@@ -38,7 +38,7 @@ const RunnerPoolForm: React.FC = () => {
     return <div>Error loading pools: {error instanceof Error ? error.message : "Unknown error"}</div>;
   }
 
-  const availableImages = images.filter((image) => image.runnerPoolSize === 0);
+  const availableImages = images.filter((image) => image.runnerPoolSize === 0 && image.status === "active");
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
