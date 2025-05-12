@@ -306,7 +306,6 @@ const ImageFormWithTerminal: React.FC = () => {
 
       {workflowStage === "terminal" && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="h-150 w-full">
             <ImageRunnerTerminal
               runnerId={runnerId}
               onInteractionComplete={() => handleTerminalClose()} // Directly proceed to final submission
@@ -315,7 +314,6 @@ const ImageFormWithTerminal: React.FC = () => {
                 setRunnerId(0);
               }}
             />
-          </div>
         </div>
       )}
 

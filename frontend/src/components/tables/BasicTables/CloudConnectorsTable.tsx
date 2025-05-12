@@ -6,10 +6,13 @@ import ProxyImage from "@/components/ui/images/ProxyImage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { CloudConnector } from "@/types";
 import Link from "next/link";
+import { cloudConnectorsApi } from "@/services";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function CloudConnectorsTable() {
   const { data: connectorsData = [], isLoading, error } = useCloudConnectorQuery();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Define columns for the table
   const columns = [
@@ -66,6 +69,15 @@ export default function CloudConnectorsTable() {
     "View Details": () => router.push(`/cloud-connectors/view/${item.id}`),
   });
 
+  // Handle delete functionality
+    const handleDelete = async (id: number) => {
+      try {
+        await cloudConnectorsApi.delete(id);
+        queryClient.invalidateQueries({ queryKey: ["cloud-connectors"] });
+      } catch (error) {
+        console.error("Error deleting image:", error);
+      }
+    };
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -91,6 +103,7 @@ export default function CloudConnectorsTable() {
       title="Cloud Connectors"
       searchPlaceholder="Search connectors..."
       actions={actions}
+      onDelete={(item) => item && handleDelete(item.id)}
       onAddClick={() => router.push("/cloud-connectors/add")}
       addButtonText="Add Connector"
       queryKeys={["cloud-connectors"]}
