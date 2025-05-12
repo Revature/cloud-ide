@@ -193,7 +193,7 @@ async def process_runner_request(
             "requested_session_time": request.session_time,
             "script_vars": script_vars,
             "user_ip": user_ip,
-            "file_path": script_vars.get("file_path", "")
+            "file_path": request.file_path
         }
 
         # If lifecycle_token is provided, emit initial status
