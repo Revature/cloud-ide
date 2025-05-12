@@ -1305,6 +1305,7 @@ def update_runner(runner_id: int, updated_runner: Runner):
         if not runner:
             raise RunnerRetrievalException
         runner_repository.update_whole_runner(session, runner_id, updated_runner)
+        session.commit()
         return updated_runner
 
 async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
