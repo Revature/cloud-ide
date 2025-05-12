@@ -202,7 +202,7 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
             logger.error(f"Runner with id {runner_id} not found")
             raise RunnerExecException(f"Runner with id {runner_id} not found")
         print(f"Runner: {runner}")
-        
+
         runner_db_image = image_repository.find_image_by_id(session, runner.image_id)
         if not runner_db_image:
             print(f"Runner image not found with ID: {runner.image_id}")
