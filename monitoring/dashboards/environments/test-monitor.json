@@ -868,6 +868,50 @@
     {
       "datasource": {
         "type": "loki",
+        "uid": "P982945308D3682D1"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 20,
+      "options": {
+        "dedupStrategy": "none",
+        "enableInfiniteScrolling": false,
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P982945308D3682D1"
+          },
+          "direction": "forward",
+          "editorMode": "builder",
+          "expr": "{agent=\"test\"} |= ``",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Test Agent Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
         "uid": "loki"
       },
       "fieldConfig": {
@@ -879,6 +923,7 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
+            "axisGridShow": true,
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
@@ -893,13 +938,16 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
-            "spanNulls": false,
+            "showPoints": "never",
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -926,14 +974,15 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "{service_name=\"nginx\"}"
+              "options": "error"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
+                  "fixedColor": "orange",
+                  "mode": "fixed",
+                  "seriesBy": "last"
                 }
               }
             ]
@@ -941,7 +990,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "{service_name=\"web\"}"
+              "options": "warn"
             },
             "properties": [
               {
@@ -956,7 +1005,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
+              "options": "info"
             },
             "properties": [
               {
@@ -971,28 +1020,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
+              "options": "unknown"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
+                  "fixedColor": "text",
                   "mode": "fixed"
                 }
               }
@@ -1004,7 +1038,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 28
       },
       "id": 8,
       "options": {
@@ -1028,11 +1062,12 @@
             "uid": "loki"
           },
           "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `` [$__auto]))",
+          "editorMode": "code",
+          "expr": "sum_over_time({agent=\"test\", {detected_level=`trace`}} [$__auto])",
+          "hide": true,
           "legendFormat": "{{name}}",
           "queryType": "range",
-          "refId": "NGINX"
+          "refId": "Trace"
         },
         {
           "datasource": {
@@ -1041,11 +1076,11 @@
           },
           "direction": "backward",
           "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `` [$__auto]))",
+          "expr": "count by(detected_level) (rate({agent=\"test\"} [$__auto]))",
           "hide": false,
           "legendFormat": "{{name}}",
           "queryType": "range",
-          "refId": "Web"
+          "refId": "Info"
         },
         {
           "datasource": {
@@ -1054,11 +1089,11 @@
           },
           "direction": "backward",
           "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `` [$__auto]))",
-          "hide": false,
+          "expr": "count_over_time({agent=\"test\"} | detected_level = `debug` [$__auto])",
+          "hide": true,
           "legendFormat": "{{name}}",
           "queryType": "range",
-          "refId": "Celery Beat"
+          "refId": "Debug"
         },
         {
           "datasource": {
@@ -1067,11 +1102,11 @@
           },
           "direction": "backward",
           "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `` [$__auto]))",
-          "hide": false,
+          "expr": "count_over_time({agent=\"test\"} | detected_level = `warning` [$__auto])",
+          "hide": true,
           "legendFormat": "{{name}}",
           "queryType": "range",
-          "refId": "Celery Worker"
+          "refId": "Warning"
         },
         {
           "datasource": {
@@ -1080,1364 +1115,27 @@
           },
           "direction": "backward",
           "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `` [$__auto]))",
-          "hide": false,
+          "expr": "count_over_time({agent=\"test\"} | detected_level = `error` [$__auto])",
+          "hide": true,
           "legendFormat": "{{name}}",
           "queryType": "range",
-          "refId": "Redis"
+          "refId": "Error"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "builder",
+          "expr": "count_over_time({agent=\"test\"} | detected_level = `critical` [$__auto])",
+          "hide": true,
+          "legendFormat": "{{name}}",
+          "queryType": "range",
+          "refId": "Critical"
         }
       ],
       "title": "Container Logs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "area"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"nginx\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"web\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 0,
-        "y": 30
-      },
-      "id": 14,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.6.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `critical` [$__auto]))",
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "NGINX"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `critical` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Web"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `critical` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Beat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `critical` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Worker"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `critical` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Redis"
-        }
-      ],
-      "title": "Critical Logs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "area"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"nginx\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"web\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 8,
-        "y": 30
-      },
-      "id": 15,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.6.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `error` [$__auto]))",
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "NGINX"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `error` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Web"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `error` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Beat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `error` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Worker"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `error` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Redis"
-        }
-      ],
-      "title": "Error Logs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "area"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"nginx\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"web\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 16,
-        "y": 30
-      },
-      "id": 16,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.6.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `warning` [$__auto]))",
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "NGINX"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `warning` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Web"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `warning` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Beat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `warning` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Worker"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `warning` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Redis"
-        }
-      ],
-      "title": "Warning Logs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "area"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"nginx\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"web\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 0,
-        "y": 39
-      },
-      "id": 17,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.6.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `debug` [$__auto]))",
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "NGINX"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `debug` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Web"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `debug` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Beat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `debug` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Worker"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `debug` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Redis"
-        }
-      ],
-      "title": "Debug Logs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "area"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"nginx\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"web\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 8,
-        "y": 39
-      },
-      "id": 18,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.6.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `info` [$__auto]))",
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "NGINX"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `info` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Web"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `info` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Beat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `info` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Worker"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `info` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Redis"
-        }
-      ],
-      "title": "Info Logs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "area"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"nginx\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"web\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-beat\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"celery-worker\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "{service_name=\"redis\"}"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 16,
-        "y": 39
-      },
-      "id": 19,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.6.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"nginx\"} |= `trace` [$__auto]))",
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "NGINX"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"web\"} |= `trace` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Web"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-beat\"} |= `trace` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Beat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"celery-worker\"} |= `trace` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Celery Worker"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "direction": "backward",
-          "editorMode": "builder",
-          "expr": "sum by(service_name) (rate({service_name=\"redis\"} |= `trace` [$__auto]))",
-          "hide": false,
-          "legendFormat": "{{name}}",
-          "queryType": "range",
-          "refId": "Redis"
-        }
-      ],
-      "title": "Trace Logs",
       "type": "timeseries"
     }
   ],
@@ -2458,5 +1156,5 @@
   "timezone": "browser",
   "title": "Test Dashboard",
   "uid": "test-dashboard",
-  "version": 2
+  "version": 3
 }
