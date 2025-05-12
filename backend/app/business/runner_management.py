@@ -1298,6 +1298,15 @@ async def shutdown_all_runners():
         logger.error(f"[{initiated_by}] Critical error during shutdown_all_runners: {e}")
         return [{"status": "error", "message": f"Global error in shutdown_all_runners: {e!s}"}]
 
+def update_runner(runner_id: int, updated_runner: Runner):
+    """Update an existing runner."""
+    with Session(engine) as session:
+        runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
+        if not runner:
+            raise RunnerRetrievalException
+        runner_repository.update_whole_runner(session, runner_id, updated_runner)
+        return updated_runner
+
 async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
     """Wait 30 seconds for a runner record to be created, so that we can track its lifecycle token."""
     with Session(engine) as session:

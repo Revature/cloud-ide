@@ -650,6 +650,8 @@ async def get_ready_runner(
     """
     # Emit an initial status update for the direct endpoint (no lifecycle_token)
     # The direct endpoint has no lifecycle_token for WebSocket updates, but we can still log the request
+
+    print(f"Direct runner request for image {request.image_id} and user {request.user_email}")
     logger.info(f"Processing direct runner request for image {request.image_id} and user {request.user_email}")
 
     try:
@@ -675,7 +677,7 @@ async def get_ready_runner_with_status(
     """
     # Generate a unique lifecycle token
     lifecycle_token = str(uuid4())
-
+    print(f"with status runner request for image {request.image_id} and user {request.user_email}")
     try:
         # Emit an initial status update for the with-status endpoint
         await emit_status(
@@ -738,6 +740,7 @@ async def runner_status_websocket(
     real-time updates about runner provisioning and lifecycle events.
     The lifecycle_token is provided as a query parameter.
     """
+    print(f"WebSocket connection request with lifecycle_token: {lifecycle_token}")
     try:
         await runner_management.wait_for_lifecycle_token(lifecycle_token)
     except Exception as err:
