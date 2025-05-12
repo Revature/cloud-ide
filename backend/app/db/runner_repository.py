@@ -62,12 +62,18 @@ def find_runner_by_image_id_and_states(session: Session, image_id: int, states: 
     )
     return session.exec(stmt_runner).first()
 
-def update_runner(session: Session, runner: Runner) -> Runner:
-    """Update a runner."""
-    session.add(runner)
-    session.commit()
-    session.refresh(runner)
-    return runner
+def update_runner(session: Session, runner_id: int, runner_data: Runner) -> Runner:
+    """Update an image by its id."""
+    db_runner = find_runner_by_id(session, runner_id)
+    if not db_runner:
+        return None
+
+    for key, value in runner_data.dict(exclude_unset=True).items():
+        if hasattr(db_runner, key) and key != "id":
+            setattr(db_runner, key, value)
+
+    session.add(db_runner)
+    return db_runner
 
 def find_runner_with_lifecycle_token(session: Session, token: str) -> Runner:
     """Select a runner with a matching lifecycle token."""

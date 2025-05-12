@@ -171,7 +171,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
       values.selectedConnector,
       values.baseImageIdentifier,
     ];
-  
+
     // Check if all required fields are non-empty and differ from their default values
     return requiredFields.every((field) => field !== "" && field !== undefined && field !== null) &&
       JSON.stringify(values) !== JSON.stringify(defaultFormValues);
