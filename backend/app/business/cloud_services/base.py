@@ -12,9 +12,21 @@ class CloudService(ABC):
         self.connector = connector
         self.region = connector.region
 
-    ###################
+    ########################
+    # Account Functionality
+    ########################
+
+    @abstractmethod
+    async def validate_account(self) -> list[str]:
+        """
+        Verify the AWS account by checking the IAM user.
+
+        Returns a list of denied actions strings, or an error message if the account is invalid.
+        """
+
+    ########################
     # Keypair Functionality
-    ###################
+    ########################
 
     @abstractmethod
     async def create_keypair(self, key_name: str) -> dict[str, str]:
@@ -80,10 +92,49 @@ class CloudService(ABC):
         """Terminate/delete an instance and return its state."""
         pass
 
+    #####################
+    # EC2 Status Waiters
+    #####################
+
     @abstractmethod
     async def wait_for_instance_running(self, instance_id: str):
         """Wait for an instance to be in the running state."""
         pass
+
+    @abstractmethod
+    async def wait_for_instance_terminated(self, instance_id: str):
+        """Wait for an instance to be in the terminated state."""
+        pass
+
+    ####################
+    # AMI Functionality
+    ####################
+
+    @abstractmethod
+    async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
+        """
+        Create an AMI from the given instance_id with the given tags.
+
+        image_tags is a list of dictionaries with the tags to be added to the AMI.
+        Example: tags = [ {'Key': 'key_name', 'Value': 'example_value'}, {'Key': 'key_name2', 'Value': 'example_value2'} ]
+        Returns the AMI ID as a string.
+        """
+        pass
+
+    @abstractmethod
+    async def deregister_runner_image(self, image_id: str) -> str:
+        """
+        Deregister the AMI with the given ImageId.
+
+        Returns the HTTP status code as a string.
+        """
+        pass
+
+    @abstractmethod
+    async def wait_for_image_available(self, image_id: str):
+        """Wait for an image to be in the available state."""
+        pass
+
 
     ###################
     # S3 Functionality
@@ -131,4 +182,37 @@ class CloudService(ABC):
     @abstractmethod
     async def ssh_run_script(self, ip: str, key: str, script: str, username: str = 'ubuntu') -> dict[str, str]:
         """Run a script on a remote instance via SSH."""
+        pass
+
+    ##############################
+    # Security Group Functionality
+    ##############################
+
+    @abstractmethod
+    async def create_security_group(self, grp_name: str, desc: str) -> str:
+        """
+        Create a new security group using the provided Description and GroupName.
+
+        Returns the GroupId of the created security group as a string
+        """
+        pass
+
+    @abstractmethod
+    async def delete_security_group(self, group_id: str) -> str:
+        """
+        Delete the security group with the given GroupId.
+
+        Returns the HTTP status code as a string.
+        """
+        pass
+
+    @abstractmethod
+    async def authorize_security_group_ingress(self, group_id: str, ip: str, port: int = 22) -> str:
+        """
+        Autorize ingress for a security group on a given port, by a given IP, to a given group.
+
+        IP is in CIDR notation, follwing the format <ip>/<mask>. ie 203.0.113.0/24
+        Port is the port to open, default is 22 (SSH).
+        Returns the success or failure as a string.
+        """
         pass

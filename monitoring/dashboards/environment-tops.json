@@ -25,6 +25,284 @@
     {
       "datasource": {
         "type": "prometheus",
+        "uid": "dehww4iizin0gd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "displayName": "Active Runners",
+          "fieldMinMax": false,
+          "mappings": [],
+          "min": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 25,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dehww4iizin0gd"
+          },
+          "editorMode": "code",
+          "expr": "count(node_memory_Active_bytes)",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Panel Title",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dehww4iizin0gd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 10,
+        "x": 4,
+        "y": 0
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dehww4iizin0gd"
+          },
+          "editorMode": "code",
+          "expr": "100* (1-((sum by (job) (rate(node_cpu_seconds_total{mode=\"idle\"}[$__rate_interval]))) / (sum by (job) (rate(node_cpu_seconds_total[$__rate_interval])))))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Runner CPU %",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dehww4iizin0gd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 10,
+        "x": 14,
+        "y": 0
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dehww4iizin0gd"
+          },
+          "editorMode": "code",
+          "expr": "100 * (\r\n  1 - (\r\n    node_memory_MemAvailable_bytes\r\n    unless (timestamp(node_memory_MemAvailable_bytes) < time() - $__range_s)\r\n  ) / node_memory_MemTotal_bytes\r\n)",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Runner Memory %",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
         "uid": "prod"
       },
       "fieldConfig": {
@@ -63,9 +341,15 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 0
+        "y": 6
       },
       "id": 7,
+      "links": [
+        {
+          "title": "Prod Dashboard",
+          "url": "http://34.223.156.189:3000/d/prod-dashboard/prod-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "colorMode": "none",
@@ -84,7 +368,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -147,9 +431,15 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 0
+        "y": 6
       },
       "id": 5,
+      "links": [
+        {
+          "title": "Prod Dashboard",
+          "url": "http://34.223.156.189:3000/d/prod-dashboard/prod-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -166,7 +456,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -229,9 +519,15 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 0
+        "y": 6
       },
       "id": 6,
+      "links": [
+        {
+          "title": "Prod Dashboard",
+          "url": "http://34.223.156.189:3000/d/prod-dashboard/prod-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -248,7 +544,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -304,13 +600,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -318,8 +615,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 75
               }
             ]
           },
@@ -330,10 +631,16 @@
       "gridPos": {
         "h": 5,
         "w": 7,
-        "x": 9,
-        "y": 0
+        "x": 10,
+        "y": 6
       },
       "id": 2,
+      "links": [
+        {
+          "title": "Prod Dashboard",
+          "url": "http://34.223.156.189:3000/d/prod-dashboard/prod-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -351,7 +658,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -406,13 +713,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -420,8 +728,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 2147483648
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 3221225472
               }
             ]
           },
@@ -433,9 +745,15 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 0
+        "y": 6
       },
       "id": 1,
+      "links": [
+        {
+          "title": "Prod Dashboard",
+          "url": "http://34.223.156.189:3000/d/prod-dashboard/prod-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -453,7 +771,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -472,7 +790,6 @@
       "title": "Prod Memory Usage",
       "type": "timeseries"
     },
-
     {
       "datasource": {
         "type": "prometheus",
@@ -514,9 +831,15 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 5
+        "y": 11
       },
       "id": 8,
+      "links": [
+        {
+          "title": "Demo Dashboard",
+          "url": "http://34.223.156.189:3000/d/demo-dashboard/demo-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "colorMode": "none",
@@ -535,7 +858,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -598,9 +921,15 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 5
+        "y": 11
       },
       "id": 9,
+      "links": [
+        {
+          "title": "Demo Dashboard",
+          "url": "http://34.223.156.189:3000/d/demo-dashboard/demo-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -617,7 +946,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -680,9 +1009,15 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 5
+        "y": 11
       },
       "id": 10,
+      "links": [
+        {
+          "title": "Demo Dashboard",
+          "url": "http://34.223.156.189:3000/d/demo-dashboard/demo-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -699,7 +1034,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -755,13 +1090,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -769,8 +1105,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 75
               }
             ]
           },
@@ -781,10 +1121,16 @@
       "gridPos": {
         "h": 5,
         "w": 7,
-        "x": 9,
-        "y": 5
+        "x": 10,
+        "y": 11
       },
       "id": 17,
+      "links": [
+        {
+          "title": "Demo Dashboard",
+          "url": "http://34.223.156.189:3000/d/demo-dashboard/demo-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -802,7 +1148,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -857,13 +1203,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -871,8 +1218,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 2147483648
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 3221225472
               }
             ]
           },
@@ -884,9 +1235,15 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 5
+        "y": 11
       },
-      "id": 1,
+      "id": 20,
+      "links": [
+        {
+          "title": "Demo Dashboard",
+          "url": "http://34.223.156.189:3000/d/demo-dashboard/demo-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -904,7 +1261,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -964,9 +1321,15 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 10
+        "y": 16
       },
       "id": 11,
+      "links": [
+        {
+          "title": "Dev Dashboard",
+          "url": "http://34.223.156.189:3000/d/dev-dashboard/dev-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "colorMode": "none",
@@ -985,7 +1348,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1048,9 +1411,15 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 10
+        "y": 16
       },
       "id": 12,
+      "links": [
+        {
+          "title": "Dev Dashboard",
+          "url": "http://34.223.156.189:3000/d/dev-dashboard/dev-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -1067,7 +1436,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1130,7 +1499,7 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 10
+        "y": 16
       },
       "id": 13,
       "maxDataPoints": 100,
@@ -1149,7 +1518,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1205,13 +1574,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1219,8 +1589,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 75
               }
             ]
           },
@@ -1231,10 +1605,16 @@
       "gridPos": {
         "h": 5,
         "w": 7,
-        "x": 9,
-        "y": 10
+        "x": 10,
+        "y": 16
       },
       "id": 18,
+      "links": [
+        {
+          "title": "Dev Dashboard",
+          "url": "http://34.223.156.189:3000/d/dev-dashboard/dev-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -1252,7 +1632,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1270,7 +1650,6 @@
       "title": "Dev CPU Usage",
       "type": "timeseries"
     },
-    
     {
       "datasource": {
         "type": "prometheus",
@@ -1308,13 +1687,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1322,8 +1702,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 2147483648
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 3221225472
               }
             ]
           },
@@ -1335,9 +1719,15 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 10
+        "y": 16
       },
-      "id": 1,
+      "id": 21,
+      "links": [
+        {
+          "title": "Dev Dashboard",
+          "url": "http://34.223.156.189:3000/d/dev-dashboard/dev-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -1355,7 +1745,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1415,9 +1805,15 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 15
+        "y": 21
       },
       "id": 14,
+      "links": [
+        {
+          "title": "Test Dashboard",
+          "url": "http://34.223.156.189:3000/d/test-dashboard/test-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "colorMode": "none",
@@ -1436,7 +1832,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1499,9 +1895,15 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 15
+        "y": 21
       },
       "id": 15,
+      "links": [
+        {
+          "title": "Test Dashboard",
+          "url": "http://34.223.156.189:3000/d/test-dashboard/test-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -1518,7 +1920,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1581,9 +1983,15 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 15
+        "y": 21
       },
       "id": 16,
+      "links": [
+        {
+          "title": "Test Dashboard",
+          "url": "http://34.223.156.189:3000/d/test-dashboard/test-dashboard"
+        }
+      ],
       "maxDataPoints": 100,
       "options": {
         "minVizHeight": 75,
@@ -1600,7 +2008,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1656,13 +2064,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1670,8 +2079,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 75
               }
             ]
           },
@@ -1682,10 +2095,16 @@
       "gridPos": {
         "h": 5,
         "w": 7,
-        "x": 9,
-        "y": 15
+        "x": 10,
+        "y": 21
       },
       "id": 19,
+      "links": [
+        {
+          "title": "Test Dashboard",
+          "url": "http://34.223.156.189:3000/d/test-dashboard/test-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -1703,7 +2122,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1721,7 +2140,6 @@
       "title": "Test CPU Usage",
       "type": "timeseries"
     },
-    
     {
       "datasource": {
         "type": "prometheus",
@@ -1759,13 +2177,14 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1773,8 +2192,12 @@
                 "color": "green"
               },
               {
+                "color": "#EAB839",
+                "value": 2147483648
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 3221225472
               }
             ]
           },
@@ -1786,9 +2209,15 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 15
+        "y": 21
       },
-      "id": 1,
+      "id": 22,
+      "links": [
+        {
+          "title": "Test Dashboard",
+          "url": "http://34.223.156.189:3000/d/test-dashboard/test-dashboard"
+        }
+      ],
       "options": {
         "alertThreshold": true,
         "legend": {
@@ -1806,7 +2235,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "11.6.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -1843,5 +2272,5 @@
   "timezone": "browser",
   "title": "Environment Tops",
   "uid": "env-tops",
-  "version": 1
+  "version": 23
 }

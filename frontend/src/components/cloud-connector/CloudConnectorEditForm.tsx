@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useCloudConnectors } from '@/context/CloudConnectorsContext';
 import Form from "../form/Form";
 import Input from "../form/input/InputField";
 import {
@@ -12,10 +11,9 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from "../../icons";
-import Toggle from "../form/input/Toggle";
-import Label from "../form/Label";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
+import { useCloudConnectorQuery } from '@/hooks/api/cloudConnectors/useCloudConnectorsData';
 
 type CloudProvider = 'aws' | 'azure' | 'gcp' | 'digitalocean';
 
@@ -69,18 +67,20 @@ const displayNameToProvider: Record<string, CloudProvider> = {
 const ConnectorEditForm: React.FC = () => {
   const router = useRouter();
   const params = useParams();
-  const { connectors, updateConnector } = useCloudConnectors();
-  const connectorIndex = parseInt(params.id as string, 10);
+  const id = parseInt(params.id as string, 10);
+
+   // Obtain connectors from CloudConnectorsTable ReactQuery
+   const { data:connector} = useCloudConnectorQuery(id)
   
   // State for form data
   const [providerName, setProviderName] = useState('');
   const [formData, setFormData] = useState({
     provider: 'aws' as CloudProvider,
     region: '',
+    status: '',
     type: '',
     accessKey: '',
     secretKey: '',
-    active: false
   });
   
   const [showAccessKey, setShowAccessKey] = useState(false);
@@ -88,46 +88,32 @@ const ConnectorEditForm: React.FC = () => {
 
   // Load connector data
   useEffect(() => {
-    if (!isNaN(connectorIndex) && connectors[connectorIndex]) {
-      const connector = connectors[connectorIndex];
-      const providerKey = displayNameToProvider[connector.name] || 'aws';
-      
-      setProviderName(connector.name);
-      setFormData({
-        provider: providerKey,
-        region: connector.region,
-        type: connector.type,
-        accessKey: connector.accessKey, // Load actual credential data
-        secretKey: connector.secretKey, // Load actual credential data
-        active: connector.active
-      });
+    if (!isNaN(id) && connector) {
+      if (connector.status && connector.type) {
+        const providerKey = displayNameToProvider[connector.type] || 'aws';
+        
+        setProviderName(connector.type);
+        setFormData({
+          provider: providerKey,
+          region: connector.region,
+          type: connector.type,
+          accessKey: connector.accessKey, // Load actual credential data
+          secretKey: connector.secretKey, // Load actual credential data
+          status: connector.status,
+        });
+      }
     } else {
       // Handle invalid index
       router.push('/cloud-connectors');
     }
-  }, [connectorIndex, connectors, router]);
+  }, [id, connector, router]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // Update the connector with the form data
-    updateConnector(connectorIndex, {
-      name: providerName,
-      region: formData.region,
-      type: formData.type,
-      active: formData.active,
-      accessKey: formData.accessKey,
-      secretKey: formData.secretKey
-    });
+    // TODO: Implement Update to Backend
     
     router.push('/cloud-connectors');
-  };
-
-  const handleToggleChange = (enabled: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      active: enabled
-    }));
   };
 
   const goBack = () => {
@@ -137,30 +123,6 @@ const ConnectorEditForm: React.FC = () => {
   return (
     <>
       <div className="flex items-center mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={goBack}
-          className="mr-4"
-        >
-          <svg
-            className="w-4 h-4 mr-2"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M19 12H5M5 12L12 19M5 12L12 5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </Button>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Edit Cloud Connector</h2>
       </div>
 
@@ -256,16 +218,6 @@ const ConnectorEditForm: React.FC = () => {
               >
                 {showSecretKey ? <EyeClosedIcon /> : <EyeOpenIcon />}
               </button>
-            </div>
-            
-            {/* Active/Inactive Toggle */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Toggle enabled={formData.active} setEnabled={handleToggleChange} />
-                <Label className="mb-0">
-                  {formData.active ? "Active" : "Inactive"}
-                </Label>
-              </div>
             </div>
 
             {/* Form Actions */}

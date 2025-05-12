@@ -40,6 +40,8 @@ class Runner(TimestampMixin, SQLModel, table=True):
     key_id: int | None = Field(default=None, foreign_key="key.id")
     state: str
     url: str
+    lifecycle_token: str | None = None
+    terminal_token: str | None = None
     user_ip: str | None = None
     identifier: str
     external_hash: str
@@ -51,7 +53,6 @@ class Runner(TimestampMixin, SQLModel, table=True):
     session_end: datetime | None = None
     ended_on: datetime | None = None
 
-
     @property
     def is_alive_state(self) -> bool:
         """Return True if the runner's state is considered 'alive'."""
@@ -61,6 +62,15 @@ class Runner(TimestampMixin, SQLModel, table=True):
             "awaiting_client", "active", "disconnecting", "disconnected"
         }
         return self.state in alive_states
+
+    @property
+    def should_run_terminate_script(self) -> bool:
+        """Return True if the runner's state is considered 'in use'."""
+        do_not_run = {
+            "ready", "ready_claimed", "runner_starting_claimed",
+            "runner_starting", "app_starting", "terminated", "closed"
+        }
+        return self.state not in do_not_run
 
 
 class RunnerUpdate(TimestampMixin, SQLModel):

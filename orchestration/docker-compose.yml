@@ -4,7 +4,7 @@ networks:
 
 services:
   web:
-    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:${AGENT}
     pull_policy: always
     container_name: web
     ports:
@@ -13,7 +13,7 @@ services:
       - .env
     volumes:
       - ${AWS_FOLDER}:/root/.aws:ro
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       - redis
     networks:
@@ -28,10 +28,10 @@ services:
         max-size: "100m"
         max-file: "3"
         loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
-        loki-external-labels: "job=web,container=web,agent=${LOG_HOST}"
+        loki-external-labels: "job=web,container=web,agent=${AGENT}"
 
   celery-worker:
-    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:${AGENT}
     pull_policy: always
     container_name: celery-worker
     env_file:
@@ -51,10 +51,10 @@ services:
         max-size: "100m"
         max-file: "3"
         loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
-        loki-external-labels: "job=celery-worker,container=celery-worker,agent=${LOG_HOST}"
+        loki-external-labels: "job=celery-worker,container=celery-worker,agent=${AGENT}"
 
   celery-beat:
-    image: public.ecr.aws/l4a3r3t7/cde/monolith:latest
+    image: public.ecr.aws/l4a3r3t7/cde/monolith:${AGENT}
     pull_policy: always
     container_name: celery-beat
     env_file:
@@ -74,12 +74,14 @@ services:
         max-size: "100m"
         max-file: "3"
         loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
-        loki-external-labels: "job=celery-beat,container=celery-beat,agent=${LOG_HOST}"
+        loki-external-labels: "job=celery-beat,container=celery-beat,agent=${AGENT}"
       
   frontend:
-    image: public.ecr.aws/l4a3r3t7/cde/frontend:latest
+    image: public.ecr.aws/l4a3r3t7/cde/frontend:${AGENT}
     pull_policy: always
     container_name: frontend
+    env_file:
+      - .env
     networks:
       - app-network
     ports:
@@ -92,7 +94,7 @@ services:
         max-size: "100m"
         max-file: "3"
         loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
-        loki-external-labels: "job=frontend,container=frontend,agent=${LOG_HOST}"
+        loki-external-labels: "job=frontend,container=frontend,agent=${AGENT}"
 
   redis:
     image: redis:alpine
@@ -108,10 +110,10 @@ services:
         max-size: "100m"
         max-file: "3"
         loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
-        loki-external-labels: "job=redis,container=redis,agent=${LOG_HOST}"
+        loki-external-labels: "job=redis,container=redis,agent=${AGENT}"
 
   nginx:
-    image: public.ecr.aws/l4a3r3t7/cde/proxy:latest
+    image: public.ecr.aws/l4a3r3t7/cde/proxy:${AGENT}
     pull_policy: always
     container_name: nginx
     ports:
@@ -133,4 +135,4 @@ services:
         max-size: "100m"
         max-file: "3"
         loki-url: "http://34.223.156.189:3100/loki/api/v1/push"
-        loki-external-labels: "job=nginx,container=nginx,agent=${LOG_HOST}"
+        loki-external-labels: "job=nginx,container=nginx,agent=${AGENT}"

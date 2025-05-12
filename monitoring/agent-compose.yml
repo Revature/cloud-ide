@@ -12,8 +12,13 @@ services:
     volumes:
       - /var/log/:/var/log/
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     networks:
       - monitor
+    restart: always
     command: "-config.expand-env=true -config.file=/etc/promtail/promtail-config.yml"
 
   cadvisor:
@@ -28,22 +33,39 @@ services:
       - "/sys:/sys"
       - "/var/lib/docker/:/var/lib/docker"
       - "/dev/disk/:/dev/disk"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     networks:
       - monitor
     privileged: true
     devices: 
       - "/dev/kmsg"
+    restart: always
 
   prometheus:
     container_name: prometheus
     image: prom/prometheus:latest
     pull_policy: always
+    user: root
     ports:
       - "9090:9090"
     volumes: 
       - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+      - "./prometheus-data:/prometheus"
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "3"
     networks:
       - monitor
-    privileged: true
     depends_on:
       - cadvisor
+    privileged: true
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=10d'
+      - '--storage.tsdb.retention.size=200MB'

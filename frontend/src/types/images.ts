@@ -7,11 +7,12 @@ export interface VMImage {
   name: string;
   description: string;
   identifier: string;
+  runnerPoolSize: number;
   machine?: Machine;
-  machine_id?: number;
-  active: boolean;
+  machineId: number;
+  status: string;
   cloudConnector?: CloudConnector;
-  cloudConnector_id?: number;
+  cloudConnectorId: number;
   createdOn?: string;
   updatedOn?: string;
   modifiedBy?: string;

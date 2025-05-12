@@ -1,7 +1,7 @@
 datasources:
   - name: test
     type: prometheus
-    url: http://35.94.250.154:9090
+    url: http://44.246.64.49:9090
     access: proxy
     isDefault: false
     
@@ -22,7 +22,12 @@ datasources:
     url: http://52.26.101.232:9090
     access: proxy
     isDefault: false
-    
+
+  - name: runners
+    type: prometheus
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: false
     
   - name: loki
     type: loki

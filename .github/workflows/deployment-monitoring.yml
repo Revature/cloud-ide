@@ -5,13 +5,15 @@ on:
 
 jobs:
     Deploy:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         environment: |-
           ${{
-            github.ref_name == 'main' && 'PRODUCTION'
-          || github.ref_name == 'dev'    && 'DEVELOPMENT'
-          ||                                'DEMO'
+             github.ref_name == 'main' && 'PRODUCTION'
+          || github.ref_name == 'dev' && 'DEVELOPMENT'
+          || github.ref_name == 'demo' && 'DEMO'
+          || startsWith(github.ref_name, 'feat') && 'TEST'
           }}
+
         steps:
             - name: Checkout
               uses: actions/checkout@v2

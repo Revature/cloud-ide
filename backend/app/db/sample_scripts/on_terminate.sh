@@ -1,16 +1,34 @@
 #!/bin/bash
 # Script to commit and push changes on runner termination
 
-# Function to report errors in a format that script_management.py can understand
+# Function to cleanup Node Exporter metrics - this will run in all cases
+cleanup_node_exporter() {
+    echo "Ending Node Exporter script"
+    RUNNER_IP=$(curl -s icanhazip.com || echo "unknown")
+    if [ "$RUNNER_IP" = "unknown" ]; then
+        echo "Warning: Failed to determine runner IP address"
+    else
+        MONITOR_VM="34.223.156.189"
+        echo "Removing metrics for runner $RUNNER_IP from monitor $MONITOR_VM"
+        if ! curl -s -f -X DELETE http://$MONITOR_VM:9091/metrics/job/$RUNNER_IP; then
+            echo "Warning: Failed to remove metrics from monitoring server"
+        else
+            echo "Successfully removed metrics from monitoring server"
+        fi
+    fi
+}
+
+# Modified error and success functions to call cleanup first
 report_error() {
     local error_message="$1"
+    cleanup_node_exporter
     echo "ERROR: $error_message" >&2
     exit 1
 }
 
-# Function to report success in a format that script_management.py can understand
 report_success() {
     local success_message="$1"
+    cleanup_node_exporter
     echo "SUCCESS: $success_message"
     exit 0
 }
@@ -33,7 +51,7 @@ if [ -f "$REVATURE_CONFIG" ]; then
     echo "Found repository name: $REPO_NAME"
     echo "Found repository path: $REPO_PATH"
     echo "Found GitHub username: $GIT_USERNAME"
-    
+
     # Check for both variable naming conventions (new and old)
     if [ -n "$GIT_ACCESS_TOKEN" ]; then
         echo "GitHub token: Present (using GIT_ACCESS_TOKEN)"
@@ -119,7 +137,7 @@ echo "Pushing changes to remote repository..."
 if ! sudo git push origin HEAD; then
     # If push fails, try with explicit credentials
     echo "Initial push failed, trying with explicit authentication..."
-    
+
     if [ -n "$REPO_URL" ]; then
         # Create a temporary remote with authentication
         AUTH_REMOTE_URL="https://$GITHUB_USERNAME:$GITHUB_TOKEN@${REPO_URL#https://}"

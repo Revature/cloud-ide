@@ -2,14 +2,15 @@
 
 // Your existing interface
 export interface CloudConnector {
-  id?: number;
-  name: string;
+  id: number;
+  provider: string;
+  name?: string;
+  region: string;
+  accessKey: string;
+  type?:string;
+  secretKey: string;
+  status: string;
   image?: string;
-  type?: string;
-  region?: string;
-  active?: boolean;
-  accessKey?: string;
-  secretKey?: string;
   createdOn?: string;
   updatedOn?: string;
   modifiedBy?: string;
@@ -17,13 +18,12 @@ export interface CloudConnector {
 }
 
 // For creating new connectors (required fields + no ID)
-export type NewCloudConnector = Omit<CloudConnector, 'id' | 'createdOn' | 'updatedOn' | 'modifiedBy' | 'createdBy'> & {
-  name: string;
-  type: string;
+export type NewCloudConnector = Omit<CloudConnector, 'id' | 'createdOn' | 'updatedOn' | 'modifiedBy' | 'createdBy' | 'active'> & {
+  provider: string;
   region: string;
   accessKey: string;
   secretKey: string;
 };
 
 // For updating existing connectors (all fields optional)
-export type UpdateCloudConnector = Partial<Omit<CloudConnector, 'id' | 'createdOn' | 'updatedOn' | 'modifiedBy' | 'createdBy'>>;
+export type UpdateCloudConnector = Partial<Omit<CloudConnector, 'id' | 'createdOn' | 'updatedOn' | 'modifiedBy' | 'createdBy' | 'active'>>;

@@ -5,9 +5,12 @@ import os
 import boto3
 import paramiko
 import re
+import logging
 from io import StringIO
 from app.business.cloud_services.base import CloudService
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 class AWSCloudService(CloudService):
     """AWS implementation of the CloudService interface."""
@@ -27,10 +30,184 @@ class AWSCloudService(CloudService):
             aws_secret_access_key=connector.get_decrypted_secret_key(),
             region_name=connector.region
         )
+        self.sts_client = boto3.client(
+            'sts',
+            aws_access_key_id=connector.get_decrypted_access_key(),
+            aws_secret_access_key=connector.get_decrypted_secret_key(),
+            region_name=connector.region
+        )
+        self.iam_client = boto3.client(
+            'iam',
+            aws_access_key_id=connector.get_decrypted_access_key(),
+            aws_secret_access_key=connector.get_decrypted_secret_key(),
+            region_name=connector.region
+        )
 
-    ###################
+    ########################
+    # Account Functionality
+    ########################
+
+    async def validate_account(self) -> dict:
+        """
+        Verify the AWS account by performing dry runs of required operations.
+
+        Returns:
+            dict: Status information including success/failure and denied actions
+        """
+        try:
+            denied_actions = []
+
+            # First verify basic credentials with STS
+            try:
+                self.sts_client.get_caller_identity()
+            except Exception as e:
+                error_message = str(e)
+                print(f"STS validation failed: {error_message}")
+                # Add more debug information
+                print("Returning failed status due to STS validation failure")
+                return {
+                    "status": "failed",
+                    "denied_actions": ["sts:GetCallerIdentity"],
+                    "message": f"Invalid AWS credentials: {error_message}"
+                }
+
+            # If we reach here, STS validation succeeded
+            print("STS validation succeeded, continuing with permission checks")
+
+            # Define operations to test with dry run
+            operations = [
+                # EC2 Instance Operations
+                {
+                    "service": self.ec2_client,
+                    "method": "run_instances",
+                    "args": {
+                        "DryRun": True,
+                        "ImageId": "ami-12345678",  # Dummy ID
+                        "InstanceType": "t2.micro",
+                        "MinCount": 1,
+                        "MaxCount": 1,
+                        "KeyName": "dummy-key-name"
+                    },
+                    "action": "ec2:RunInstances"
+                },
+                {
+                    "service": self.ec2_client,
+                    "method": "describe_instances",
+                    "args": {"DryRun": True, "MaxResults": 5},
+                    "action": "ec2:DescribeInstances"
+                },
+                {
+                    "service": self.ec2_client,
+                    "method": "terminate_instances",
+                    "args": {"DryRun": True, "InstanceIds": ["i-12345678"]},
+                    "action": "ec2:TerminateInstances"
+                },
+                # KeyPair Operations
+                {
+                    "service": self.ec2_client,
+                    "method": "create_key_pair",
+                    "args": {"DryRun": True, "KeyName": "dummy-key-name"},
+                    "action": "ec2:CreateKeyPair"
+                },
+                {
+                    "service": self.ec2_client,
+                    "method": "describe_key_pairs",
+                    "args": {"DryRun": True},
+                    "action": "ec2:DescribeKeyPairs"
+                },
+                # Security Group Operations
+                {
+                    "service": self.ec2_client,
+                    "method": "create_security_group",
+                    "args": {
+                        "DryRun": True,
+                        "GroupName": "dummy-sg-name",
+                        "Description": "Dummy security group for testing"
+                    },
+                    "action": "ec2:CreateSecurityGroup"
+                }
+            ]
+
+            # Test each operation
+            for op in operations:
+                try:
+                    method = getattr(op["service"], op["method"])
+                    method(**op["args"])
+                except Exception as e:
+                    error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+                    error_msg = str(e)
+                    print(f"Testing {op['action']}: Error code: {error_code}, Message: {error_msg}")
+
+                    # Only DryRunOperation error means success (we have permission)
+                    if error_code == "DryRunOperation":
+                        # This is a success - we have permission
+                        print(f"{op['action']} permission confirmed")
+                    else:
+                        # Check for auth-related errors first (these are critical failures)
+                        auth_error = any(err in error_code.lower() or err in error_msg.lower() for err in [
+                            "unauthorized", "accessdenied", "authfailure", "invalidclienttokenid",
+                            "signaturenotmatch", "authorizationfailure"
+                        ])
+
+                        if auth_error:
+                            print(f"{op['action']} authentication failed: {error_code}")
+                            # Exit early on authentication errors
+                            return {
+                                "status": "failed",
+                                "denied_actions": [op["action"]],
+                                "message": f"Authentication failed: {error_msg}"
+                            }
+
+                        # Now check for resource-not-found errors (these are OK)
+                        resource_not_found = any(phrase in error_msg.lower() for phrase in [
+                            "notfound", "not found", "does not exist", "nonexistent"
+                        ])
+
+                        if resource_not_found:
+                            print(f"{op['action']} resource not found, but permission is likely OK")
+                        else:
+                            print(f"{op['action']} permission denied: {error_code}")
+                            denied_actions.append(op["action"])
+
+            # S3 Operations (no dry run support)
+            try:
+                self.s3_client.list_buckets()
+            except Exception as e:
+                error_msg = str(e).lower()
+                # Check for auth errors specifically
+                if any(err in error_msg for err in ["unauthorized", "accessdenied", "authfailure",
+                                                "invalidclienttokenid", "signaturenotmatch"]):
+                    return {
+                        "status": "failed",
+                        "denied_actions": ["s3:ListBuckets"],
+                        "message": f"Authentication failed for S3: {e!s}"
+                    }
+                denied_actions.append("s3:ListBuckets")
+
+            # Determine status based on results
+            if not denied_actions:
+                return {
+                    "status": "success",
+                    "denied_actions": [],
+                    "message": "All required permissions are available"
+                }
+            else:
+                return {
+                    "status": "failed",
+                    "denied_actions": denied_actions,
+                    "message": f"Some permissions are missing: {', '.join(denied_actions)}"
+                }
+
+        except Exception as e:
+            return {
+                "status": "failed",
+                "denied_actions": [],
+                "message": f"Error validating AWS account: {e!s}"
+            }
+
+    ########################
     # Keypair Functionality
-    ###################
+    ########################
 
     async def create_keypair(self, key_name: str) -> dict[str, str]:
         """
@@ -120,6 +297,7 @@ class AWSCloudService(CloudService):
                         'ResourceType': 'instance',
                         'Tags': [
                             {'Key': 'Name', 'Value': os.getenv('RUNNER_TAG', 'Ashoka-Testing')},
+                            {'Key': 'CDE-Billing', 'Value': ''},
                         ]
                     }
                 ]
@@ -217,10 +395,107 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
+    #####################
+    # EC2 Status Waiters
+    #####################
+
     async def wait_for_instance_running(self, instance_id: str):
         """Wait for the EC2 instance with the given instance_id to be in the running state."""
         waiter = self.ec2_client.get_waiter("instance_running")
         waiter.wait(InstanceIds=[instance_id])
+
+    async def wait_for_instance_terminated(self, instance_id: str):
+        """Wait for the EC2 instance with the given instance_id to be in the terminated state."""
+        # First check current state - if already terminated, return immediately
+        response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
+        if response and 'Reservations' in response and response['Reservations']:
+            instance = response['Reservations'][0]['Instances'][0]
+            state = instance.get('State', {}).get('Name', 'unknown')
+
+            # Already terminated
+            if state == 'terminated':
+                return True
+
+            # Stuck in stopping - special handling
+            if state == 'stopping':
+                # Configure wait parameters for stopping → terminated transition
+                waiter = self.ec2_client.get_waiter("instance_terminated")
+                waiter.config.delay = 5 # 5 seconds between checks
+                waiter.config.max_attempts = 20  # Max 20 attempts (100 seconds)
+                try:
+                    waiter.wait(InstanceIds=[instance_id])
+                    return True
+                except Exception:
+                    # Return false if it doesn't transition in that time
+                    return False
+
+        # Standard case - use the normal waiter
+        waiter = self.ec2_client.get_waiter("instance_terminated")
+        waiter.wait(InstanceIds=[instance_id])
+        return True
+
+    ###################
+    # AMI Functionality
+    ###################
+
+    async def create_runner_image(self, instance_id: str, image_name: str, image_tags: Optional[list[dict]] = None) -> str:
+        """
+        Create an AMI from the given instance_id with the given tags.
+
+        image_tags is a list of dictionaries with the tags to be added to the AMI.
+        Example: tags = [ {'Key': 'key_name', 'Value': 'example_value'}, {'Key': 'key_name2', 'Value': 'example_value2'} ]
+        Returns the AMI ID as a string.
+        """
+        if  image_tags is None:
+            image_tags = [{'Key': 'Instance', 'Value': instance_id}]
+
+        try:
+            response = self.ec2_client.create_image(
+                TagSpecifications=[
+                    {
+                        'ResourceType': 'image',
+                        'Tags': image_tags
+                    },
+                ],
+                InstanceId = instance_id,
+                Name = image_name,
+                NoReboot = True
+            )
+            return response['ImageId']
+        except Exception as e:
+            return str(e)
+
+    async def deregister_runner_image(self, image_id: str) -> str:
+        """
+        Deregister the AMI with the given ImageId.
+
+        Returns the HTTP status code as a string.
+        """
+        try:
+            response = self.ec2_client.deregister_image(
+                ImageId = image_id
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
+        except Exception as e:
+            return str(e)
+
+    async def wait_for_image_available(self, image_id: str):
+        """
+        Wait for an image to be in the available state.
+
+        Args:
+            image_id: The AWS AMI ID to check
+
+        Raises:
+            Exception: If the image fails to reach the available state
+        """
+        try:
+            waiter = self.ec2_client.get_waiter('image_available')
+            waiter.wait(ImageIds=[image_id])  # Corrected parameter name from InstanceIds to ImageIds
+            return True
+        except Exception as e:
+            logger.error(f"Error waiting for image {image_id} to become available: {e!s}")
+            raise
 
     ###################
     # S3 Functionality
@@ -369,3 +644,65 @@ class AWSCloudService(CloudService):
 
         # Return with the keys expected by parse_script_output
         return {'stdout': output, 'stderr': error, 'exit_code': exit_code}
+
+    ##############################
+    # Security Group Functionality
+    ##############################
+
+    async def create_security_group(self, grp_name: str, desc: str) -> str:
+        """
+        Create a new security group using the provided Description and GroupName.
+
+        Returns the GroupId of the created security group as a string
+        """
+        try:
+            response = self.ec2_client.create_security_group(
+                Description = desc,
+                GroupName = grp_name
+            )
+            return response['GroupId']
+        except Exception as e:
+            return {"error": str(e)}
+
+    async def delete_security_group(self, group_id: str) -> str:
+        """
+        Delete the security group with the given GroupId.
+
+        Returns the HTTP status code as a string.
+        """
+        try:
+            response = self.ec2_client.delete_security_group(
+                GroupId = group_id
+            )
+            return response['ResponseMetadata']['HTTPStatusCode']
+        except Exception as e:
+            return str(e)
+
+    async def authorize_security_group_ingress(self, group_id: str, ip: str, port: int = 22) -> str:
+        """
+        Autorize ingress for a security group on a given port, by a given IP, to a given group.
+
+        IP is in CIDR notation, follwing the format <ip>/<mask>. ie 203.0.113.0/24
+        Port is the port to open, default is 22 (SSH).
+        Returns the success or failure as a string.
+        """
+        try:
+            response = self.ec2_client.authorize_security_group_ingress(
+                GroupId = group_id,
+                IpPermissions = [
+                    {
+                        'FromPort': port,
+                        'IpProtocol': 'tcp',
+                        'IpRanges': [
+                            {
+                                'CidrIp': ip,
+                                'Description': f'Port {port} access from {ip}',
+                            },
+                        ],
+                        'ToPort': port,
+                    },
+                ],
+            )
+            return response['Return']
+        except Exception as e:
+            return str(e)

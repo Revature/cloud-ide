@@ -4,35 +4,33 @@ server:
   http_listen_port: 3100
   grpc_listen_port: 9096
 
-common:
-  instance_addr: 
-    - 35.94.250.154
-    - 44.239.41.57
-    - 44.226.153.74
-    - 52.26.101.232
-  path_prefix: /tmp/loki
-  storage:
-    filesystem:
-      chunks_directory: /tmp/loki/chunks
-      rules_directory: /tmp/loki/rules
-  replication_factor: 1
-  ring:
-    kvstore:
-      store: inmemory
-
-query_range:
-  results_cache:
-    cache:
-      embedded_cache:
-        enabled: true
-        max_size_mb: 100
-
 schema_config:
   configs:
-    - from: 2020-10-24
-      store: tsdb
-      object_store: filesystem
-      schema: v12
+    - from: "2024-01-01"
       index:
-        prefix: index_
         period: 24h
+        prefix: index_
+      object_store: filesystem
+      schema: v13
+      store: tsdb
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: index
+    cache_location: cache
+    shared_store: filesystem
+  filesystem:
+    directory: chunks
+
+compactor:
+  retention_enabled: true
+
+limits-config:
+  retention_period: 336h # 14 days
+
+
+query_scheduler:
+  max_outstanding_requests_per_tenant: 32768
+
+querier:
+  max_concurrent: 16

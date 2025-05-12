@@ -1,30 +1,36 @@
 "use client";
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useRunners, NewRunner } from "@/context/RunnersContext";
-import { useImages, VMImage } from "@/context/ImagesContext";
+
+import React, { useEffect, useState } from "react";
 import Form from "@/components/form/Form";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
+import { useImageQuery } from "@/hooks/api/images/useImageQuery";
+import { VMImage } from "@/types";
+import CodeEditor from "../ui/codeEditor/codeEditor";
 
-// Define the shape of the form data
 export interface RunnerFormData {
   image: VMImage;
   durationMinutes: number;
+  envVars?: Record<string, unknown>;
+  scriptVars?: Record<string, unknown>;
 }
 
 interface RunnerFormProps {
-  onSubmit?: (data: RunnerFormData) => void;
+  onSubmit: (data: RunnerFormData) => void;
   onCancel: () => void;
 }
 
 const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
-  const { addRunner } = useRunners();
-  const { images } = useImages();
-  const router = useRouter();
+  const { data: images = [] } = useImageQuery();
 
-  // Default duration options in minutes
+  // Convert images for select dropdown
+  const imageOptions = images.filter((image) => image.status === 'active').map((image) => ({
+    value: image.id.toString(),
+    label: `${image.name}`,
+  }));
+
+  // Duration options
   const durationOptions = [
     { value: "60", label: "1 hour" },
     { value: "120", label: "2 hours" },
@@ -33,110 +39,110 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
     { value: "360", label: "6 hours" },
     { value: "480", label: "8 hours" },
     { value: "720", label: "12 hours" },
-    { value: "1440", label: "24 hours" }
+    { value: "1440", label: "24 hours" },
   ];
 
-  // Filter only active images for the dropdown
-  const activeImages = images.filter(image => image.active);
-  
-  // Convert images for select dropdown
-  const imageOptions = activeImages.map((image, index) => ({
-    value: index.toString(),
-    label: `${image.name} (${image.machine.name}: ${image.machine.cpu_count} CPU, ${image.machine.memory_size} GB RAM)`
-  }));
+  // Local state for form fields
+  const [selectedImage, setSelectedImage] = useState<string>("");
+  const [durationMinutes, setDurationMinutes] = useState<string>("180"); // Default to 3 hours
+  const [envVars, setEnvVars] = useState<Record<string, unknown>>({});
+  const [scriptVars, setScriptVars] = useState<Record<string, unknown>>({});
+  const [scriptVarsError, setScriptVarsError] = useState(false);
+  const [envVarsError, setEnvVarsError] = useState(false);
+  const [allFieldsEdited, setAllFieldsEdited] = useState(false);
 
-  // State for form data with default values
-  const [selectedImage, setSelectedImage] = useState(
-    activeImages.length > 0 ? "0" : ""
-  );
-  const [durationMinutes, setDurationMinutes] = useState("180"); // Default to 3 hours
+  // Set default image when images are loaded
+  useEffect(() => {
+    if (!selectedImage && images.length > 0) {
+      setSelectedImage(images[0].id.toString());
+    }
+  }, [images, selectedImage]);
 
-  // Handle image selection change
-  const handleImageChange = (value: string) => {
-    setSelectedImage(value);
-  };
+  // Check if all fields have been edited
+  useEffect(() => {
+    const isEdited =
+      selectedImage &&
+      durationMinutes &&
+      !scriptVarsError &&
+      !envVarsError &&
+      Object.keys(envVars).length > 0 &&
+      Object.keys(scriptVars).length > 0;
 
-  // Handle duration selection change
-  const handleDurationChange = (value: string) => {
-    setDurationMinutes(value);
-  };
+    setAllFieldsEdited(Boolean(isEdited));
+  }, [selectedImage, durationMinutes, scriptVars, envVars, scriptVarsError, envVarsError]);
 
   // Get the selected image object
   const getSelectedImageObject = (): VMImage | undefined => {
-    if (selectedImage === "" || !activeImages[parseInt(selectedImage)]) {
-      return undefined;
-    }
-    return activeImages[parseInt(selectedImage)];
+    return images.find((image) => image.id.toString() === selectedImage);
   };
 
-  // Create a manual form submission handler
-  const manualSubmit = () => {
-    console.log("Manual form submission");
-    
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log("handleSubmit called");
     const selectedImageObj = getSelectedImageObject();
-    
     if (!selectedImageObj) {
       console.error("No valid image selected");
       return;
     }
-    
-    // Create new runner object using state values
-    const newRunner: NewRunner = {
+
+    const formData: RunnerFormData = {
       image: selectedImageObj,
-      durationMinutes: parseInt(durationMinutes)
+      durationMinutes: parseInt(durationMinutes),
+      envVars,
+      scriptVars,
     };
-    
-    console.log("Submitting new runner:", newRunner);
-    
-    // Add the runner using context
-    addRunner(newRunner);
-    
-    // Call optional onSubmit prop
-    if (onSubmit) {
-      onSubmit(newRunner);
+
+    onSubmit(formData);
+  };
+
+  // Custom function to handle JSON input changes
+  const handleJsonChange = (fieldName: "scriptVars" | "envVars", value: string) => {
+    const isValid = (() => {
+      try {
+        JSON.parse(value);
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+
+    if (fieldName === "scriptVars") {
+      setScriptVarsError(!isValid);
+      if (isValid) setScriptVars(JSON.parse(value));
+    } else if (fieldName === "envVars") {
+      setEnvVarsError(!isValid);
+      if (isValid) setEnvVars(JSON.parse(value));
     }
-    
-    // Navigate back to runners list
-    router.push('/runners');
   };
-
-  // This will be called by the Form component
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    // The default prevention is handled by the Form component
-    console.log("Form onSubmit called", e.currentTarget);
-    manualSubmit();
-  };
-
-  // Get the current image details for display
-  const selectedImageObj = getSelectedImageObject();
 
   return (
     <div className="container mx-auto">
       <Form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Basic Information Section */}
+          {/* Runner Configuration Section */}
           <div className="col-span-full mb-4">
             <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
               Runner Configuration
             </h2>
             <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Configure the VM instance that will be provisioned
+              Configure the VM instance that will be provisioned.
             </div>
           </div>
 
           {/* Image Selection */}
           <div className="col-span-full md:col-span-1">
             <Label htmlFor="image">VM Image</Label>
-            {activeImages.length > 0 ? (
+            {images.length > 0 ? (
               <Select
                 options={imageOptions}
                 defaultValue={selectedImage}
-                onChange={handleImageChange}
+                onChange={(value) => setSelectedImage(value)}
               />
             ) : (
               <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No active images available. 
+                  No active images available.
                   <a href="/images/add" className="text-brand-500 ml-1 hover:underline">
                     Add an image
                   </a>
@@ -151,124 +157,78 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
             <Select
               options={durationOptions}
               defaultValue={durationMinutes}
-              onChange={handleDurationChange}
+              onChange={(value) => setDurationMinutes(value)}
             />
           </div>
 
-          {/* Selected Image Information */}
-          {selectedImageObj && (
-            <div className="col-span-full mb-4 mt-4">
-              <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-                Selected Image Details
-              </h2>
-              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Details of the image that will be used for this runner
-              </div>
-              <div className="mt-4 p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Image Name</p>
-                    <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Identifier</p>
-                    <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.identifier}
-                    </p>
-                  </div>
-                  <div className="col-span-full">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Description</p>
-                    <p className="text-base text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Script Variables
+          <div className="col-span-full">
+            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
+            </p>
+            <textarea
+              id="scriptVars"
+              name="scriptVars"
+              placeholder='e.g., {"git_url": "https://github.com/user/repo", "git_username": "your-username"}'
+              defaultValue={JSON.stringify(scriptVars || {}, null, 2)}
+              onChange={(e) => handleJsonChange("scriptVars", e.target.value)}
+              className={`dark:bg-dark-900 h-24 w-full rounded-lg border ${
+                scriptVarsError ? "border-red-500" : "border-gray-300"
+              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
+            />
+            {scriptVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div>
 
-          {/* Hardware Configuration Section */}
-          {selectedImageObj && (
-            <>
-              <div className="col-span-full mb-4 mt-4">
-                <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-                  Hardware Configuration
-                </h2>
-                <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Resource specifications for the runner instance
-                </div>
-              </div>
-
-              {/* Machine Details */}
-              <div className="col-span-full p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
-                    <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.machine.cpu_count} {selectedImageObj.machine.cpu_count === 1 ? "Core" : "Cores"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
-                    <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.machine.memory_size} GB
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
-                    <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                      {selectedImageObj.machine.storage_size} GB
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Instance Type</p>
-                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    {selectedImageObj.machine.identifier}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Session Information */}
-          <div className="col-span-full mb-4 mt-4">
-            <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-              Session Information
-            </h2>
-            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Details about the runner session
-            </div>
-            <div className="mt-4 p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Key Pair</p>
-                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    Generated automatically
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Session Duration</p>
-                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    {parseInt(durationMinutes) / 60} {parseInt(durationMinutes) === 60 ? "hour" : "hours"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Initial State</p>
-                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    Starting (boots automatically)
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Runner URL</p>
-                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    Available after runner is ready
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* Environment Variables */}
+          {/* <div className="col-span-full">
+            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
+            <textarea
+              id="envVars"
+              name="envVars"
+              placeholder='e.g., {"key": "value"}'
+              defaultValue={JSON.stringify(envVars || {}, null, 2)}
+              onChange={(e) => handleJsonChange("envVars", e.target.value)}
+              className={`dark:bg-dark-900 h-24 w-full rounded-lg border ${
+                envVarsError ? "border-red-500" : "border-gray-300"
+              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
+            />
+            {envVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div> */} 
+                    {/* Script Variables */}
+          <div className="col-span-full">
+            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(scriptVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("scriptVars", value)}
+            />
+            {scriptVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
+          </div>
+          
+          {/* Environment Variables */}
+          <div className="col-span-full">
+            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Add any environment variables required for your runner. For example, you can include fields like <code>API_KEY</code> and <code>SECRET</code>.
+            </p>
+            <CodeEditor
+              language="json"
+              value={JSON.stringify(envVars || {}, null, 2)}
+              onChange={(value) => handleJsonChange("envVars", value)}
+              />
+            {envVarsError && (
+              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            )}
           </div>
         </div>
 
@@ -277,15 +237,13 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
           <Button size="sm" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             variant="primary"
-            disabled={!selectedImageObj || activeImages.length === 0}
+            type="submit"
+            disabled={!allFieldsEdited}
           >
-            {!selectedImageObj || activeImages.length === 0 
-              ? <span title="You need to select an active image to create a runner">Create Runner</span>
-              : "Create Runner"
-            }
+            {!allFieldsEdited ? "Complete All Fields" : "Create Runner"}
           </Button>
         </div>
       </Form>

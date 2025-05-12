@@ -15,7 +15,14 @@ jobs:
         runs-on: ubuntu-latest
 
         env:
-          RUN_DEPLOY: ${{ !startsWith(github.ref_name, 'f') == true }}
+          TAG: |-
+            ${{ 
+               github.ref_name == 'main' && 'prod'
+            || github.ref_name ==  'dev' && 'dev'
+            || github.ref_name ==  'demo' && 'demo'
+            || startsWith(github.ref_name, 'feat') && 'test'
+            || 'NONE'
+            }}
 
         steps:
             - name: Checkout
@@ -23,11 +30,11 @@ jobs:
 
             - name: Build Docker Image
               id: build-image
-              run: docker build --file ./backend/Dockerfile --tag ${{ env.ECR_REPOSITORY }}:latest --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} ./backend
+              run: docker build --file ./backend/Dockerfile --tag ${{ env.ECR_REPOSITORY }}:${{env.TAG}} --tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} ./backend
 
             - name: Configure AWS credentials
               id: aws-credentials
-              if: env.RUN_DEPLOY == 'true'
+              if: env.TAG != 'NONE'
               uses: aws-actions/configure-aws-credentials@v4
               with:
                 aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -35,20 +42,58 @@ jobs:
                 aws-region: ${{ env.AWS_REGION }}
 
             - name: Amazon ECR Login
-              if: env.RUN_DEPLOY == 'true'
+              if: env.TAG != 'NONE'
               id: login-ecr-public
               uses: aws-actions/amazon-ecr-login@v2
               with:
                 registry-type: public
 
+            - name: Install jq
+              if: env.TAG != 'NONE'
+              run: sudo apt-get update && sudo apt-get install -y jq
+
+            - name: Cleanup old images
+              if: env.TAG != 'NONE'
+              run: |
+                IMAGES=$(aws ecr-public describe-images \
+                  --repository-name ${{ env.ECR_REPOSITORY }} \
+                  --region ${{ env.AWS_REGION }} | jq -r '.imageDetails')
+
+                echo "IMAGES: $IMAGES"
+
+                ONLY_COMMIT_TAGGED_IMAGES=$(jq -r '
+                  map(
+                    select(
+                      has("imageTags") and
+                      (all(.imageTags[]; test("^(dev|demo|test|prod)$") | not)) and
+                      (all(.imageTags[]; test("^[a-f0-9]{7,}$")))
+                    )
+                  )
+                ' <<< "$IMAGES")
+
+                echo "ONLY_COMMIT_TAGGED_IMAGES: $ONLY_COMMIT_TAGGED_IMAGES"
+
+                IMAGE_DIGESTS=$(jq -r '[.[] | "imageDigest=\(.imageDigest)"] | join(" ")' <<< "$ONLY_COMMIT_TAGGED_IMAGES")
+
+                echo "IMAGE_DIGESTS: $IMAGE_DIGESTS"
+                
+                if [ -n "$IMAGE_DIGESTS" ]; then
+                  aws ecr-public batch-delete-image \
+                    --repository-name ${{ env.ECR_REPOSITORY }} \
+                    --image-ids $IMAGE_DIGESTS \
+                    --region ${{ env.AWS_REGION }}
+                else
+                  echo "No images found that are tagged only with commit hashes."
+                fi                
+
             - name: Push image to Amazon ECR
-              if: env.RUN_DEPLOY == 'true'
+              if: env.TAG != 'NONE'
               id: push-image
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
               run: |
-                docker tag ${{ env.ECR_REPOSITORY }}:latest $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:latest
-                docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:latest
+                docker tag ${{ env.ECR_REPOSITORY }}:${{env.TAG}} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}
+                docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{env.TAG}}
 
                 docker tag ${{ env.ECR_REPOSITORY }}:${{ github.sha }} $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
                 docker push $ECR_REGISTRY/$ECR_ALIAS/$ECR_REPOSITORY:${{ github.sha }}
