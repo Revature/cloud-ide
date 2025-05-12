@@ -195,17 +195,23 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
 
     with Session(engine) as session:
         # Get the runner
+        print(f"Runner ID: {runner_id}")
         runner = runner_repository.find_runner_by_id(session, runner_id)
         if not runner:
+            print(f"Runner not found with ID: {runner_id}")
             logger.error(f"Runner with id {runner_id} not found")
             raise RunnerExecException(f"Runner with id {runner_id} not found")
+        print(f"Runner: {runner}")
 
         # Get the cloud connector
         cloud_connector_id = image_data["cloud_connector_id"]
+        print(f"Cloud Connector ID: {cloud_connector_id}")
         cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, cloud_connector_id)
         if not cloud_connector:
+            print(f"Cloud Connector not found with ID: {cloud_connector_id}")
             logger.error(f"Cloud connector with id {cloud_connector_id} not found")
             raise RunnerExecException(f"Cloud connector with id {cloud_connector_id} not found")
+        print(f"Cloud Connector: {cloud_connector}")
 
         # Get the cloud service for the connector
         cloud_service = cloud_services.cloud_service_factory.get_cloud_service(cloud_connector)
@@ -221,13 +227,16 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
 
         # Create the AMI from the runner instance
         try:
+            print(f"Creating AMI from runner {runner_id} with tags: {image_tags}")
             image_identifier = await cloud_service.create_runner_image(
                 instance_id=runner.identifier,
                 image_name=image_name,
                 image_tags=image_tags
             )
+            print(f"Image Identifier: {image_identifier}")
 
             if not image_identifier or image_identifier.startswith("An error occurred"):
+                print(f"Failed to create AMI: {image_identifier}")
                 logger.error(f"Failed to create AMI: {image_identifier}")
                 raise RunnerExecException(f"Failed to create AMI: {image_identifier}")
 

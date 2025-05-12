@@ -266,6 +266,16 @@ async def update_runner_state(
 
     return f"State for runner {runner.id} updated to {runner.state}"
 
+@router.put("/{runner_id}", response_model=dict)
+def update_runner(
+    runner_id: int,
+    updated_runner: Runner,
+):
+    """Update an existing Runner record."""
+    success = runner_management.update_runner(runner_id, updated_runner)
+    if not success:
+        raise HTTPException(status_code=404, detail="Runner not found")
+    return {"message": f"Runner {runner_id} updated successfully"}
 
 @router.patch("/{runner_id}/stop", response_model=dict)
 async def stop_runner_endpoint(
