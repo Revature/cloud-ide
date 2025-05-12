@@ -40,7 +40,7 @@ def update_image(image_id: int, updated_image: Image) -> bool:
     """Update an existing image with new values."""
     with Session(engine) as session:
         # Get the existing image first to check if pool size will change
-        existing_image = image_repository.find_image_by_id(session, image_id)
+        existing_image = image_repository.find_image_by_id(session, image_id, include_deleted=False, include_inactive=True)
         if not existing_image:
             logger.error(f"Image with id {image_id} not found for updating")
             return False
@@ -280,7 +280,7 @@ async def delete_image(image_id: int) -> bool:
 
     with Session(engine) as session:
         # Get the image
-        db_image = image_repository.find_image_by_id(session, image_id)
+        db_image = image_repository.find_image_by_id(session, image_id, include_deleted=False, include_inactive=True)
         if not db_image:
             logger.error(f"Image with id {image_id} not found")
             raise RunnerExecException(f"Image with id {image_id} not found")
