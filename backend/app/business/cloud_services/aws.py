@@ -297,6 +297,7 @@ class AWSCloudService(CloudService):
                         'ResourceType': 'instance',
                         'Tags': [
                             {'Key': 'Name', 'Value': os.getenv('RUNNER_TAG', 'Ashoka-Testing')},
+                            {'Key': 'CDE-Billing', 'Value': ''},
                         ]
                     }
                 ]

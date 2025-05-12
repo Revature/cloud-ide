@@ -34,8 +34,8 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel}) =>
   const eventOptions = [
     { value: "on_create", label: "On Create - When a runner is first created" },
     { value: "on_awaiting_client", label: "On Awaiting Client - When a runner is assigned to a user but before connection" },
-    { value: "on_connect", label: "On Connect - When a user connects to a runner" },
-    { value: "on_disconnect", label: "On Disconnect - When a user disconnects from a runner" },
+    // { value: "on_connect", label: "On Connect - When a user connects to a runner" },
+    // { value: "on_disconnect", label: "On Disconnect - When a user disconnects from a runner" },
     { value: "on_terminate", label: "On Terminate - When a runner is being terminated" },
   ];
 

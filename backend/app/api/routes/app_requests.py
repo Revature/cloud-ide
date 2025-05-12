@@ -151,7 +151,7 @@ async def process_runner_request(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         # Get image
-        db_image = image_management.get_image_by_id(request.image_id)
+        db_image = image_management.get_image_by_id(request.image_id, include_deleted=False, include_inactive=False)
         if not db_image:
             error_msg = "Image not found"
             await emit_status(

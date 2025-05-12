@@ -49,7 +49,7 @@ class CloudConnectorStatusUpdate(BaseModel):
 
     is_active: bool
 
-@router.put("/{cloud_connector_id}/toggle", response_model=CloudConnector)
+@router.patch("/{cloud_connector_id}/toggle", response_model=CloudConnector)
 async def toggle_cloud_connector_status(
     cloud_connector_id: int,
     status_update: CloudConnectorStatusUpdate
@@ -77,7 +77,7 @@ async def toggle_cloud_connector_status(
 async def delete_cloud_connector(cloud_connector_id: int):
     """Delete a cloud connector."""
     # Call business logic to delete the cloud connector
-    success = cloud_connector_management.delete_cloud_connector(cloud_connector_id)
+    success = await cloud_connector_management.delete_cloud_connector(cloud_connector_id)
     if not success:
         raise HTTPException(status_code=404, detail="Cloud Connector not found")
     return {"message": f"Cloud Connector {cloud_connector_id} deleted successfully"}
