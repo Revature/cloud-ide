@@ -42,19 +42,29 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check for test directory and feature files
-if [ ! -d "$TEST_DIR/$TEST_TYPE" ]; then
-  echo -e "${RED}Error: Test type directory '$TEST_TYPE' not found in $TEST_DIR${NC}"
+# Check for test directory and config
+if [ ! -d "$TEST_DIR/$TEST_TYPE" ] || [ ! -f "$TEST_DIR/$TEST_TYPE/test.feature" ]; then
+  echo -e "${RED}Error: Test type '$TEST_TYPE' not found or missing test.feature${NC}"
   echo "Available test types:"
   ls -1 "$TEST_DIR" | grep -v logs
   exit 1
 fi
 
-# Check for at least one feature file
-FEATURE_COUNT=$(find "$TEST_DIR/$TEST_TYPE" -name "*.feature" | wc -l)
-if [ "$FEATURE_COUNT" -eq 0 ]; then
-  echo -e "${RED}Error: No feature files found in $TEST_DIR/$TEST_TYPE${NC}"
-  exit 1
+# Check config.json exists
+if [ ! -f "$TEST_DIR/$TEST_TYPE/config.json" ]; then
+  echo -e "${YELLOW}Warning: config.json not found in $TEST_DIR/$TEST_TYPE${NC}"
+  echo "Using default settings in feature file"
+fi
+
+# Ensure Karate jar exists
+KARATE_JAR="${SCRIPT_DIR}/karate-1.4.0.jar"
+if [ ! -f "$KARATE_JAR" ]; then
+  echo -e "${YELLOW}Karate JAR not found. Downloading...${NC}"
+  curl -L -o "$KARATE_JAR" "https://github.com/karatelabs/karate/releases/download/v1.4.0/karate-1.4.0.jar"
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to download Karate JAR${NC}"
+    exit 1
+  fi
 fi
 
 # Setup and teardown SQL
@@ -129,7 +139,7 @@ EOF
 # Run setup SQL if exists
 [ -f "$SETUP_SQL" ] && mysql --defaults-file="$MYSQL_TEMP_CNF" $DATABASE < "$SETUP_SQL"
 
-# Run Karate tests using CLI
+# Run Karate tests
 echo -e "${YELLOW}Running Karate tests from $TEST_DIR/$TEST_TYPE...${NC}"
 echo "=========== TEST BEGIN ==========="
 TEST_START_TIME=$(date +%s)
@@ -138,8 +148,8 @@ TEST_START_TIME=$(date +%s)
 KARATE_OUTPUT="${LOGS_DIR}/karate-${TIMESTAMP}"
 mkdir -p "$KARATE_OUTPUT"
 
-# Run Karate CLI with the specific test type directory
-karate -e "$TEST_TYPE" -o "$KARATE_OUTPUT" "$TEST_DIR/$TEST_TYPE"
+# Run Karate with the specific feature file directly
+java -jar "$KARATE_JAR" -o "$KARATE_OUTPUT" "$TEST_DIR/$TEST_TYPE/test.feature"
 TEST_RESULT=$?
 
 TEST_END_TIME=$(date +%s)
