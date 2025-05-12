@@ -42,14 +42,14 @@ def handle_callback_code(code: str):
     """Handle the code after workos authkit redirects user back."""
     return workos.user_management.authenticate_with_code(
         code = code,
-        session = {"seal_session": True, "cookie_password": os.getenv('WORKOS_COOKIE_PASSCODE')}
+        session = {"seal_session": True, "cookie_password": os.getenv('WORKOS_COOKIE_PASSWORD')}
     )
 
 def open_sealed_session(sealed_session: str):
     """Unseal a sealed session using workos cookie passcode."""
     return workos.user_management.load_sealed_session(
         sealed_session = sealed_session,
-        cookie_password = os.getenv('WORKOS_COOKIE_PASSCODE')
+        cookie_password = os.getenv('WORKOS_COOKIE_PASSWORD')
     )
 
 def authenticate_sealed_session(sealed_session: str):
