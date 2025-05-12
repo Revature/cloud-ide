@@ -37,6 +37,7 @@ const ImageFormWithTerminal: React.FC = () => {
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
   const runnerIdReceivedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [cloudIdeUrl, setcloudIdeUrl] = useState<string | null>(null);
   const { user } = useAuth();
 
   const router = useRouter();
@@ -220,6 +221,7 @@ const ImageFormWithTerminal: React.FC = () => {
     useCallback((result) => {
       if (result.status !== "failed") {
         setRunnerId(result.runnerId);
+        setcloudIdeUrl(result.url);
         setWorkflowStage("terminal");
       } else {
         setErrorMessage(result.message);
@@ -306,6 +308,32 @@ const ImageFormWithTerminal: React.FC = () => {
 
       {workflowStage === "terminal" && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="flex space-x-3">
+            {cloudIdeUrl && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => window.open(cloudIdeUrl, '_blank')}
+                className="text-green-600 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="size-6"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"
+                  />
+                </svg>
+                Open Cloud IDE
+              </Button>
+              )}
+              </div>
             <ImageRunnerTerminal
               runnerId={runnerId}
               onInteractionComplete={() => handleTerminalClose()} // Directly proceed to final submission
