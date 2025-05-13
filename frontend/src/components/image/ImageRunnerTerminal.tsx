@@ -67,14 +67,11 @@ const ImageRunnerTerminal: React.FC<ImageRunnerTerminalProps> = ({
 
   return (
     <div className="mb-6 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-      <div>
-        <div className="flex items-left mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
-            Interactive Session
-          </h3>
-        </div>
-
-        <div className="mt-4 flex items-right justify-end">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          Interactive Session
+        </h3>
+        <div>
           {!isConnected && !internalError && (
             <span className="ml-4 text-gray-600 dark:text-gray-400">
               Status: Connecting...
