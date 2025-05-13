@@ -479,23 +479,72 @@ class AWSCloudService(CloudService):
         except Exception as e:
             return str(e)
 
-    async def wait_for_image_available(self, image_id: str):
-        """
-        Wait for an image to be in the available state.
+async def wait_for_image_available(self, image_id: str, max_retries: int = 5, retry_delay: int = 10) -> bool:
+    """
+    Wait for an image to be in the available state with internal retry handling.
 
-        Args:
-            image_id: The AWS AMI ID to check
+    Args:
+        image_id: The AWS AMI ID to check
+        max_retries: Maximum number of retry attempts (default: 5)
+        retry_delay: Delay between retries in seconds (default: 60)
 
-        Raises:
-            Exception: If the image fails to reach the available state
-        """
+    Returns:
+        bool: True if the image is available
+
+    Raises:
+        Exception: If the image fails to reach the available state after max retries
+    """
+    import asyncio
+    logger = logging.getLogger(__name__)
+    
+    for attempt in range(max_retries + 1):
         try:
+            # Check current image state first
+            response = self.ec2_client.describe_images(ImageIds=[image_id])
+            
+            # Handle missing image
+            if not response or 'Images' not in response or len(response['Images']) == 0:
+                if attempt < max_retries:
+                    logger.info(f"Image {image_id} not found, retry {attempt+1}/{max_retries}")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                raise Exception(f"Image {image_id} not found after {max_retries} retries")
+            
+            # Check image state
+            image_state = response['Images'][0]['State']
+            logger.info(f"Image {image_id} state: {image_state}")
+            
+            if image_state == 'available':
+                return True
+            elif image_state == 'failed':
+                raise Exception(f"Image {image_id} creation failed")
+            elif image_state != 'pending':
+                raise Exception(f"Image {image_id} in unexpected state: {image_state}")
+            
+            # For pending images, use the waiter with reasonable timeout
             waiter = self.ec2_client.get_waiter('image_available')
-            waiter.wait(ImageIds=[image_id])  # Corrected parameter name from InstanceIds to ImageIds
+            waiter.wait(
+                ImageIds=[image_id]
+            )
+            # If waiter completes successfully, image is available
             return True
+
         except Exception as e:
-            logger.error(f"Error waiting for image {image_id} to become available: {e!s}")
-            raise
+            if attempt < max_retries:
+                logger.warning(f"Retry {attempt+1}/{max_retries} after error: {e}")
+                await asyncio.sleep(retry_delay)
+            elif attempt == max_retries:
+                # One final check before giving up
+                try:
+                    final_check = self.ec2_client.describe_images(ImageIds=[image_id])
+                    if (final_check and 'Images' in final_check and 
+                        len(final_check['Images']) > 0 and 
+                        final_check['Images'][0]['State'] == 'available'):
+                        return True
+                except:
+                    pass
+                logger.error(f"Failed after {max_retries} retries: {e}")
+                raise
 
     ###################
     # S3 Functionality
