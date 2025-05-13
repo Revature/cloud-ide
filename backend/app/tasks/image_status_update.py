@@ -12,6 +12,7 @@ import asyncio
 def update_image_status_task(self, image_id: int, image_identifier: str, cloud_connector_id: int):
     """
     Background task to check if an AWS image is available and update its status.
+
     Uses the wait_for_image_available method which handles retries internally.
 
     Args:
@@ -31,13 +32,13 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
             if not cloud_connector:
                 logger.error(f"Cloud connector with id {cloud_connector_id} not found")
                 return
-                
+
             # Check if the image exists and is still in "creating" status
             db_image = image_repository.find_image_by_id(session, image_id)
             if not db_image:
                 logger.error(f"Image with id {image_id} not found")
                 return
-            
+
             if db_image.status != "creating":
                 logger.info(f"Image {image_id} is no longer in 'creating' status (current: {db_image.status})")
                 return
@@ -49,7 +50,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
             # Create a new event loop for this task
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            
+
             # The wait_for_image_available method now handles retries internally
             # No need for Celery to retry, as the method will retry up to 5 times
             image_available = loop.run_until_complete(
@@ -72,7 +73,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
             # If the wait_for_image_available method failed after its internal retries,
             # update the image status to failed
             logger.error(f"Error waiting for image {image_identifier} to become available after retries: {e!s}")
-            
+
             with Session(engine) as session:
                 db_image = image_repository.find_image_by_id(session, image_id)
                 if db_image and db_image.status == "creating":
@@ -83,7 +84,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
 
     except Exception as e:
         logger.error(f"Unexpected error in update_image_status_task: {e!s}")
-        
+
         # For unexpected errors, update the image status to failed
         try:
             with Session(engine) as session:

@@ -496,12 +496,12 @@ async def wait_for_image_available(self, image_id: str, max_retries: int = 5, re
     """
     import asyncio
     logger = logging.getLogger(__name__)
-    
+
     for attempt in range(max_retries + 1):
         try:
             # Check current image state first
             response = self.ec2_client.describe_images(ImageIds=[image_id])
-            
+
             # Handle missing image
             if not response or 'Images' not in response or len(response['Images']) == 0:
                 if attempt < max_retries:
@@ -509,18 +509,18 @@ async def wait_for_image_available(self, image_id: str, max_retries: int = 5, re
                     await asyncio.sleep(retry_delay)
                     continue
                 raise Exception(f"Image {image_id} not found after {max_retries} retries")
-            
+
             # Check image state
             image_state = response['Images'][0]['State']
             logger.info(f"Image {image_id} state: {image_state}")
-            
+
             if image_state == 'available':
                 return True
             elif image_state == 'failed':
                 raise Exception(f"Image {image_id} creation failed")
             elif image_state != 'pending':
                 raise Exception(f"Image {image_id} in unexpected state: {image_state}")
-            
+
             # For pending images, use the waiter with reasonable timeout
             waiter = self.ec2_client.get_waiter('image_available')
             waiter.wait(
@@ -537,11 +537,12 @@ async def wait_for_image_available(self, image_id: str, max_retries: int = 5, re
                 # One final check before giving up
                 try:
                     final_check = self.ec2_client.describe_images(ImageIds=[image_id])
-                    if (final_check and 'Images' in final_check and 
-                        len(final_check['Images']) > 0 and 
+                    if (final_check and 'Images' in final_check and
+                        len(final_check['Images']) > 0 and
                         final_check['Images'][0]['State'] == 'available'):
                         return True
-                except:
+                except Exception as final_check_error:
+                    logger.error(f"Final check failed: {final_check_error}")
                     pass
                 logger.error(f"Failed after {max_retries} retries: {e}")
                 raise
