@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageForm, { ImageFormData } from "./ImageForm";
-import { runnersApi } from "@/services/cloud-resources/runners";
 import { imagesApi } from "@/services/cloud-resources/images";
 import { appRequestsApi } from "@/services/cloud-resources/appRequests";
 import ImageRunnerTerminal from "./ImageRunnerTerminal";
@@ -35,19 +34,17 @@ const ImageFormWithTerminal: React.FC = () => {
   const [runnerId, setRunnerId] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [setupWebSocket, setSetupWebSocket] = useState<WebSocket | null>(null);
+  const [cloudIdeUrl, setCloudIdeUrl] = useState<string | null>(null);
   const runnerIdReceivedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [cloudIdeUrl, setcloudIdeUrl] = useState<string | null>(null);
   const { user } = useAuth();
-
+  const { enrichEnvDataWithUserIp } = useEnrichEnvData();
   const router = useRouter();
 
   const workflowStageRef = useRef(workflowStage);
   useEffect(() => {
     workflowStageRef.current = workflowStage;
   }, [workflowStage]);
-
-  const { enrichEnvDataWithUserIp } = useEnrichEnvData();
 
   /**
    * Cleans up WebSocket connections and any associated timeouts.
@@ -67,11 +64,9 @@ const ImageFormWithTerminal: React.FC = () => {
    * Handles form submission and initiates the WebSocket setup process.
    *
    * @param data - The data submitted from the image form.
-   * @param e - The form submission event.
    */
   const handleFormSubmitAndConnect = useCallback(
-    async (data: ImageFormData, e?: React.FormEvent<HTMLFormElement>) => {
-      e?.preventDefault();
+    async (data: ImageFormData) => {
       cleanupConnections();
       setImageFormData(data);
       setErrorMessage(null);
@@ -92,14 +87,16 @@ const ImageFormWithTerminal: React.FC = () => {
 
         const appRequest: BackendAppRequest = {
           image_id: data.baseImageIdentifier || 0,
-          user_email: user?.email || "ashoka.shringla@revature.com", // Replace with dynamic user email if available
-          session_time: 60, // Default session time
-          runner_type: "temporary", // Default runner type
+          user_email: user?.email || "ashoka.shringla@revature.com",
+          session_time: 60,
+          runner_type: "temporary",
           env_data: {
             script_vars: JSON.parse(enrichedEnvData.script_vars),
             env_vars: JSON.parse(enrichedEnvData.env_vars),
           },
         };
+
+        console.log("App Request Payload:", appRequest);
 
         const { lifecycle_token } = await appRequestsApi.createWithStatus(appRequest);
 
@@ -108,6 +105,7 @@ const ImageFormWithTerminal: React.FC = () => {
         }
 
         const wsUrl = `${SETUP_WS_URL}?lifecycle_token=${lifecycle_token}`;
+        console.log("WebSocket URL:", wsUrl);
         const ws = new WebSocket(wsUrl);
         setSetupWebSocket(ws);
         setWorkflowStage('connecting');
@@ -122,9 +120,7 @@ const ImageFormWithTerminal: React.FC = () => {
 
         ws.onerror = (event) => {
           if (workflowStageRef.current === "connecting") {
-            setErrorMessage(
-              `Failed to establish WebSocket connection. ${event}`
-            );
+            setErrorMessage(`Failed to establish WebSocket connection. ${event}`);
             setWorkflowStage("error");
             cleanupConnections();
           }
@@ -160,10 +156,6 @@ const ImageFormWithTerminal: React.FC = () => {
       return;
     }
 
-  /**
-   * Handles the completion of the terminal interaction step.
-   */
-
     setWorkflowStage("submitting");
 
     try {
@@ -193,24 +185,13 @@ const ImageFormWithTerminal: React.FC = () => {
   /**
    * Handles the cancellation of the workflow and cleans up resources.
    */
-  const handleCancel = useCallback(async () => {
-    const currentRunnerId = runnerId;
-
+  const handleCancel = useCallback(() => {
     setWorkflowStage("form");
     setImageFormData(null);
     setRunnerId(0);
     setErrorMessage(null);
-
-    if (currentRunnerId !== null) {
-      try {
-        if (runnerId) await runnersApi.getById(runnerId);
-      } catch (error) {
-        console.error("Failed to request runner cleanup on cancel:", error);
-      }
-    }
-
     cleanupConnections();
-  }, [runnerId, cleanupConnections]);
+  }, [cleanupConnections]);
 
   /**
    * Handles the completion of the WebSocket connection process.
@@ -221,7 +202,7 @@ const ImageFormWithTerminal: React.FC = () => {
     useCallback((result) => {
       if (result.status !== "failed") {
         setRunnerId(result.runnerId);
-        setcloudIdeUrl(result.url);
+        setCloudIdeUrl(result.url);
         setWorkflowStage("terminal");
       } else {
         setErrorMessage(result.message);
@@ -230,13 +211,11 @@ const ImageFormWithTerminal: React.FC = () => {
       }
     }, []);
 
-  const isLoading =
-    workflowStage === "connecting" || workflowStage === "submitting";
-    
   const handleTerminalClose = useCallback(() => {
-    // Directly proceed to final submission after terminal interaction
     handleFinalSubmit();
   }, [handleFinalSubmit]);
+
+  const isLoading = workflowStage === "connecting";
 
   return (
     <div>
@@ -247,19 +226,30 @@ const ImageFormWithTerminal: React.FC = () => {
       )}
 
       {workflowStage === "success" && (
-        <div style={{ color: "green" }}>Request Submitted Successfully!</div>
+        <div className="flex flex-col items-center justify-center p-6 border border-green-300 rounded-lg bg-green-50 dark:bg-green-900/50 dark:border-green-700 mt-4 text-center shadow-sm">
+          <SuccessIcon className="w-12 h-12 text-green-500 dark:text-green-400 mb-3" />
+          <h3 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
+            Submission Successful!
+          </h3>
+          <p className="text-sm text-gray-700 dark:text-gray-300 mb-5 max-w-md">
+            Your image creation request has been submitted. It should appear in
+            the Images tab within a few minutes once processing is complete.
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push("/images")}
+          >
+            Go to Images
+          </Button>
+        </div>
       )}
 
-      {(workflowStage === "form" ||
-        workflowStage === "submitting" ||
-        workflowStage === "error") && (
+      {(workflowStage === "form" || workflowStage === "error") && (
         <ImageForm
           onSubmitAndConnect={handleFormSubmitAndConnect}
-          onFinalSubmit={handleFinalSubmit}
           isLoading={isLoading}
-          canFinalSubmit={false} // Disable final submit button in the form
           onCancel={handleCancel}
-          initialData={imageFormData}
         />
       )}
 
@@ -295,20 +285,15 @@ const ImageFormWithTerminal: React.FC = () => {
       )}
 
       {workflowStage === "connecting" && (
-        <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-          <h3 className="text-lg font-semibold mb-3 dark:text-white">
-            Connecting to Instance...
-          </h3>
-          <ConnectingStatusDisplay
-            webSocket={setupWebSocket}
-            onComplete={handleConnectionComplete}
-          />
-        </div>
+        <ConnectingStatusDisplay
+          webSocket={setupWebSocket}
+          onComplete={handleConnectionComplete}
+        />
       )}
 
       {workflowStage === "terminal" && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="flex space-x-3">
+        <>
+          <div className="flex justify-end mb-4">
             {cloudIdeUrl && (
               <Button
                 size="sm"
@@ -332,39 +317,20 @@ const ImageFormWithTerminal: React.FC = () => {
                 </svg>
                 Open Cloud IDE
               </Button>
-              )}
-              </div>
-            <ImageRunnerTerminal
-              runnerId={runnerId}
-              onInteractionComplete={() => handleTerminalClose()} // Directly proceed to final submission
-              onWorkflowError={(error) => {
-                setErrorMessage(`Terminal session error: ${error}`);
-                setRunnerId(0);
-              }}
-            />
-        </div>
-      )}
-
-      {workflowStage === "success" && (
-        <div className="flex flex-col items-center justify-center p-6 border border-green-300 rounded-lg bg-green-50 dark:bg-green-900/50 dark:border-green-700 mt-4 text-center shadow-sm">
-          <SuccessIcon className="w-12 h-12 text-green-500 dark:text-green-400 mb-3" />
-          <h3 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
-            Submission Successful!
-          </h3>
-          <p className="text-sm text-gray-700 dark:text-gray-300 mb-5 max-w-md">
-            Your image creation request has been submitted. It should appear in
-            the Images tab within a few minutes once processing is complete.
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => router.push("/images")}
-          >
-            Go to Images
-          </Button>
-        </div>
+            )}
+          </div>
+          <ImageRunnerTerminal
+            runnerId={runnerId}
+            onInteractionComplete={handleTerminalClose}
+            onWorkflowError={(error) => {
+              setErrorMessage(`Terminal session error: ${error}`);
+              setRunnerId(0);
+            }}
+          />
+      </>
       )}
     </div>
+    
   );
 };
 
