@@ -11,6 +11,8 @@ import ScriptDetails from "@/components/script/ScriptDetails";
 import ScriptForm from "@/components/script/ScriptForm";
 import { useScriptsByImageIdQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import StatusBadge from "../ui/badge/StatusBadge";
+import StatusToggle from "../ui/toggle/StatusToggle";
+import { imagesApi } from "@/services/cloud-resources/images";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
@@ -71,6 +73,15 @@ const ViewImage: React.FC = () => {
     );
   }
 
+  const handleStatusToggle = async (isActive: boolean) => {
+    try {
+      await imagesApi.toggle(imageId, isActive);
+      console.log(`Status updated to: ${isActive ? "Active" : "Inactive"}`);
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
   return (
     <>
       {/* Tabs */}
@@ -112,6 +123,11 @@ const ViewImage: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-3">
+              <StatusToggle
+                  isActive={image.status === "active"}
+                  onToggle={handleStatusToggle}
+                  queryKey={["images", imageId.toString()]} // Pass the query key for invalidation
+                />
                 <StatusBadge status={image.status} />
                 <Button size="sm" variant="outline" onClick={navigateToEdit}>
                   <svg

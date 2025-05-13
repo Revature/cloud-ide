@@ -27,13 +27,13 @@ export const cloudConnectorsApi = {
 
   toggle: (id: number, status: object) => 
     apiRequest<CloudConnector>(`/cloud-resources/cloud-connectors/${id}/toggle`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(status),
     }),
     
-  // delete: (id: number) => 
-  //   apiRequest<void>(`/cloud_connectors/${id}`, {
-  //     method: 'DELETE',
-  //   }),
+  delete: (id: number) => 
+    apiRequest<void>(`/cloud-resources/cloud_connectors/${id}`, {
+      method: 'DELETE',
+    }),
 };

@@ -20,11 +20,11 @@ export const imagesApi = {
       method: 'DELETE'
     }),
     
-  // toggleActive: (id: number, active: boolean) => 
-  //   apiRequest<VMImage>(`/cloud-resources/images/${id}/toggle-active`, {
-  //     method: 'POST',
-  //     body: JSON.stringify({ active })
-  //   }),
+  toggle: (id: number, is_active: boolean) => 
+    apiRequest<VMImage>(`/cloud-resources/images/${id}/toggle`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active })
+    }),
 
   patchRunnerPoolSize: (id: number, poolSize: number) =>
     apiRequest<void>(`/cloud-resources/images/${id}`, {

@@ -77,7 +77,7 @@ export function BaseTable<T>({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
+    <div className="rounded-2xl border border-gray-200 bg-white pt-4 dark:border-white/[0.05] dark:bg-white/[0.03] overflow-visible">
       {/* Header */}
       <div className="flex flex-col gap-2 px-5 mb-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -124,7 +124,7 @@ export function BaseTable<T>({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden">
+      <div className="overflow-visible">
         <div className="max-w-full px-5 overflow-x-auto sm:px-6 z-18">
           <Table>
             <TableHeader className="border-gray-100 border-y dark:border-white/[0.05]">
