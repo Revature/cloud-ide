@@ -203,8 +203,14 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
             raise RunnerExecException(f"Runner with id {runner_id} not found")
         print(f"Runner: {runner}")
 
+        runner_db_image = image_repository.find_image_by_id(session, runner.image_id)
+        if not runner_db_image:
+            print(f"Runner image not found with ID: {runner.image_id}")
+            logger.error(f"Runner image with id {runner.image_id} not found")
+            raise RunnerExecException(f"Runner image with id {runner.image_id} not found")
+
         # Get the cloud connector
-        cloud_connector_id = image_data["cloud_connector_id"]
+        cloud_connector_id = runner_db_image.cloud_connector_id
         print(f"Cloud Connector ID: {cloud_connector_id}")
         cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, cloud_connector_id)
         if not cloud_connector:
