@@ -402,17 +402,13 @@ const ViewImage: React.FC = () => {
       {activeTab === "scripts" && (
         <div> 
           {isAddingScript ? (
-            <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
             <ScriptForm
               imageId={imageId}
               existingEvents={existingEvents}
               onCancel={() => setIsAddingScript(false)} // Pass the callback to close the form
             />
-          </div>
           ) : (
-              <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
-                <ScriptDetails imageId={imageId} setPhase={setIsAddingScript}/>
-              </div>
+            <ScriptDetails imageId={imageId} setPhase={setIsAddingScript}/>
           )}
         </div>
       )}
