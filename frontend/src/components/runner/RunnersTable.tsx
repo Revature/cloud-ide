@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { BaseTable } from "./BaseTable";
+import { BaseTable } from "../tables/BaseTable";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { Runner } from "@/types/runner";
 import { useImagesForItems } from "@/hooks/type-query/useImages";

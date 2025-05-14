@@ -1,11 +1,11 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { BaseTable } from "./BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 import Link from "next/link";
 import { CloudConnector } from "@/types/cloudConnectors";
 import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
+import { BaseTable } from "../tables/BaseTable";
 
 export default function CloudConnectorsTable() {
   const { data: connectorsData = [], isLoading, isError } = useCloudConnectors();

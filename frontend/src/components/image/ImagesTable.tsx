@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { BaseTable } from "./BaseTable";
+import { BaseTable } from "../tables/BaseTable";
 import Link from "next/link";
 import { Image } from "@/types/images";
 import StatusBadge from "@/components/ui/badge/StatusBadge";

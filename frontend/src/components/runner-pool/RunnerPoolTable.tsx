@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BaseTable } from "./BaseTable";
+import { BaseTable } from "../tables/BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { Image } from "@/types/images";
 import Link from "next/link";
