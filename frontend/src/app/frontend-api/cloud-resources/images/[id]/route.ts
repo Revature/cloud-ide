@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendServer } from '../../../../../utils/axios'; // Import your backendServer instance
-import { VMImage } from '@/types/images';
+import { convertImageResponse, Image } from '@/types/images';
 import { handleRouteError } from '@/utils/errorHandler';
+import { backendServer } from '@/utils/axios';
 
 
 const endpoint = `/api/v1/images`;
@@ -17,31 +17,10 @@ export async function GET(
     const response = await backendServer.get(`${endpoint}/${id}`);
     console.log(request);
 
-    const imageData = response.data;
+    const backendData = response.data;
 
     // Transform the backend data
-    const transformedData: VMImage = {
-      id: imageData.id,
-      name: imageData.name,
-      identifier: imageData.identifier,
-      description: imageData.description,
-      status: imageData.status,
-      createdOn: new Date(imageData.created_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      updatedOn: new Date(imageData.updated_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      createdBy: imageData.created_by,
-      modifiedBy: imageData.modified_by,
-      cloudConnectorId: imageData.cloud_connector_id,
-      machineId: imageData.machine_id,
-      runnerPoolSize: imageData.runner_pool_size,
-    };
+    const transformedData: Image = convertImageResponse(backendData);
 
     console.log('Transformed data for frontend:', transformedData);
 

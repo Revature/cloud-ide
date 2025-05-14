@@ -1,26 +1,24 @@
 "use client";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
-import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
-import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
-import { imagesApi } from "@/services/cloud-resources/images";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { BaseTable } from "./BaseTable";
 import Link from "next/link";
-import { VMImage } from "@/types";
+import { Image } from "@/types/images";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
+import { useMachinesForItems } from "@/hooks/type-query/useMachines";
+import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
+import { useDeleteImage, useImages } from "@/hooks/type-query/useImages";
 
 export default function ImagesTable() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   // Fetch images using React Query
-  const { data: images = [], isLoading: imagesLoading, error: imagesError } = useImageQuery();
-  const { machinesById, isLoading: machineLoading, isError: machineError } = useMachineForItems(images);
-  const { connectorsById, isLoading: connectorLoading, isError: connectorError } = useConnectorForItems(images);
+  const { data: images = [], isLoading: imagesLoading, error: imagesError } = useImages();
+  const { resourcesById: machinesById, isLoading: machineLoading, isError: machineError } = useMachinesForItems(images);
+  const { resourcesById: connectorsById, isLoading: connectorLoading, isError: connectorError } = useCloudConnectorsForItems(images);
 
+  const { mutate: deleteImage } = useDeleteImage();
   // Join the data
   const enrichedImages = useMemo(
     () =>
@@ -48,21 +46,11 @@ export default function ImagesTable() {
     router.push(`/images/edit/${id}`);
   };
 
-  // Handle delete functionality
-  const handleDelete = async (id: number) => {
-    try {
-      await imagesApi.delete(id);
-      queryClient.invalidateQueries({ queryKey: ["images"] });
-    } catch (error) {
-      console.error("Error deleting image:", error);
-    }
-  };
-
   // Define columns for the table
   const columns = [
     {
       header: "Image",
-      accessor: (item: VMImage) => (
+      accessor: (item: Image) => (
         <div>
           <Link
             href={`view/${item.id}`}
@@ -78,11 +66,11 @@ export default function ImagesTable() {
           </span>
         </div>
       ),
-      searchAccessor: (item: VMImage) => item.name,
+      searchAccessor: (item: Image) => item.name,
     },
     {
       header: "Cloud Provider",
-      accessor: (item:VMImage) =>
+      accessor: (item:Image) =>
         item.cloudConnector ? (
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 relative flex-shrink-0">
@@ -99,16 +87,16 @@ export default function ImagesTable() {
         ) : (
           <span className="text-gray-500 text-theme-sm dark:text-gray-500">Not specified</span>
         ),
-        searchAccessor: (item: VMImage) => item.cloudConnector?.name || "",
+        searchAccessor: (item: Image) => item.cloudConnector?.name || "",
     },
     {
       header: "Machine",
-      accessor: (item:VMImage) => item.machine?.name || "N/A",
-      searchAccessor: (item: VMImage) => item.machine?.name || "",
+      accessor: (item:Image) => item.machine?.name || "N/A",
+      searchAccessor: (item: Image) => item.machine?.name || "",
     },
     {
       header: "Resources",
-      accessor: (item:VMImage) => (
+      accessor: (item:Image) => (
         <div className="flex flex-col">
           <span>
             {item.machine?.cpuCount || 0} CPU{(item.machine?.cpuCount || 0) > 1 ? "s" : ""}
@@ -117,26 +105,26 @@ export default function ImagesTable() {
           <span>{item.machine?.storageSize || 0} GB Storage</span>
         </div>
       ),
-      searchAccessor: (item: VMImage) => item.machine?.name || "",
+      searchAccessor: (item: Image) => item.machine?.name || "",
     },
     {
       header: "Identifier",
-      accessor: (item: VMImage) => (
+      accessor: (item: Image) => (
         <span className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded dark:bg-gray-700 dark:text-gray-300">
           {item.identifier}
         </span>
       ),
-      searchAccessor: (item: VMImage) => item.identifier || "",
+      searchAccessor: (item: Image) => item.identifier || "",
     },
     {
       header: "Status",
-      accessor: (item: VMImage) => <StatusBadge status={item.status} />,
-      searchAccessor: (item: VMImage) => item.status || "",
+      accessor: (item: Image) => <StatusBadge status={item.status} />,
+      searchAccessor: (item: Image) => item.status || "",
     },
   ];
 
   // Define actions for the table
-  const actions = (item: VMImage) => ({
+  const actions = (item: Image) => ({
     "Edit Image": () => navigateToEditImage(item.id),
     "View Details": () => router.push(`/images/view/${item.id}`),
   });
@@ -164,12 +152,11 @@ export default function ImagesTable() {
       columns={columns}
       title="Images"
       searchPlaceholder="Search images..."
-      onSearchChange={(value) => console.log("Search term:", value)} // Optional: Handle search term changes
       actions={actions}
-      onDelete={(item) => item && handleDelete(item.id)}
+      onDelete={(item) => item && deleteImage(item.id)}
       itemsPerPage={5} 
       onAddClick={() => router.push("/images/add")} // Add Button functionality
       addButtonText="Add Image" // Custom Add Button text
-      queryKeys={["images"]}    />
+      queryKey={["images"]}    />
   );
 }

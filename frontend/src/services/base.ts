@@ -1,12 +1,4 @@
-// Define the HTTP methods type
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-
-// Define the RequestOptions type properly
-type RequestOptions<TBody = unknown> = {
-  method?: HttpMethod;
-  body?: TBody;
-  headers?: Record<string, string>;
-};
+import { RequestOptions } from "@/types/fe-api";
 
 const BASE_URL = '/ui/frontend-api';
 

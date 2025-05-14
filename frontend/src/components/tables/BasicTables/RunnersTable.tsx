@@ -2,39 +2,37 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { useRunnerQuery } from "@/hooks/api/runners/useRunnersData";
-import { useMachineForItems } from "@/hooks/api/machines/useMachineForItems";
-import { useImageForItems } from "@/hooks/api/images/useImageForItems";
-import { runnersApi } from "@/services/cloud-resources/runners";
 import { BaseTable } from "./BaseTable";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { Runner } from "@/types/runner";
+import { useImagesForItems } from "@/hooks/type-query/useImages";
+import { useMachinesForItems } from "@/hooks/type-query/useMachines";
+import { useRunners, useStartRunner, useStopRunner, useTerminateRunner } from "@/hooks/type-query/useRunners";
 
 const RunnersTable: React.FC = () => {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  // Fetch runners and related data
-  const { data: runners = [], isLoading, error } = useRunnerQuery();
-  const { machinesById } = useMachineForItems(runners);
-  const { imagesById } = useImageForItems(runners);
+  // Fetch runners
+  const { data: runners = [], isLoading, error } = useRunners();
+
+  // Fetch related images and machines using `useResourceForItems`
+  const { resourcesById: imagesById } = useImagesForItems(runners);
+  const { resourcesById: machinesById } = useMachinesForItems(runners);
+
+  // Delete runner mutation
+  const { mutate: deleteRunner } = useTerminateRunner(); 
+  const { mutate: startRunner } = useStartRunner();
+  const { mutate: stopRunner } = useStopRunner();
+
 
   // Enrich runners with related data
-  const enrichedRunners = useMemo(
-    () =>
-      runners.map((runner) => {
-        const matchingMachine = runner.machineId ? machinesById[runner.machineId] : null;
-        const matchingImage = runner.imageId ? imagesById[runner.imageId] : null;
-
-        return {
-          ...runner,
-          image: matchingImage || undefined,
-          machine: matchingMachine || undefined,
-        };
-      }).reverse(),
-    [runners, machinesById, imagesById]
-  );
+  const enrichedRunners = useMemo(() => {
+    return runners.map((runner) => ({
+      ...runner,
+      image: runner.imageId ? imagesById[runner.imageId] : undefined,
+      machine: runner.machineId ? machinesById[runner.machineId] : undefined,
+    })).reverse();
+  }, [runners, imagesById, machinesById]);
 
   // Define columns for the table
   const columns = [
@@ -78,40 +76,22 @@ const RunnersTable: React.FC = () => {
 
   // Define actions for the table
   const actions = (item: Runner) => ({
-    "Start Runner": () => handleStart(item.id),
-    "Stop Runner": () => handleStop(item.id),
+    "Start Runner": () => startRunner({ id: item.id }),
+    "Stop Runner": () => stopRunner({id: item.id}),
     "View Details": () => router.push(`/runners/view/${item.id}`),
   });
 
   // Handle delete functionality
-  const handleDelete = async (item?: Runner) => {
+  const handleDelete = (item?: Runner) => {
     if (!item) return;
-    try {
-      await runnersApi.terminate(item.id);
-      queryClient.invalidateQueries({ queryKey: ["runners"] });
-    } catch (error) {
-      console.error("Error terminating runner:", error);
-    }
-  };
-
-  // Handle start functionality
-  const handleStart = async (runnerId: number) => {
-    try {
-      await runnersApi.changeState(runnerId, "start");
-      queryClient.invalidateQueries({ queryKey: ["runners"] });
-    } catch (error) {
-      console.error("Error starting runner:", error);
-    }
-  };
-
-  // Handle stop functionality
-  const handleStop = async (runnerId: number) => {
-    try {
-      await runnersApi.changeState(runnerId, "stop");
-      queryClient.invalidateQueries({ queryKey: ["runners"] });
-    } catch (error) {
-      console.error("Error stopping runner:", error);
-    }
+    deleteRunner(item.id, {
+      onSuccess: () => {
+        console.log(`Runner ${item.id} deleted successfully.`);
+      },
+      onError: (error) => {
+        console.error("Error deleting runner:", error);
+      },
+    });
   };
 
   if (isLoading) {
@@ -141,7 +121,7 @@ const RunnersTable: React.FC = () => {
       actions={actions}
       onAddClick={() => router.push("/runners/add")}
       addButtonText="Add Runner"
-      queryKeys={["runners"]}
+      queryKey={["runners"]}
       itemsPerPage={5}
     />
   );
