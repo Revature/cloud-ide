@@ -610,9 +610,9 @@ def process_runner_shutdown(self, runner_id: int, instance_id: str, initiated_by
 
     1. Update runner state to "terminating"
     2. Run termination scripts if they exist
-    3. Delete Prometheus metrics
-    4. Stop and terminate the instance
-    5. Wait for termination to complete
+    3. Stop and terminate the instance
+    4. Wait for termination to complete
+    5. Delete Prometheus metrics (moved after instance termination)
     6. Clean up security groups
     7. Update runner state to "terminated"
 
@@ -639,33 +639,39 @@ def process_runner_shutdown(self, runner_id: int, instance_id: str, initiated_by
     if should_run_termination_script(resources["runner"], initiated_by, result):
         run_termination_script(runner_id, initiated_by, result)
 
-    # Step 4: Delete Prometheus metrics (do this before stopping the instance)
-    try:
-        metrics_result = asyncio.run(terminate_runner_logs(runner_id, initiated_by))
-        result["details"].append({
-            "step": "delete_prometheus_metrics",
-            "status": metrics_result.get("status", "error"),
-            "message": metrics_result.get("message", "Unknown error deleting metrics")
-        })
-        print()
-        print(f"Prometheus metrics deletion result: {metrics_result}")
-        print()
-    except Exception as e:
-        logger.error(f"[{initiated_by}] Error in Prometheus metrics deletion: {e}")
-        result["details"].append({
-            "step": "delete_prometheus_metrics",
-            "status": "error",
-            "message": f"Error deleting Prometheus metrics: {e!s}"
-        })
-        print()
-        print(f"Prometheus metrics deletion error: {e}")
-        print()
-
-    # Step 5: Stop the instance and update state to closed
+    # Step 4: Stop the instance and update state to closed
     stop_instance(resources, initiated_by, result)
 
-    # Step 6: Terminate the instance and update state to terminated
-    terminate_instance(resources, initiated_by, result, self)
+    # Step 5: Terminate the instance and update state to terminated
+    termination_success = terminate_instance(resources, initiated_by, result, self)
+
+    # Step 6: Delete Prometheus metrics (moved after instance termination)
+    # Only proceed with metrics deletion if the instance was successfully terminated
+    if termination_success:
+        try:
+            metrics_result = asyncio.run(terminate_runner_logs(runner_id, initiated_by))
+            result["details"].append({
+                "step": "delete_prometheus_metrics",
+                "status": metrics_result.get("status", "error"),
+                "message": metrics_result.get("message", "Unknown error deleting metrics")
+            })
+            logger.info(f"[{initiated_by}] Prometheus metrics deletion result: {metrics_result}")
+        except Exception as e:
+            logger.error(f"[{initiated_by}] Error in Prometheus metrics deletion: {e}")
+            result["details"].append({
+                "step": "delete_prometheus_metrics",
+                "status": "error",
+                "message": f"Error deleting Prometheus metrics: {e!s}"
+            })
+    else:
+        # Log that metrics deletion was skipped due to termination failure
+        message = "Skipping Prometheus metrics deletion due to instance termination failure"
+        logger.warning(f"[{initiated_by}] {message}")
+        result["details"].append({
+            "step": "delete_prometheus_metrics",
+            "status": "skipped",
+            "message": message
+        })
 
     # Step 7: Clean up security groups
     cleanup_security_groups(resources, initiated_by, result)
