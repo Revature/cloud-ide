@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { BaseTable } from "./BaseTable";
+import { BaseTable } from "../BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 import Link from "next/link";

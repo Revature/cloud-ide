@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import React from "react";
-import ImagesTable from "@/components/tables/BasicTables/ImagesTable";
+import ImagesTable from "@/components/image/ImagesTable";
 import AdminPageLayout from "@/components/layout/AdminPageLayout";
 
 export const metadata: Metadata = {
