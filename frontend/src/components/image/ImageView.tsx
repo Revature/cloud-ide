@@ -4,15 +4,14 @@ import React, { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
-import { useMachineQuery } from "@/hooks/api/machines/useMachinesData";
-import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
 import ScriptDetails from "@/components/script/ScriptDetails";
 import ScriptForm from "@/components/script/ScriptForm";
-import { useScriptsByImageIdQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import StatusBadge from "../ui/badge/StatusBadge";
 import StatusToggle from "../ui/toggle/StatusToggle";
-import { imagesApi } from "@/services/cloud-resources/images";
+import { useImageById, useToggleImageStatus } from "@/hooks/type-query/useImages";
+import { useMachineById } from "@/hooks/type-query/useMachines";
+import { useCloudConnectorById } from "@/hooks/type-query/useCloudConnectors";
+import { useScriptsByImageId } from "@/hooks/type-query/useScripts";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
@@ -21,21 +20,16 @@ const ViewImage: React.FC = () => {
 
   // State for active tab
   const [activeTab, setActiveTab] = useState<"information" | "scripts">("information");
-
-  // State to toggle the "Add Script" form
   const [isAddingScript, setIsAddingScript] = useState(false);
 
-  // Use React Query to fetch the image data
-  const { data: image, isLoading: imageLoading, error: imageError } = useImageQuery(imageId);
+  
+  // Fetch the image data
+  const { data: image, isLoading: imageLoading, error: imageError } = useImageById(imageId);
+  const { data: machine, isLoading: machineLoading, error: machineError } = useMachineById(image?.machineId);
+  const { data: cloudConnector, isLoading: connectorLoading, error: connectorError } = useCloudConnectorById(image?.cloudConnectorId);
 
-  // Fetch machine data if image is loaded and has machine_id
-  const { data: machine, isLoading: machineLoading, error: machineError } = useMachineQuery(image?.machineId || 0);
-
-  // Fetch cloud connector data if image is loaded and has cloudConnector_id
-  const { data: cloudConnector, isLoading: connectorLoading, error: connectorError } = useCloudConnectorQuery(image?.cloudConnectorId || 0);
-
-  // Fetch associated scripts
-  const { data: scripts } = useScriptsByImageIdQuery(imageId);
+  const { data: scripts } = useScriptsByImageId(imageId);
+  const { mutateAsync: toggleImage } = useToggleImageStatus();
 
   // Extract existing events
   const existingEvents = scripts?.map((script) => script.event) || [];
@@ -75,7 +69,7 @@ const ViewImage: React.FC = () => {
 
   const handleStatusToggle = async (isActive: boolean) => {
     try {
-      await imagesApi.toggle(imageId, isActive);
+      await toggleImage({id: imageId, active: isActive});
       console.log(`Status updated to: ${isActive ? "Active" : "Inactive"}`);
     } catch (error) {
       console.error("Failed to update status:", error);

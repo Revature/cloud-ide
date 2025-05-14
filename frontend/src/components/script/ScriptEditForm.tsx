@@ -3,22 +3,22 @@
 import React, { useState, useEffect } from "react";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
-import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
-import { scriptsApi } from "@/services/cloud-resources/scripts";
 import { SpinnerIcon, SuccessIcon, ErrorIcon } from "@/components/ui/icons/CustomIcons";
 import CodeEditor from "../ui/codeEditor/codeEditor";
-import { useQueryClient } from "@tanstack/react-query";
+import { ScriptRequest } from "@/types/scripts";
+import { useScriptById, useUpdateScript } from "@/hooks/type-query/useScripts";
 
 interface ScriptEditFormProps {
   scriptId: number;
+  imageId: number;
   onCancel: () => void; // Callback for cancel button
 }
 
-const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel}) => {
-  const queryClient = useQueryClient();
+const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel, imageId }) => {
 
   // Fetch the script data using the script ID
-  const { data: script, isLoading, error } = useScriptsQuery(scriptId);
+  const { data: script, isLoading, error } = useScriptById(scriptId);
+  const { mutateAsync: updateScript } = useUpdateScript(imageId);
 
   // State for form fields
   const [name, setName] = useState("");
@@ -55,12 +55,14 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel}) =>
 
     try {
       // Call the scriptsApi.update function to update the script
-      await scriptsApi.update(scriptId, { name, description, event, script: scriptContent });
+      const updates:Partial<ScriptRequest> = {
+        name,
+        description,
+        event,
+        script: scriptContent,
+      };
+      await updateScript({ id: scriptId, data: updates });
       setSaveStatus("success");
-
-      // Invalidate the query to refresh the script data
-      queryClient.invalidateQueries({ queryKey: ["scripts", scriptId.toString()] });
-      queryClient.invalidateQueries({ queryKey: ["scripts", "image", script?.imageId.toString()] });
 
       // Wait for 2 seconds before navigating back to the script's view page
       setTimeout(() => {

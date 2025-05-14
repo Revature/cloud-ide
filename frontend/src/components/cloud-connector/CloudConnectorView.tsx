@@ -4,10 +4,9 @@ import { useRouter, useParams } from 'next/navigation';
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { EyeOpenIcon, EyeClosedIcon } from "@/icons";
-import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
 import StatusBadge from '../ui/badge/StatusBadge';
 import StatusToggle from '../ui/toggle/StatusToggle';
-import { useCloudConnectorQuery } from '@/hooks/api/cloudConnectors/useCloudConnectorsData';
+import { useCloudConnectorById, useToggleCloudConnectorStatus } from '@/hooks/type-query/useCloudConnectors';
 
 const ViewConnector: React.FC = () => {
   const router = useRouter();
@@ -16,9 +15,8 @@ const ViewConnector: React.FC = () => {
   
   const [showAccessKey, setShowAccessKey] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
-  const { data: connector, isError: error, isLoading: loading } = useCloudConnectorQuery(id);
-
- 
+  const { data: connector, isError: error, isLoading: loading } = useCloudConnectorById(id);
+  const { mutateAsync: toggleConnector } = useToggleCloudConnectorStatus();
 
   const goBack = () => {
     router.push('/cloud-connectors');
@@ -47,7 +45,7 @@ const ViewConnector: React.FC = () => {
 
   const handleStatusToggle = async (isActive: boolean) => {
     try {
-      await cloudConnectorsApi.toggle(id, { is_active: isActive });
+      await toggleConnector({ id, active: isActive });
       console.log(`Status updated to: ${isActive ? "Active" : "Inactive"}`);
     } catch (error) {
       console.error("Failed to update status:", error);

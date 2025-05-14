@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageForm, { ImageFormData } from "./ImageForm";
-import { imagesApi } from "@/services/cloud-resources/images";
 import { appRequestsApi } from "@/services/cloud-resources/appRequests";
 import ImageRunnerTerminal from "./ImageRunnerTerminal";
 import ConnectingStatusDisplay from "../ui/connection/ConnectingStatusDisplay";
@@ -10,9 +9,11 @@ import type { ConnectingStatusDisplayProps } from "../ui/connection/ConnectingSt
 import Button from "../ui/button/Button";
 import { useRouter } from "next/navigation";
 import { SuccessIcon } from "../ui/icons/CustomIcons";
-import { BackendAppRequest } from "@/types";
 import { useEnrichEnvData } from "@/hooks/useEnrichEnvData";
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
+import { AppRequest } from "@/types/app-requests";
+import { ImageRequest } from "@/types/images";
+import { useCreateImage } from "@/hooks/type-query/useImages";
 
 type WorkflowStage =
   | "form"
@@ -40,6 +41,8 @@ const ImageFormWithTerminal: React.FC = () => {
   const { user } = useAuth();
   const { enrichEnvDataWithUserIp } = useEnrichEnvData();
   const router = useRouter();
+  const { mutateAsync: createImage } = useCreateImage();
+
 
   const workflowStageRef = useRef(workflowStage);
   useEffect(() => {
@@ -75,8 +78,7 @@ const ImageFormWithTerminal: React.FC = () => {
       setWorkflowStage("webSocketSetup");
 
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const deploymentUrl = process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] || "localhost:8000";
-      // const deploymentUrl = "localhost:8000";
+      const deploymentUrl = window.location.protocol === "https:" ? process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] : "localhost:8000";
       const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`;
 
       try {
@@ -85,7 +87,7 @@ const ImageFormWithTerminal: React.FC = () => {
           env_vars: JSON.stringify(data.envVars || {}),
         });
 
-        const appRequest: BackendAppRequest = {
+        const appRequest: AppRequest = {
           image_id: data.baseImageIdentifier || 0,
           user_email: user?.email || "ashoka.shringla@revature.com",
           session_time: 60,
@@ -159,17 +161,17 @@ const ImageFormWithTerminal: React.FC = () => {
     setWorkflowStage("submitting");
 
     try {
-      const payload = {
+      const payload: ImageRequest = {
         name: imageFormData.name,
         description: imageFormData.description,
         machine_id: imageFormData.machine.id,
-        cloud_connector_id: imageFormData.cloudConnector?.id,
+        cloud_connector_id: imageFormData.cloudConnector!.id,
         runner_id: runnerId,
       };
 
       console.log("Payload being sent to the API:", payload);
 
-      await imagesApi.create(payload);
+      await createImage(payload);
 
       setWorkflowStage("success");
     } catch (error) {
@@ -180,7 +182,7 @@ const ImageFormWithTerminal: React.FC = () => {
       );
       setWorkflowStage("error");
     }
-  }, [imageFormData, runnerId]);
+  }, [imageFormData, runnerId, createImage]);
 
   /**
    * Handles the cancellation of the workflow and cleans up resources.
@@ -291,7 +293,7 @@ const ImageFormWithTerminal: React.FC = () => {
         />
       )}
 
-      {workflowStage === "terminal" && (
+      {(workflowStage === "terminal" || workflowStage === "submitting") && (
         <>
           <div className="flex justify-end mb-4">
             {cloudIdeUrl && (

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import React from "react";
-import RunnersTable from "@/components/tables/BasicTables/RunnersTable";
+import RunnersTable from "@/components/runner/RunnersTable";
 import AdminPageLayout from "@/components/layout/AdminPageLayout";
 
 export const metadata: Metadata = {

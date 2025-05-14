@@ -129,7 +129,7 @@ const ImageRunnerTerminal: React.FC<ImageRunnerTerminalProps> = ({
               : "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
           }`}
         >
-          Continue to Final Submission
+          Create Image
         </button>
       </div>
     </div>

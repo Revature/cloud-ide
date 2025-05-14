@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components
 import ActionsButton from "@/components/ui/buttons/ActionsButton";
 import DeleteButton from "@/components/ui/buttons/DeleteButton";
 import React, { useMemo, useState } from "react";
+import { QueryKey } from "@tanstack/react-query";
 
 interface ColumnDefinition<T> {
   header: string;
@@ -14,11 +15,10 @@ interface ColumnDefinition<T> {
 
 interface BaseTableProps<T> {
   data: T[];
-  queryKeys: string[]; // Optional query keys for invalidation
+  queryKey: QueryKey; // Optional query keys for invalidation
   columns: ColumnDefinition<T>[];
   title: string;
   searchPlaceholder?: string;
-  onSearchChange?: (searchTerm: string) => void;
   actions?: (item: T) => Record<string, () => void>; // Record of action names and their functions
   onDelete?: (item?: T) => void; // Function to handle delete
   onAddClick?: () => void; // Function to handle Add Button click
@@ -28,11 +28,10 @@ interface BaseTableProps<T> {
 
 export function BaseTable<T>({
   data,
-  queryKeys,
+  queryKey,
   columns,
   title,
   searchPlaceholder = "Search...",
-  onSearchChange,
   actions,
   onDelete,
   onAddClick,
@@ -46,9 +45,6 @@ export function BaseTable<T>({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
-    if (onSearchChange) {
-      onSearchChange(value);
-    }
   };
 
   // Filter data based on search term
@@ -67,8 +63,12 @@ export function BaseTable<T>({
 
   // Paginate data
   const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+    if(!filteredData || filteredData.length === 0) {
+      return filteredData;
+    } else { 
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      return filteredData.slice(startIndex, startIndex + itemsPerPage);
+    }
   }, [filteredData, currentPage, itemsPerPage]);
 
   // Handle page change
@@ -84,7 +84,7 @@ export function BaseTable<T>({
           {title}
         </h3>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <RefreshButton queryKeys={queryKeys} />
+          <RefreshButton queryKey={queryKey} />
           <form onSubmit={(e) => e.preventDefault()} className="flex-grow">
             <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -173,7 +173,7 @@ export function BaseTable<T>({
                       </TableCell>
                     ))}
                     {(actions || onDelete) && (
-                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px]">
+                      <TableCell className="px-4 py-4 text-gray-700 text-theme-sm dark:text-gray-400 w-[80px] overflow-visible">
                         <div className="flex gap-2">
                           {actions && <ActionsButton actions={actions(item)} />}
                           {onDelete && (

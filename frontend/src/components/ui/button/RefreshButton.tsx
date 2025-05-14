@@ -1,15 +1,16 @@
 import React from "react";
-import { useInvalidateQuery } from "@/hooks/useInvalidateQuery";
+import { useQueryClient, QueryKey } from "@tanstack/react-query";
 
 interface RefreshButtonProps {
-  queryKeys: string[]; // Array of query keys to invalidate
+  queryKey: QueryKey;
 }
 
-const RefreshButton: React.FC<RefreshButtonProps> = ({ queryKeys }) => {
-  const invalidateQueries = useInvalidateQuery(queryKeys);
+
+const RefreshButton: React.FC<RefreshButtonProps> = ({queryKey}) => {
+  const queryClient = useQueryClient();
 
   const handleRefresh = () => {
-    invalidateQueries();
+    queryClient.invalidateQueries({queryKey});
   };
 
   return (

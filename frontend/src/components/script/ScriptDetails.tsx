@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useScriptsByImageIdQuery } from "@/hooks/api/scripts/useScriptsQuery";
 import {
   Table,
   TableBody,
@@ -9,13 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { scriptsApi } from "@/services/cloud-resources/scripts";
-import { useQueryClient } from "@tanstack/react-query";
 import ScriptView from "@/components/script/ScriptView";
 import ScriptEditForm from "@/components/script/ScriptEditForm";
 import Button from "../ui/button/Button";
 import RefreshButton from "../ui/button/RefreshButton";
 import StatusBadge from "@/components/ui/badge/StatusBadge"; // Import StatusBadge
+import { useDeleteScript, useScriptsByImageId } from "@/hooks/type-query/useScripts";
 
 interface ScriptDetailsProps {
   imageId: number;
@@ -23,8 +21,9 @@ interface ScriptDetailsProps {
 }
 
 const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
-  const queryClient = useQueryClient();
-  const { data: scripts, isLoading, error } = useScriptsByImageIdQuery(imageId);
+  const { data: scripts, isLoading, error } = useScriptsByImageId(imageId);
+  const { mutate: deleteScript } = useDeleteScript(imageId);
+
 
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -45,15 +44,6 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
   const handleEditScript = (scriptId: number) => {
     setSelectedScriptId(scriptId);
     setCurrentView("edit");
-  };
-
-  const handleDeleteScript = async (scriptId: number) => {
-    try {
-      await scriptsApi.delete(scriptId);
-      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId.toString()] });
-    } catch (error) {
-      console.error("Failed to delete script:", error);
-    }
   };
 
   const handleBackToDetails = () => {
@@ -113,6 +103,7 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
   if (currentView === "edit" && selectedScriptId) {
     return (
       <ScriptEditForm
+        imageId={imageId}
         scriptId={selectedScriptId}
         onCancel={handleBackToDetails} // Pass a callback to return to the details view
       />
@@ -124,7 +115,7 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
       <div className="flex justify-between items-center px-5 mb-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white/90">Scripts</h2>
         <div className="flex gap-3">
-          <RefreshButton queryKeys={["scripts", "image", String(imageId)]} />
+          <RefreshButton queryKey={["scripts", "image", imageId]} />
           <Button
             size="sm"
             variant="primary"
@@ -241,7 +232,7 @@ const ScriptDetails: React.FC<ScriptDetailsProps> = ({ imageId, setPhase }) => {
                         </div>
                       )}
                       <button
-                        onClick={() => handleDeleteScript(script.id)}
+                        onClick={() => deleteScript(script.id)}
                         className="p-2 text-gray-500 hover:text-red-500 transition-colors"
                         title="Delete Script"
                       >

@@ -1,5 +1,5 @@
 "use client";
-import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
+import { useRunnerById } from '@/hooks/type-query/useRunners';
 import React, { useEffect, useState, useRef } from 'react';
 
 // Export the props interface so it can be imported by parent components
@@ -45,7 +45,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
   const websocketRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<IFitAddon | null>(null);
   const [initialized, setInitialized] = useState(false);
-  const { refetch } = useRunnerQuery(runnerId);
+  const { refetch } = useRunnerById(runnerId); 
   
   // Initialize terminal when component mounts
   useEffect(() => {
@@ -154,9 +154,7 @@ const TerminalComponent: React.FC<TerminalComponentProps> = ({
 
     // Construct proper absolute WebSocket URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'];
-    // const deploymentUrl = 'localhost:8000'; // For local testing
-
+    const deploymentUrl = window.location.protocol === "https:" ? process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] : "localhost:8000";
 
     try {
       // Fetch runner data to get the terminal token
