@@ -611,8 +611,8 @@ async def awaiting_client_hook(
         )
 
         # Shutdown the runner
-        await runner_management.force_shutdown_runners(
-            [runner.identifier],
+        await runner_management.terminate_runner(
+            runner.id,
             initiated_by="app_requests_endpoint"
         )
         raise
