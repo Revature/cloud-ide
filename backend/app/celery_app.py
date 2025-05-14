@@ -33,7 +33,7 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.cleanup_runners.cleanup_active_runners",
         "schedule": crontab(minute="*/10"),  # At minute 0, 10, 20, 30, 40, 50
     },
-    
+
     # This job runs every 10 minutes starting at minute 5
     "manage_runner_pool_task": {
         "task": "app.tasks.runner_pool_management.manage_runner_pool",
