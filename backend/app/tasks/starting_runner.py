@@ -356,8 +356,8 @@ def run_startup_script(runner_id: int):
         # Now use the instance_id outside of the session
         if instance_id:
             async def force_shutdown():
-                shutdown_result = await runner_management.force_shutdown_runners(
-                    [instance_id],  # Use the stored instance_id instead
+                shutdown_result = await runner_management.terminate_runner(
+                    runner_id,
                     initiated_by="app_requests_endpoint"
                 )
                 return shutdown_result

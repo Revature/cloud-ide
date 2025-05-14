@@ -370,7 +370,9 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
+    print(f"Terminating runner {runner_id} with image {image_identifier}")
     result = await runner_management.terminate_runner(runner_id, initiated_by="manual_termination_endpoint")
+    print(f"Result of termination: {result}")
 
     # Check for various error conditions with specific messages
     if result["status"] == "error":
