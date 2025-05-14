@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import ScriptView from "@/components/script/ScriptView";
 import ScriptEditForm from "@/components/script/ScriptEditForm";
-import { BaseTable } from "@/components/tables/BasicTables/BaseTable";
 import { useDeleteScript, useScriptsByImageId } from "@/hooks/type-query/useScripts";
 import { Script } from "@/types/scripts";
+import { BaseTable } from "../tables/BaseTable";
 
 interface ScriptDetailsProps {
   imageId: number;

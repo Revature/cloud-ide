@@ -4,12 +4,13 @@ import Form from "@/components/form/Form";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
-import Select from "@/components/form/Select";
+import { Image } from "@/types/images";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import CodeEditor from "../ui/codeEditor/codeEditor";
 import { Machine, machineTypes } from "@/types/machines";
 import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
 import { useImages } from "@/hooks/type-query/useImages";
+import BaseImageSelection from "./BaseImageSelection";
 
 export interface ImageFormData {
   baseImageIdentifier?: number;
@@ -57,11 +58,6 @@ const ImageForm: React.FC<ImageFormProps> = ({
   const [envVarsError, setEnvVarsError] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const imageOptions = images.filter((image) => image.status === 'active').map((image) => ({
-    value: image.id.toString(), // Convert the ID to a string
-    label: `${image.name || "Unnamed Image"}`,
-  }));
-
   useEffect(() => {
     // Clear form error when base image or connector changes
     if (formValues.baseImageIdentifier || formValues.selectedConnector) {
@@ -73,17 +69,13 @@ const ImageForm: React.FC<ImageFormProps> = ({
     setFormValues((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleBaseImageChange = (imageId: string) => {
-    const selectedImage = images.find((image) => image.id === parseInt(imageId));
-
-    if (selectedImage) {
-      setFormValues((prev) => ({
-        ...prev,
-        baseImageIdentifier: selectedImage.id || 0,
-        selectedConnector: selectedImage.cloudConnectorId || 0,
-      }));
-      setFormError(null); // Clear any previous error
-    }
+  const handleBaseImageChange = (image: Image) => {
+    setFormValues((prev) => ({
+      ...prev,
+      baseImageIdentifier: image.id,
+      selectedConnector: "cloudConnectorId" in image ? image.cloudConnectorId || null : null,
+    }));
+    setFormError(null); // Clear any previous error
   };
 
   const handleJsonChange = (fieldName: "scriptVars" | "envVars", value: string) => {
@@ -153,36 +145,15 @@ const ImageForm: React.FC<ImageFormProps> = ({
           </div>
 
           {/* Image Name */}
-          <div className="col-span-full md:col-span-1">
+          <div className="col-span-full">
             <Label htmlFor="name">Image Name</Label>
             <Input
               id="name"
               name="name"
-              placeholder="e.g., Ubuntu Developer"
+              placeholder="e.g., Ubuntu Java 17"
               defaultValue={formValues.name}
               onChange={(e) => handleChange("name", e.target.value)}
             />
-          </div>
-
-          {/* Base Image */}
-          <div className="col-span-full md:col-span-1">
-            <Label htmlFor="image">Base Image</Label>
-            {images.length > 0 ? (
-              <Select
-                defaultValue={formValues.baseImageIdentifier?.toString() || ""}
-                onChange={(value) => handleBaseImageChange(value)}
-                options={imageOptions}
-              />
-            ) : (
-              <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No active images available.
-                </p>
-              </div>
-            )}
-            {formError && (
-              <p className="text-red-500 mt-2">{formError}</p>
-            )}
           </div>
 
           {/* Description */}
@@ -198,148 +169,184 @@ const ImageForm: React.FC<ImageFormProps> = ({
             />
           </div>
 
-          {/* Script Variables */}
+          {/* Base Image Selection */}
           <div className="col-span-full">
-            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
-            <CodeEditor
-              language="json"
-              value={JSON.stringify(formValues.scriptVars || {}, null, 2)}
-              onChange={(value) => handleJsonChange("scriptVars", value)}
+            <BaseImageSelection
+              images={images.filter((image) => image.status === "active")}
+              onSelect={handleBaseImageChange}
             />
-            {scriptVarsError && (
-              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+            {formError && (
+              <p className="text-red-500 mt-2">{formError}</p>
             )}
           </div>
 
-          {/* Environment Variables */}
-          <div className="col-span-full">
-            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
-            <CodeEditor
-              language="json"
-              value={JSON.stringify(formValues.envVars || {}, null, 2)}
-              onChange={(value) => handleJsonChange("envVars", value)}
-            />
-            {envVarsError && (
-              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
-            )}
+                    {/* Script and Environment Variables */}
+          <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Script Variables */}
+            <div>
+              <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
+              <CodeEditor
+                language="json"
+                value={JSON.stringify(formValues.scriptVars || {}, null, 2)}
+                onChange={(value) => handleJsonChange("scriptVars", value)}
+              />
+              {scriptVarsError && (
+                <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+              )}
+            </div>
+
+            {/* Environment Variables */}
+            <div>
+              <Label htmlFor="envVars">Environment Variables (JSON)</Label>
+              <CodeEditor
+                language="json"
+                value={JSON.stringify(formValues.envVars || {}, null, 2)}
+                onChange={(value) => handleJsonChange("envVars", value)}
+              />
+              {envVarsError && (
+                <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
+              )}
+            </div>
           </div>
 
-          {/* Selected Cloud Provider Info */}
-          {formValues.selectedConnector && (() => {
-            const connector = connectors.find((connector) => connector.id === formValues.selectedConnector);
-            if(!connector) return null;
+           {/* Cloud Provider and Machine Configuration */}
+      <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Cloud Provider Information */}
+        {formValues.selectedConnector && (() => {
+          const connector = connectors.find(
+            (connector) => connector.id === formValues.selectedConnector
+          );
+          if (!connector) return null;
 
-            return (
-              <div className="col-span-full mb-4 mt-4">
-                <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-                  Cloud Provider Information
-                </h2>
-                <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Details of the selected cloud provider
-                </div>
-                <div className="mt-4 p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Provider</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="w-6 h-6 relative flex-shrink-0">
-                          {connector.image ? (
-                            <ProxyImage
-                              src={connector.image}
-                              alt={connector.name || "Cloud provider"}
-                              width={32}
-                              height={32}
-                              className="w-full h-full object-contain"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                          )}
-                        </div>
-                        <p className="text-base font-medium dark:text-gray-200">
-                          {connector.name}
-                        </p>
-                      </div>
+          return (
+            <div className="p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
+                Cloud Provider Information
+              </h2>
+              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Details of the selected cloud provider
+              </div>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Provider
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="w-6 h-6 relative flex-shrink-0">
+                      {connector.image ? (
+                        <ProxyImage
+                          src={connector.image}
+                          alt={connector.name || "Cloud provider"}
+                          width={32}
+                          height={32}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Region</p>
-                      <p className="text-base font-medium dark:text-gray-200">
-                        {connector.region}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Type</p>
-                      <p className="text-base font-medium dark:text-gray-200">
-                        {connector.type}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
-                      <p className="text-base font-medium dark:text-gray-200">
-                        {connector.status ? "Active" : "Inactive"}
-                      </p>
-                    </div>
+                    <p className="text-base font-medium dark:text-gray-200">
+                      {connector.name}
+                    </p>
                   </div>
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Region
+                  </p>
+                  <p className="text-base font-medium dark:text-gray-200">
+                    {connector.region}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Type
+                  </p>
+                  <p className="text-base font-medium dark:text-gray-200">
+                    {connector.type}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Status
+                  </p>
+                  <p className="text-base font-medium dark:text-gray-200">
+                    {connector.status ? "Active" : "Inactive"}
+                  </p>
+                </div>
               </div>
-            );
-          })()}
+            </div>
+          );
+        })()}
 
-          {/* Machine Configuration Section */}
-          <div className="col-span-full mb-4 mt-4">
-            <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-              Machine Configuration
-            </h2>
-            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Resource specifications for VM instances
+        {/* Machine Configuration */}
+        <div className="p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
+            Machine Configuration
+          </h2>
+          <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Resource specifications for VM instances
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                CPU
+              </p>
+              <p className="text-base font-medium dark:text-gray-200">
+                {currentMachine.cpuCount}{" "}
+                {currentMachine.cpuCount === 1 ? "Core" : "Cores"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Memory
+              </p>
+              <p className="text-base font-medium dark:text-gray-200">
+                {currentMachine.memorySize} GB
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Storage
+              </p>
+              <p className="text-base font-medium dark:text-gray-200">
+                {currentMachine.storageSize} GB
+              </p>
             </div>
           </div>
-
-          {/* Machine Details */}
-          <div className="col-span-full p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">CPU</p>
-                <p className="text-base font-medium dark:text-gray-200">
-                  {currentMachine.cpuCount} {currentMachine.cpuCount === 1 ? "Core" : "Cores"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Memory</p>
-                <p className="text-base font-medium dark:text-gray-200">{currentMachine.memorySize} GB</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Storage</p>
-                <p className="text-base font-medium dark:text-gray-200">{currentMachine.storageSize} GB</p>
-              </div>
-            </div>
-            <div className="mt-3">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Instance Type</p>
-              <p className="text-base font-medium dark:text-gray-200">{currentMachine.identifier}</p>
-            </div>
+          <div className="mt-3">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Instance Type
+            </p>
+            <p className="text-base font-medium dark:text-gray-200">
+              {currentMachine.identifier}
+            </p>
           </div>
         </div>
-
-        {/* Form Actions */}
-        <div className="flex justify-end gap-3 mt-8">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            type="submit"
-            disabled={isLoading || !formValues.baseImageIdentifier}
-          >
-            {isLoading ? "Preparing..." : "Connect & Prepare"}
-          </Button>
-        </div>
-      </Form>
+      </div>
     </div>
+
+    {/* Form Actions */}
+    <div className="flex justify-end gap-3 mt-8">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onCancel}
+        disabled={isLoading}
+      >
+        Cancel
+      </Button>
+      <Button
+        size="sm"
+        variant="primary"
+        type="submit"
+        disabled={isLoading || !formValues.baseImageIdentifier}
+      >
+        {isLoading ? "Preparing..." : "Connect & Prepare"}
+      </Button>
+    </div>
+  </Form>
+</div>
   );
 };
 
