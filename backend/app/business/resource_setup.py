@@ -293,11 +293,6 @@ def setup_resources():
 
 async def fill_runner_pools():
     """Fill the runner pools during startup."""
-    images = find_images_with_pool()
-    for image in images:
-        # Launch runners for each image based on its pool size
-        await launch_runners(
-            image_identifier=image.identifier,
-            runner_count=image.runner_pool_size,
-            initiated_by="app_startup"
-        )
+    from app.tasks.runner_pool_management import manage_runner_pool
+    # Queue the task to run immediately (using .delay() for async execution)
+    manage_runner_pool.delay()

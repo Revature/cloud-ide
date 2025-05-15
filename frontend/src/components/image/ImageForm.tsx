@@ -6,10 +6,10 @@ import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { Machine, machineTypes } from "@/types";
-import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
 import CodeEditor from "../ui/codeEditor/codeEditor";
+import { Machine, machineTypes } from "@/types/machines";
+import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
+import { useImages } from "@/hooks/type-query/useImages";
 
 export interface ImageFormData {
   baseImageIdentifier?: number;
@@ -49,9 +49,9 @@ const ImageForm: React.FC<ImageFormProps> = ({
     scriptVars: {},
     envVars: {},
   });
-
-  const { data: connectors = [] } = useCloudConnectorQuery();
-  const { data: images = [] } = useImageQuery();
+  
+  const { data: connectors = [] } = useCloudConnectors();
+  const { data: images = [] } = useImages();
 
   const [scriptVarsError, setScriptVarsError] = useState(false);
   const [envVarsError, setEnvVarsError] = useState(false);

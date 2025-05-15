@@ -1,9 +1,9 @@
 // src/services/cloud-resources/cloudConnectors.ts
 import { apiRequest } from '../base';
 import { 
-  CloudConnector, 
+  CloudConnector,
+  CloudConnectorRequest, 
 } from '@/types/cloudConnectors';
-import { BackendCloudConnectorRequest } from '@/types/api';
 
 export const cloudConnectorsApi = {
   getAll: () => 
@@ -12,7 +12,7 @@ export const cloudConnectorsApi = {
   getById: (id: number) => 
     apiRequest<CloudConnector>(`/cloud-resources/cloud-connectors/${id}`),
 
-  create: (connector: BackendCloudConnectorRequest) => 
+  create: (connector: CloudConnectorRequest) => 
     apiRequest<CloudConnector>('/cloud-resources/cloud-connectors/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

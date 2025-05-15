@@ -13,7 +13,7 @@ import {
 } from "../../icons";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
-import { useCloudConnectorQuery } from '@/hooks/api/cloudConnectors/useCloudConnectorsData';
+import { useCloudConnectorById } from '@/hooks/type-query/useCloudConnectors';
 
 type CloudProvider = 'aws' | 'azure' | 'gcp' | 'digitalocean';
 
@@ -70,7 +70,7 @@ const ConnectorEditForm: React.FC = () => {
   const id = parseInt(params.id as string, 10);
 
    // Obtain connectors from CloudConnectorsTable ReactQuery
-   const { data:connector} = useCloudConnectorQuery(id)
+   const { data:connector} = useCloudConnectorById(id);
   
   // State for form data
   const [providerName, setProviderName] = useState('');

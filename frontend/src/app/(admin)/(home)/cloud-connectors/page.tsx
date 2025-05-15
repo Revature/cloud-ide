@@ -1,7 +1,7 @@
 import React from "react";
-import CloudConnectorsTable from "@/components/tables/BasicTables/CloudConnectorsTable";
 import AdminPageLayout from "@/components/layout/AdminPageLayout";
 import { Metadata } from "next";
+import CloudConnectorsTable from "@/components/cloud-connector/CloudConnectorsTable";
 
 export const metadata: Metadata = {
   title: "Cloud Connectors | Cloud IDE",

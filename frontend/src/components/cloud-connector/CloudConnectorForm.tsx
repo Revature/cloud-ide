@@ -12,9 +12,9 @@ import {
 } from "../../icons";
 import Button from "../ui/button/Button";
 import Select from "../form/Select";
-import { BackendCloudConnectorRequest } from "@/types";
-import { cloudConnectorsApi } from "@/services/cloud-resources/cloudConnectors";
 import { useRouter } from "next/navigation";
+import { CloudConnectorRequest } from "@/types/cloudConnectors";
+import { useCreateCloudConnector } from "@/hooks/type-query/useCloudConnectors";
 
 type CloudProvider = "aws" | "azure" | "gcp";
 
@@ -33,6 +33,7 @@ const CloudConnectorForm: React.FC = () => {
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [buttonState, setButtonState] = useState<"idle" | "testing" | "failed" | "success">("idle");
   const router = useRouter();
+  const { mutateAsync: createCloudConnector } = useCreateCloudConnector();
 
   const cloudProviders: ProviderOption[] = [
     { value: "aws", label: "Amazon Web Services" },
@@ -85,7 +86,7 @@ const CloudConnectorForm: React.FC = () => {
     const accessKeyInput = formElements.namedItem("accessKey") as HTMLInputElement;
     const secretKeyInput = formElements.namedItem("secretKey") as HTMLInputElement;
 
-    const connectorData: BackendCloudConnectorRequest = {
+    const connectorData: CloudConnectorRequest = {
       provider: selectedProvider,
       region: selectedRegion,
       access_key: accessKeyInput?.value || "",
@@ -93,7 +94,7 @@ const CloudConnectorForm: React.FC = () => {
     };
 
     try {
-      const response = await cloudConnectorsApi.create(connectorData);
+      const response = await createCloudConnector(connectorData);
       if (response) {
         setButtonState("success");
         setTimeout(() => {
