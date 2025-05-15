@@ -1,49 +1,22 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Button from "../../components/ui/button/Button";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import { EyeOpenIcon, EyeClosedIcon } from "@/icons";
-import { CloudConnector } from '@/types/cloudConnectors';
-import { cloudConnectorsApi } from '@/services/cloud-resources/cloudConnectors';
 import StatusBadge from '../ui/badge/StatusBadge';
 import StatusToggle from '../ui/toggle/StatusToggle';
+import { useCloudConnectorById, useToggleCloudConnectorStatus } from '@/hooks/type-query/useCloudConnectors';
 
 const ViewConnector: React.FC = () => {
   const router = useRouter();
   const params = useParams();
   const id = parseInt(params.id as string, 10);
   
-  const [connector, setConnector] = useState<CloudConnector | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAccessKey, setShowAccessKey] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
-
-  useEffect(() => {
-    const fetchConnector = async () => {
-      try {
-        setLoading(true);
-        
-        // Use the cloudConnectorsApi service instead of direct fetch
-        const data = await cloudConnectorsApi.getById(id);
-        setConnector(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching cloud connector:', err);
-        setError('Failed to load cloud connector details.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!isNaN(id)) {
-      fetchConnector();
-    } else {
-      setError('Invalid connector ID');
-      setLoading(false);
-    }
-  }, [id]);
+  const { data: connector, isError: error, isLoading: loading } = useCloudConnectorById(id);
+  const { mutateAsync: toggleConnector } = useToggleCloudConnectorStatus();
 
   const goBack = () => {
     router.push('/cloud-connectors');
@@ -72,7 +45,7 @@ const ViewConnector: React.FC = () => {
 
   const handleStatusToggle = async (isActive: boolean) => {
     try {
-      await cloudConnectorsApi.toggle(id, { is_active: isActive });
+      await toggleConnector({ id, active: isActive });
       console.log(`Status updated to: ${isActive ? "Active" : "Inactive"}`);
     } catch (error) {
       console.error("Failed to update status:", error);

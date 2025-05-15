@@ -2,21 +2,23 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
-import { imagesApi } from "@/services/cloud-resources/images";
 import Button from "@/components/ui/button/Button";
+import { useResourceQuery } from "@/hooks/useResource";
+import { imagesApi } from "@/services/cloud-resources/images";
+import { usePatchRunnerPool } from "@/hooks/type-query/useImages";
 
 const RunnerPoolForm: React.FC = () => {
   const router = useRouter();
-  const { data: images = [], isLoading, error } = useImageQuery();
+  const { data: images = [], isLoading, error } = useResourceQuery("images", imagesApi.getAll);
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
   const [poolSize, setPoolSize] = useState<number>(1); // Default pool size
-
+  const { mutateAsync: patchRunnerPoolSize } = usePatchRunnerPool();
+  
   const handleSubmit = async () => {
     if (selectedImageId !== null) {
       try {
         // Use the imagesApi to patch the runner pool size
-        await imagesApi.patchRunnerPoolSize(selectedImageId, poolSize);
+        await patchRunnerPoolSize({id: selectedImageId, data: poolSize});
         console.log(`Runner pool size updated to ${poolSize} for image ID ${selectedImageId}.`);
         router.push("/runner-pools");
       } catch (error) {
@@ -38,7 +40,7 @@ const RunnerPoolForm: React.FC = () => {
     return <div>Error loading pools: {error instanceof Error ? error.message : "Unknown error"}</div>;
   }
 
-  const availableImages = images.filter((image) => image.runnerPoolSize === 0);
+  const availableImages = images.filter((image) => image.runnerPoolSize === 0 && image.status === "active");
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md dark:bg-gray-800">

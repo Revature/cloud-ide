@@ -5,12 +5,12 @@ import Form from "@/components/form/Form";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import Select from "@/components/form/Select";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
-import { VMImage } from "@/types";
+import { Image } from "@/types/images";
 import CodeEditor from "../ui/codeEditor/codeEditor";
+import { useImages } from "@/hooks/type-query/useImages";
 
 export interface RunnerFormData {
-  image: VMImage;
+  image: Image;
   durationMinutes: number;
   envVars?: Record<string, unknown>;
   scriptVars?: Record<string, unknown>;
@@ -22,10 +22,10 @@ interface RunnerFormProps {
 }
 
 const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
-  const { data: images = [] } = useImageQuery();
+  const { data: images = [] } = useImages();
 
   // Convert images for select dropdown
-  const imageOptions = images.map((image) => ({
+  const imageOptions = images.filter((image) => image.status === 'active').map((image) => ({
     value: image.id.toString(),
     label: `${image.name}`,
   }));
@@ -72,7 +72,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
   }, [selectedImage, durationMinutes, scriptVars, envVars, scriptVarsError, envVarsError]);
 
   // Get the selected image object
-  const getSelectedImageObject = (): VMImage | undefined => {
+  const getSelectedImageObject = (): Image | undefined => {
     return images.find((image) => image.id.toString() === selectedImage);
   };
 

@@ -151,7 +151,7 @@ async def process_runner_request(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         # Get image
-        db_image = image_management.get_image_by_id(request.image_id)
+        db_image = image_management.get_image_by_id(request.image_id, include_deleted=False, include_inactive=False)
         if not db_image:
             error_msg = "Image not found"
             await emit_status(
@@ -193,7 +193,7 @@ async def process_runner_request(
             "requested_session_time": request.session_time,
             "script_vars": script_vars,
             "user_ip": user_ip,
-            "file_path": script_vars.get("file_path", "")
+            "file_path": request.file_path
         }
 
         # If lifecycle_token is provided, emit initial status
@@ -611,8 +611,8 @@ async def awaiting_client_hook(
         )
 
         # Shutdown the runner
-        await runner_management.force_shutdown_runners(
-            [runner.identifier],
+        await runner_management.terminate_runner(
+            runner.id,
             initiated_by="app_requests_endpoint"
         )
         raise
@@ -650,6 +650,8 @@ async def get_ready_runner(
     """
     # Emit an initial status update for the direct endpoint (no lifecycle_token)
     # The direct endpoint has no lifecycle_token for WebSocket updates, but we can still log the request
+
+    print(f"Direct runner request for image {request.image_id} and user {request.user_email}")
     logger.info(f"Processing direct runner request for image {request.image_id} and user {request.user_email}")
 
     try:
@@ -675,7 +677,7 @@ async def get_ready_runner_with_status(
     """
     # Generate a unique lifecycle token
     lifecycle_token = str(uuid4())
-
+    print(f"with status runner request for image {request.image_id} and user {request.user_email}")
     try:
         # Emit an initial status update for the with-status endpoint
         await emit_status(
@@ -738,6 +740,7 @@ async def runner_status_websocket(
     real-time updates about runner provisioning and lifecycle events.
     The lifecycle_token is provided as a query parameter.
     """
+    print(f"WebSocket connection request with lifecycle_token: {lifecycle_token}")
     try:
         await runner_management.wait_for_lifecycle_token(lifecycle_token)
     except Exception as err:

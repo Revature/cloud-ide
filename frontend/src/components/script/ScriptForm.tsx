@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
-import { scriptsApi } from "@/services/cloud-resources/scripts";
 import { SpinnerIcon, SuccessIcon, ErrorIcon } from "@/components/ui/icons/CustomIcons";
 import CodeEditor from "../ui/codeEditor/codeEditor";
-import { useQueryClient } from "@tanstack/react-query";
+import { ScriptRequest } from "@/types/scripts";
+import { useCreateScript } from "@/hooks/type-query/useScripts";
 
 interface ScriptFormProps {
   imageId: number; // Image ID is required
@@ -24,14 +24,14 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ imageId, existingEvents, onCanc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
 
-  const queryClient = useQueryClient();
+  const { mutateAsync: createScript } = useCreateScript(imageId);
 
   // Event options (filter out existing events)
   const allEventOptions = [
     { value: "on_create", label: "On Create - When a runner is first created" },
     { value: "on_awaiting_client", label: "On Awaiting Client - When a runner is assigned to a user but before connection" },
-    { value: "on_connect", label: "On Connect - When a user connects to a runner" },
-    { value: "on_disconnect", label: "On Disconnect - When a user disconnects from a runner" },
+    // { value: "on_connect", label: "On Connect - When a user connects to a runner" },
+    // { value: "on_disconnect", label: "On Disconnect - When a user disconnects from a runner" },
     { value: "on_terminate", label: "On Terminate - When a runner is being terminated" },
   ];
   const eventOptions = allEventOptions.filter((option) => !existingEvents.includes(option.value));
@@ -42,12 +42,17 @@ const ScriptForm: React.FC<ScriptFormProps> = ({ imageId, existingEvents, onCanc
     setSubmitStatus("idle");
 
     try {
+      const data: ScriptRequest = {
+        name,
+        description,
+        event,
+        image_id: imageId,
+        script,
+      };
       // Call the scriptsApi.create function to create a new script
-      await scriptsApi.create({ name, description, event, image_id: imageId, script });
+
+      await createScript(data);
       setSubmitStatus("success");
-      
-      // Invalidate the query to refresh the script data
-      queryClient.invalidateQueries({ queryKey: ["scripts", "image", imageId.toString()] });
 
       // Wait for 2 seconds before navigating back to the scripts list
       setTimeout(() => {

@@ -47,7 +47,7 @@ def read_image(image_id: int,
                #access_token: str = Header(..., alias="Access-Token")
                ):
     """Retrieve a single Image by ID."""
-    image = image_management.get_image_by_id(image_id)
+    image = image_management.get_image_by_id(image_id, include_deleted=True, include_inactive=True)
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
     return image
@@ -63,7 +63,6 @@ def update_image(
     if not success:
         raise HTTPException(status_code=404, detail="Image not found")
     return {"message": f"Image {image_id} updated successfully"}
-
 
 class RunnerPoolUpdate(BaseModel):
     """Schema for updating runner pool size."""
@@ -85,6 +84,40 @@ def update_runner_pool(
     if not success:
         raise HTTPException(status_code=404, detail="Image not found")
     return {"message": f"Runner pool for image {image_id} updated successfully"}
+
+class ImageStatusUpdate(BaseModel):
+    """Data model for updating the status of an image."""
+
+    is_active: bool
+
+@router.patch("/{image_id}/toggle", response_model=Image)
+async def toggle_image_status(
+    image_id: int,
+    status_update: ImageStatusUpdate
+):
+    """
+    Update the active status of an image.
+
+    This endpoint toggles an image between 'active' and 'inactive' states.
+    When deactivating an image, it will not be available for new runner creation
+    but existing runners will continue to function.
+    """
+    try:
+        # Call business logic to update the status
+        updated_image = await image_management.update_image_status(
+            image_id,
+            status_update.is_active
+        )
+
+        if not updated_image:
+            raise HTTPException(status_code=404, detail="Image not found")
+
+        return updated_image
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update image status: {e!s}"
+        ) from e
 
 @router.delete("/{image_id}", response_model=dict[str, str])
 async def delete_image(

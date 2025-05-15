@@ -1,14 +1,14 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
-import { BaseTable } from "./BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
-import { CloudConnector } from "@/types";
 import Link from "next/link";
+import { CloudConnector } from "@/types/cloudConnectors";
+import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
+import { BaseTable } from "../tables/BaseTable";
 
 export default function CloudConnectorsTable() {
-  const { data: connectorsData = [], isLoading, error } = useCloudConnectorQuery();
+  const { data: connectorsData = [], isLoading, isError } = useCloudConnectors();
   const router = useRouter();
 
   // Define columns for the table
@@ -66,11 +66,15 @@ export default function CloudConnectorsTable() {
     "View Details": () => router.push(`/cloud-connectors/view/${item.id}`),
   });
 
-  // Handle delete functionality
-  const handleDelete = (item?: CloudConnector) => {
-    console.log(`Delete connector with ID: ${item?.id}`);
-    // Add your delete logic here
-  };
+  // // Handle delete functionality
+  //   const handleDelete = async (id: number) => {
+  //     try {
+  //       await cloudConnectorsApi.delete(id);
+  //       queryClient.invalidateQueries({ queryKey: ["cloud-connectors"] });
+  //     } catch (error) {
+  //       console.error("Error deleting image:", error);
+  //     }
+  //   };
 
   if (isLoading) {
     return (
@@ -80,11 +84,11 @@ export default function CloudConnectorsTable() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="text-red-500">
-          Error loading cloud connectors: {error.message}
+          Error loading cloud connectors.
         </div>
       </div>
     );
@@ -97,10 +101,10 @@ export default function CloudConnectorsTable() {
       title="Cloud Connectors"
       searchPlaceholder="Search connectors..."
       actions={actions}
-      onDelete={handleDelete}
+      // onDelete={(item) => item && handleDelete(item.id)}
       onAddClick={() => router.push("/cloud-connectors/add")}
       addButtonText="Add Connector"
-      queryKeys={["cloud-connectors"]}
+      queryKey={["cloud-connectors"]}
       itemsPerPage={5}
     />
   );

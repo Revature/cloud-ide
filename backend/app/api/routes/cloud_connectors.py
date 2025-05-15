@@ -8,6 +8,14 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+class CloudConnectorCreate(BaseModel):
+    """Data model for creating a new cloud connector."""
+
+    provider: str
+    region: str
+    access_key: str
+    secret_key: str
+
 @router.get("/", response_model=list[CloudConnector])
 async def read_cloud_connectors(request: Request):
     """Retrieve a list of all cloud_connectors."""
@@ -49,7 +57,7 @@ class CloudConnectorStatusUpdate(BaseModel):
 
     is_active: bool
 
-@router.put("/{cloud_connector_id}/toggle", response_model=CloudConnector)
+@router.patch("/{cloud_connector_id}/toggle", response_model=CloudConnector)
 async def toggle_cloud_connector_status(
     cloud_connector_id: int,
     status_update: CloudConnectorStatusUpdate
@@ -73,13 +81,15 @@ async def toggle_cloud_connector_status(
             detail=f"Failed to update cloud connector status: {e!s}"
         ) from e
 
-class CloudConnectorCreate(BaseModel):
-    """Data model for creating a new cloud connector."""
-
-    provider: str
-    region: str
-    access_key: str
-    secret_key: str
+# Removed temporarily so this isn't accidentally used - keep the comment until we revisit this
+# @router.delete("/{cloud_connector_id}", response_model=dict)
+# async def delete_cloud_connector(cloud_connector_id: int):
+#     """Delete a cloud connector."""
+#     # Call business logic to delete the cloud connector
+#     success = await cloud_connector_management.delete_cloud_connector(cloud_connector_id)
+#     if not success:
+#         raise HTTPException(status_code=404, detail="Cloud Connector not found")
+#     return {"message": f"Cloud Connector {cloud_connector_id} deleted successfully"}
 
 @router.post("/", response_model=dict)
 async def create_cloud_connector(cloud_connector: CloudConnectorCreate):

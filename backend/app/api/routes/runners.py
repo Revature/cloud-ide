@@ -266,6 +266,16 @@ async def update_runner_state(
 
     return f"State for runner {runner.id} updated to {runner.state}"
 
+@router.put("/{runner_id}", response_model=dict)
+def update_runner(
+    runner_id: int,
+    updated_runner: Runner,
+):
+    """Update an existing Runner record."""
+    success = runner_management.update_runner(runner_id, updated_runner)
+    if not success:
+        raise HTTPException(status_code=404, detail="Runner not found")
+    return {"message": f"Runner {runner_id} updated successfully"}
 
 @router.patch("/{runner_id}/stop", response_model=dict)
 async def stop_runner_endpoint(
@@ -360,7 +370,9 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
+    print(f"Terminating runner {runner_id} with image {image_identifier}")
     result = await runner_management.terminate_runner(runner_id, initiated_by="manual_termination_endpoint")
+    print(f"Result of termination: {result}")
 
     # Check for various error conditions with specific messages
     if result["status"] == "error":

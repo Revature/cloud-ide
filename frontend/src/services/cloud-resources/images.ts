@@ -1,13 +1,13 @@
 // src/services/cloud-resources/images.ts
 import { apiRequest } from '../base';
-import { VMImage } from '@/types/images';
+import { Image, ImageRequest } from '@/types/images';
 
 export const imagesApi = {
   getAll: () => 
-    apiRequest<VMImage[]>('/cloud-resources/images/'),
+    apiRequest<Image[]>('/cloud-resources/images/'),
     
   getById: (id: number) => 
-    apiRequest<VMImage>(`/cloud-resources/images/${id}`),
+    apiRequest<Image>(`/cloud-resources/images/${id}`),
     
   // update: (id: number, data: UpdateVMImage) => 
   //   apiRequest<VMImage>(`/cloud-resources/images/${id}`, {
@@ -20,11 +20,11 @@ export const imagesApi = {
       method: 'DELETE'
     }),
     
-  // toggleActive: (id: number, active: boolean) => 
-  //   apiRequest<VMImage>(`/cloud-resources/images/${id}/toggle-active`, {
-  //     method: 'POST',
-  //     body: JSON.stringify({ active })
-  //   }),
+  toggle: (id: number, is_active: boolean) => 
+    apiRequest<Image>(`/cloud-resources/images/${id}/toggle`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active })
+    }),
 
   patchRunnerPoolSize: (id: number, poolSize: number) =>
     apiRequest<void>(`/cloud-resources/images/${id}`, {
@@ -33,14 +33,8 @@ export const imagesApi = {
       body: { runner_pool_size: poolSize },
     }),
 
-  create: (data: {
-    name: string;
-    description: string;
-    machine_id: number;
-    cloud_connector_id?: number;
-    runner_id: number;
-  }) =>
-    apiRequest<void>(`/cloud-resources/images/`, {
+  create: (data: ImageRequest) =>
+    apiRequest<Image>(`/cloud-resources/images/`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

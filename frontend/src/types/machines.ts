@@ -1,5 +1,3 @@
-// src/types/machines.ts
-import { BackendMachine } from '@/types/api';
 
 export interface Machine {
   id: number;
@@ -15,34 +13,49 @@ export interface Machine {
   createdBy?: string;
 }
 
-export const convertBackendMachine = (backendMachine: BackendMachine): Machine => {
-  if (!backendMachine || typeof backendMachine !== 'object') {
+
+export interface MachineResponse {
+  id: number;
+  name: string;
+  identifier: string;
+  cpu_count: number;
+  memory_size: number; // Memory in MB, not GB based on your example
+  storage_size: number; // GB
+  cloud_connector_id: number; // This was missing in your original interface
+  created_on: string;
+  updated_on: string;
+  modified_by: string;
+  created_by: string;
+}
+
+export const convertMachineResponse = (machineResponse: MachineResponse): Machine => {
+  if (!machineResponse || typeof machineResponse !== 'object') {
     throw new Error('Invalid machine data provided to converter');
   }
   
   return {
-    id: backendMachine.id,
-    name: backendMachine.name || 'Unknown Machine',
-    identifier: backendMachine.identifier || 'unknown',
-    cpuCount: backendMachine.cpu_count || 0,
+    id: machineResponse.id,
+    name: machineResponse.name || 'Unknown Machine',
+    identifier: machineResponse.identifier || 'unknown',
+    cpuCount: machineResponse.cpu_count || 0,
     // Convert memory size from MB to GB if needed
-    memorySize: backendMachine.memory_size >= 1024 ? 
-      backendMachine.memory_size / 1024 : 
-      backendMachine.memory_size || 0,
-    storageSize: backendMachine.storage_size || 0,
-    cloudConnectorId: backendMachine.cloud_connector_id,
-    createdOn: backendMachine.created_on ? new Date(backendMachine.created_on).toLocaleDateString('en-US', {
+    memorySize: machineResponse.memory_size >= 1024 ? 
+      machineResponse.memory_size / 1024 : 
+      machineResponse.memory_size || 0,
+    storageSize: machineResponse.storage_size || 0,
+    cloudConnectorId: machineResponse.cloud_connector_id,
+    createdOn: machineResponse.created_on ? new Date(machineResponse.created_on).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short', 
       day: 'numeric'
     }) : 'Unknown',
-    updatedOn: backendMachine.updated_on ? new Date(backendMachine.updated_on).toLocaleDateString('en-US', {
+    updatedOn: machineResponse.updated_on ? new Date(machineResponse.updated_on).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short', 
       day: 'numeric'
     }) : 'Unknown',
-    createdBy: backendMachine.created_by || 'Unknown',
-    modifiedBy: backendMachine.modified_by || 'Unknown'
+    createdBy: machineResponse.created_by || 'Unknown',
+    modifiedBy: machineResponse.modified_by || 'Unknown'
   };
 };
 
