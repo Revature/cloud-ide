@@ -63,6 +63,12 @@
         "y": 0
       },
       "id": 25,
+      "links": [
+        {
+          "title": "Runner Dashboard",
+          "url": "http://34.223.156.189:3000/d/dekejcrtamu4gd/runners"
+        }
+      ],
       "options": {
         "minVizHeight": 75,
         "minVizWidth": 75,
@@ -167,6 +173,12 @@
         "y": 0
       },
       "id": 23,
+      "links": [
+        {
+          "title": "Runner Dashboard",
+          "url": "http://34.223.156.189:3000/d/dekejcrtamu4gd/runners"
+        }
+      ],
       "options": {
         "legend": {
           "calcs": [],
@@ -269,6 +281,12 @@
         "y": 0
       },
       "id": 24,
+      "links": [
+        {
+          "title": "Runner Dashboard",
+          "url": "http://34.223.156.189:3000/d/dekejcrtamu4gd/runners"
+        }
+      ],
       "options": {
         "legend": {
           "calcs": [],
@@ -2272,5 +2290,5 @@
   "timezone": "browser",
   "title": "Environment Tops",
   "uid": "env-tops",
-  "version": 23
+  "version": 24
 }

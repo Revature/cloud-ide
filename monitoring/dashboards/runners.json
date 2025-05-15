@@ -80,7 +80,8 @@
                 "value": 75
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -165,6 +166,7 @@
               "mode": "area"
             }
           },
+          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -181,7 +183,8 @@
                 "value": 75
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -213,7 +216,7 @@
             "uid": "dehww4iizin0gd"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - ( node_memory_MemAvailable_bytes unless (timestamp(node_memory_MemAvailable_bytes) < time() - 60s) ) / node_memory_MemTotal_bytes)",
+          "expr": "100 * (1 - ( node_memory_MemAvailable_bytes unless (timestamp(node_memory_MemAvailable_bytes) < time() - 30s) ) / node_memory_MemTotal_bytes)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -238,5 +241,5 @@
   "timezone": "browser",
   "title": "Runners",
   "uid": "dekejcrtamu4gd",
-  "version": 5
+  "version": 6
 }
