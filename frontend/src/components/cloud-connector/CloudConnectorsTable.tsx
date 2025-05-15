@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CloudConnector } from "@/types/cloudConnectors";
 import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
 import { BaseTable } from "../tables/BaseTable";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
 
 export default function CloudConnectorsTable() {
   const { data: connectorsData = [], isLoading, isError } = useCloudConnectors();
@@ -42,6 +43,10 @@ export default function CloudConnectorsTable() {
         </div>
       ),
       searchAccessor: (item: CloudConnector) => item.name || "",
+    },
+    {
+      header: "Latency",
+      accessor: (item: CloudConnector) => <LatencyIndicator region={item.region} />,
     },
     {
       header: "Added",

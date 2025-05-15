@@ -6,6 +6,7 @@ import WithControl from "../ui/carousel/WithControl";
 import { Image } from "@/types/images";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 import Label from "../form/Label";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
 
 interface BaseImageSelectionProps {
   images: Image[];
@@ -35,7 +36,6 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
     return enrichedImages.map((image) => {
       return {
         ...image,
-        latency: Math.floor(Math.random() * 200), // Random latency between 0-200ms
         tags: ["Java", "Spring", "Angular", "React", "Node.js"]
           .sort(() => 0.5 - Math.random())
           .slice(0, 3), // Randomly select 3 tags
@@ -59,53 +59,6 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
   const handleSelectImage = (image: Image) => {
     setSelectedImageId(image.id); // Update the selected image ID
     onSelect(image); // Trigger the onSelect callback
-  };
-
-  // Render latency icon
-  const renderLatencyIcon = (latency: number) => {
-    const bars = latency <= 75 ? 3 : latency <= 150 ? 2 : 1;
-    const colorClass = latency <= 75 ? "text-green-500" : latency <= 150 ? "text-orange-500" : "text-red-500";
-
-    return (
-      <div className="absolute top-2 right-2">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          stroke="currentColor"
-          className={`w-6 h-6 ${colorClass}`}
-        >
-          {/* Left Bar */}
-          <rect
-            x="3"
-            y="12"
-            width="4"
-            height="9"
-            rx="1"
-            className={bars >= 1 ? "" : "opacity-20"}
-          />
-          {/* Middle Bar */}
-          <rect
-            x="10"
-            y={bars >= 2 ? "6" : "20"} // Reduce height for medium/high latency
-            width="4"
-            height={bars >= 2 ? "15" : "1"} // Tiny rectangle for high latency
-            rx="1"
-            className={bars >= 2 ? "" : "opacity-20"}
-          />
-          {/* Right Bar */}
-          <rect
-            x="17"
-            y={bars >= 3 ? "3" : "20"} // Reduce height for medium/high latency
-            width="4"
-            height={bars >= 3 ? "18" : "1"} // Tiny rectangle for medium/high latency
-            rx="1"
-            className={bars >= 3 ? "" : "opacity-20"}
-          />
-        </svg>
-      </div>
-    );
   };
 
   if (filteredImages.length === 0) {
@@ -161,7 +114,9 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
             >
               <Card className="h-full flex flex-col">
                 {/* Latency Icon */}
-                {renderLatencyIcon(image.latency)}
+                <div className="absolute top-2 right-2">
+                    <LatencyIndicator region={image.cloudConnector?.region || ''} />
+                </div>
           
                 {/* Image Details */}
                 <CardTitle className="text-lg font-bold">{image.name}</CardTitle>

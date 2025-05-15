@@ -8,6 +8,7 @@ import { Image } from "@/types/images";
 import Link from "next/link";
 import { useImages, usePatchRunnerPool } from "@/hooks/type-query/useImages";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
 
 export default function RunnerPoolTable() {
   const { data: images = [], isLoading, error } = useImages(); 
@@ -61,6 +62,10 @@ export default function RunnerPoolTable() {
         </div>
       ),
       searchAccessor: (item: Image) => item.name || "",
+    },
+    {
+      header: "Latency",
+      accessor: (item: Image) => <LatencyIndicator region={connectorsById[item.cloudConnectorId]?.region} />,
     },
     {
       header: "Cloud Provider",

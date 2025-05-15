@@ -9,6 +9,7 @@ import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 import { useDeleteImage, useImages } from "@/hooks/type-query/useImages";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
 
 export default function ImagesTable() {
   const router = useRouter();
@@ -88,6 +89,10 @@ export default function ImagesTable() {
           <span className="text-gray-500 text-theme-sm dark:text-gray-500">Not specified</span>
         ),
         searchAccessor: (item: Image) => item.cloudConnector?.name || "",
+    },
+    {
+      header: "Latency",
+      accessor: (item: Image) => <LatencyIndicator region={item.cloudConnector!.region} />,
     },
     {
       header: "Machine",

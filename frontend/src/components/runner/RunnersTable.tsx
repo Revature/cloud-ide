@@ -8,6 +8,7 @@ import { Runner } from "@/types/runner";
 import { useImagesForItems } from "@/hooks/type-query/useImages";
 import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useRunners, useStartRunner, useStopRunner, useTerminateRunner } from "@/hooks/type-query/useRunners";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
 
 const RunnersTable: React.FC = () => {
   const router = useRouter();
@@ -61,6 +62,10 @@ const RunnersTable: React.FC = () => {
         </div>
       ),
       searchAccessor: (item: Runner) => item.image?.name || "",
+    },
+    {
+      header: "Latency",
+      accessor: (item: Runner) => <LatencyIndicator region={item.image?.cloudConnector?.region || ''} />,
     },
     {
       header: "User",
