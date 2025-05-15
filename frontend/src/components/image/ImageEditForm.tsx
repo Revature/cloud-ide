@@ -7,8 +7,8 @@ import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import Label from "@/components/form/Label";
 import ProxyImage from "@/components/ui/images/ProxyImage";
-import { useImageQuery } from "@/hooks/api/images/useImageQuery";
-import { useConnectorForItems } from "@/hooks/api/cloudConnectors/useConnectorForItem";
+import { useImageById } from "@/hooks/type-query/useImages";
+import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 
 
 const EditImageForm: React.FC = () => {
@@ -17,8 +17,8 @@ const EditImageForm: React.FC = () => {
   const imageId = parseInt(params.id as string, 10);
 
   // Obtain images from ImagesTable ReactQuery
-  const { data:image } = useImageQuery(imageId)
-  const { connectorsById } = useConnectorForItems([image!]);
+  const { data:image } = useImageById(imageId);
+  const { resourcesById: connectorsById } = useCloudConnectorsForItems(image ? [image] : [])
 
   // State for form data
   const [formData, setFormData] = useState<{

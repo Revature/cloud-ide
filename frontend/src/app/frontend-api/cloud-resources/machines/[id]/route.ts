@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { Machine, convertBackendMachine } from '@/types/machines';
-import { backendServer } from '../../../../../utils/axios';
+import { Machine, convertMachineResponse } from '@/types/machines';
 import { handleRouteError } from '@/utils/errorHandler';
+import { backendServer } from '@/utils/axios';
 
 export async function GET(
   request: Request,
@@ -27,7 +27,7 @@ export async function GET(
     }
 
     // Transform the backend data using the helper function
-    const machine: Machine = convertBackendMachine(backendData);
+    const machine: Machine = convertMachineResponse(backendData);
 
     // For now, return just the machine data
     const machineWithImages = {

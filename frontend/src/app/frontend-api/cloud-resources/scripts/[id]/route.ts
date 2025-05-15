@@ -1,8 +1,7 @@
-import { BackendScript } from '@/types';
-import { Script } from '@/types/scripts';
+import { convertScriptResponse, Script, ScriptResponse } from '@/types/scripts';
 import { NextRequest, NextResponse } from 'next/server';
-import { backendServer } from '../../../../../utils/axios';
 import { handleRouteError } from '@/utils/errorHandler';
+import { backendServer } from '@/utils/axios';
 
 
 // Backend API endpoint
@@ -17,33 +16,13 @@ export async function GET(
     console.log(request);
 
     // Use backendServer to make the request
-    const response = await backendServer.get<BackendScript>(`${endpoint}/${id}`);
+    const response = await backendServer.get<ScriptResponse>(`${endpoint}/${id}`);
 
     // Extract backend data
-    const data = response.data;
+    const backendData = response.data;
 
-    // Transform the backend data
-    const transformedData: Script = {
-      id: data.id,
-      name: data.name,
-      imageId: data.image_id,
-      description: data.description,
-      script: data.script,
-      event: data.event,
-      createdAt: new Date(data.created_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      updatedAt: new Date(data.updated_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      createdBy: data.created_by,
-      modifiedBy: data.modified_by,
-    };
-
+    const transformedData: Script = convertScriptResponse(backendData);
+    
     return NextResponse.json(transformedData);
   } catch (error) {
     return handleRouteError(error, { id: (await params).id, action: 'fetch script' });
@@ -59,32 +38,13 @@ export async function PUT(
     const body = await request.json();
 
     // Use backendServer to make the request
-    const response = await backendServer.put<BackendScript>(`${endpoint}/${id}`, body);
+    const response = await backendServer.put<ScriptResponse>(`${endpoint}/${id}`, body);
 
     // Extract backend data
-    const updatedData = response.data;
+    const backendData = response.data;
 
     // Transform the backend data
-    const transformedData: Script = {
-      id: updatedData.id,
-      name: updatedData.name,
-      imageId: updatedData.image_id,
-      description: updatedData.description,
-      script: updatedData.script,
-      event: updatedData.event,
-      createdAt: new Date(updatedData.created_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      updatedAt: new Date(updatedData.updated_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      createdBy: updatedData.created_by,
-      modifiedBy: updatedData.modified_by,
-    };
+    const transformedData: Script = convertScriptResponse(backendData);
 
     return NextResponse.json(transformedData);
   } catch (error) {

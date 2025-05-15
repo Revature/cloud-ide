@@ -153,3 +153,57 @@ export function useResourceToggle<TData, TError = unknown>(
     ...options,
   });
 }
+
+/**
+ * Generic hook for performing actions on resources
+ * @param resourceName The name of the resource for query key invalidation
+ * @param actionFn The function to perform the action on the resource
+ * @param options Additional React Query mutation options
+ */
+export function useResourceAction<TData, TVariables extends { id?: string | number }, TError = unknown>(
+  resourceName: string,
+  actionFn: (variables: TVariables) => Promise<TData>,
+  options?: Omit<UseMutationOptions<TData, TError, TVariables>, "mutationFn">
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation<TData, TError, TVariables>({
+    mutationFn: actionFn,
+    onSuccess: (data, variables, context) => {
+      // Invalidate the resource list query
+      queryClient.invalidateQueries({ queryKey: [resourceName] });
+
+      // Optionally invalidate individual resource queries if applicable
+      if (variables.id) {
+        queryClient.invalidateQueries({ queryKey: [resourceName, variables.id] });
+      }
+
+      // Call the original onSuccess if provided
+      if (options?.onSuccess) {
+        options.onSuccess(data, variables, context);
+      }
+    },
+    ...options,
+  });
+}
+
+/**
+ * Generic hook for fetching resources by a related resource's ID
+ * @param resourceName The name of the resource for query key identification
+ * @param relatedId The ID of the related resource
+ * @param fetchFn The function to fetch the resources by the related ID
+ * @param options Additional React Query options
+ */
+export function useResourceQueryByResourceId<TData, TError = unknown>(
+  resourceName: string,
+  relatedId: string | number | undefined,
+  fetchFn: (relatedId: string | number) => Promise<TData>,
+  options?: Omit<UseQueryOptions<TData, TError, TData>, "queryKey" | "queryFn" | "enabled">
+) {
+  return useQuery<TData, TError>({
+    queryKey: [resourceName, "byResourceId", relatedId],
+    queryFn: () => (relatedId ? fetchFn(relatedId) : Promise.reject("No related ID provided")),
+    enabled: !!relatedId,
+    ...options,
+  });
+}

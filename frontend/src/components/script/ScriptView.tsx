@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import Button from "@/components/ui/button/Button";
-import { useScriptsQuery } from "@/hooks/api/scripts/useScriptsQuery";
-import { useImageForItems } from "@/hooks/api/images/useImageForItems";
 import Link from "next/link";
 import CodeEditor from "../ui/codeEditor/codeEditor";
 import ScriptEditForm from "./ScriptEditForm";
 import StatusBadge from "../ui/badge/StatusBadge";
+import { useScriptById } from "@/hooks/type-query/useScripts";
+import { useImagesForItems } from "@/hooks/type-query/useImages";
 
 interface ScriptViewProps {
   scriptId: number;
@@ -16,13 +16,13 @@ interface ScriptViewProps {
 
 const ScriptView: React.FC<ScriptViewProps> = ({scriptId, onBack}) => {
 
-  const { data: script, isLoading, error } = useScriptsQuery(scriptId);
+  const { data: script, isLoading, error } = useScriptById(scriptId); 
   const [isEditing, setIsEditing] = useState(false); // State to toggle between view and edit mode
 
   // Fetch associated image details
-  const { imagesById } = useImageForItems([{ imageId: script?.imageId }]);
+  const { resourcesById: imagesById, isLoading: imagesLoading } = useImagesForItems(script ? [script] : []);
 
-  if (isLoading) {
+  if (isLoading || imagesLoading) {
     return (
       <div className="flex justify-center">
         <div className="animate-pulse">Loading...</div>
@@ -44,6 +44,7 @@ const ScriptView: React.FC<ScriptViewProps> = ({scriptId, onBack}) => {
   if (isEditing) {
     return (
       <ScriptEditForm
+        imageId={script.imageId}
         scriptId={scriptId}
         onCancel={() => setIsEditing(false)} // Return to view mode
       />
