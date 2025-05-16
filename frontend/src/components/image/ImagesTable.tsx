@@ -10,6 +10,7 @@ import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 import { useDeleteImage, useImages } from "@/hooks/type-query/useImages";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
 
 export default function ImagesTable() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export default function ImagesTable() {
   const { data: images = [], isLoading: imagesLoading, error: imagesError } = useImages();
   const { resourcesById: machinesById, isLoading: machineLoading, isError: machineError } = useMachinesForItems(images);
   const { resourcesById: connectorsById, isLoading: connectorLoading, isError: connectorError } = useCloudConnectorsForItems(images);
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
+
 
   const { mutate: deleteImage } = useDeleteImage();
   // Join the data
@@ -92,7 +95,9 @@ export default function ImagesTable() {
     },
     {
       header: "Latency",
-      accessor: (item: Image) => <LatencyIndicator region={item.cloudConnector!.region} />,
+      accessor: (item: Image) => (
+        <LatencyIndicator latency={latencyData?.[connectorsById[item.cloudConnectorId].region]} />
+      ),
     },
     {
       header: "Machine",
@@ -134,7 +139,7 @@ export default function ImagesTable() {
     "View Details": () => router.push(`/images/view/${item.id}`),
   });
 
-  if (isLoading) {
+  if (isLoading || isLatencyLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>

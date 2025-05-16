@@ -9,10 +9,13 @@ import Link from "next/link";
 import { useImages, usePatchRunnerPool } from "@/hooks/type-query/useImages";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
 
 export default function RunnerPoolTable() {
   const { data: images = [], isLoading, error } = useImages(); 
   const { resourcesById: connectorsById, isLoading: connectorLoading } = useCloudConnectorsForItems(images);
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
+
 
   const { mutateAsync: updateRunnerPoolSize } = usePatchRunnerPool();
 
@@ -65,7 +68,7 @@ export default function RunnerPoolTable() {
     },
     {
       header: "Latency",
-      accessor: (item: Image) => <LatencyIndicator region={connectorsById[item.cloudConnectorId]?.region} />,
+      accessor: (item: Image) => <LatencyIndicator latency={latencyData?.[connectorsById[item.cloudConnectorId]?.region]} />,
     },
     {
       header: "Cloud Provider",
@@ -128,7 +131,7 @@ export default function RunnerPoolTable() {
     },
   });
 
-  if (isLoading || connectorLoading) {
+  if (isLoading || connectorLoading || isLatencyLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>

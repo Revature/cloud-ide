@@ -7,6 +7,7 @@ import { Image } from "@/types/images";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 import Label from "../form/Label";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
 
 interface BaseImageSelectionProps {
   images: Image[];
@@ -17,6 +18,8 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null); // Track the selected image ID
   const { resourcesById: connectorsById } = useCloudConnectorsForItems(images);
+  const { data: latencyData } = useLatencyForRegions();
+
 
   const enrichedImages = useMemo(
     () =>
@@ -102,7 +105,10 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
 
       {/* Carousel */}
         <WithControl slidesPerView={3} spaceBetween={15}>
-          {filteredImages.map((image) => (
+          {filteredImages.length === 0 ? 
+          (<p className="text-gray-500 dark:text-gray-400">No images match your search.</p>) 
+          : 
+          (filteredImages.map((image) => (
             <div
               key={image.id}
               onClick={() => handleSelectImage(image)} // Handle card selection
@@ -115,7 +121,7 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
               <Card className="h-full flex flex-col">
                 {/* Latency Icon */}
                 <div className="absolute top-2 right-2">
-                    <LatencyIndicator region={image.cloudConnector?.region || ''} />
+                    <LatencyIndicator latency={latencyData && image.cloudConnector?.region ? latencyData[image.cloudConnector.region] : 1000} />
                 </div>
           
                 {/* Image Details */}
@@ -164,7 +170,7 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
                 </div>
               )}
             </div>
-          ))}
+          )))}
         </WithControl>
     </>
   );
