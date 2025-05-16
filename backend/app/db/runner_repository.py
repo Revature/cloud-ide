@@ -1,6 +1,7 @@
 """Repository layer for the Runner entity."""
 from app.models import Runner
 from sqlmodel import Session, select
+from typing import Optional
 
 def add_runner(session: Session, new_runner: Runner) -> Runner:
     """Add a new runner, flush to retrieve ID."""
@@ -82,12 +83,19 @@ def update_whole_runner(session: Session, runner_id: int, runner_data: Runner) -
     session.add(db_runner)
     return db_runner
 
-def find_runner_with_lifecycle_token(session: Session, token: str) -> Runner:
-    """Select a runner with a matching lifecycle token."""
-    stmt_runner = select(Runner).where(
-        Runner.lifecycle_token == token
-    )
-    return session.exec(stmt_runner).first()
+def find_runner_with_lifecycle_token(session: Session, token: str) -> Optional[Runner]:
+    """
+    Find a runner with the given lifecycle token.
+
+    Args:
+        session: Database session
+        token: The lifecycle token to look for
+
+    Returns:
+        Runner object if found, None otherwise
+    """
+    stmt = select(Runner).where(Runner.lifecycle_token == token)
+    return session.exec(stmt).first()
 
 def find_runner_with_id_and_terminal_token(session: Session, runner_id:int, token: str) -> Runner:
     """Select a runner with a matching terminal token."""

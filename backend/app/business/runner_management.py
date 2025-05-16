@@ -8,8 +8,9 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
+from sqlalchemy.exc import OperationalError, PendingRollbackError, InterfaceError
 from typing import Optional
-from app.db.database import engine, get_session
+from app.db.database import engine, get_session, get_session_context, reset_db_connection
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
 from app.util import constants, runner_status_management
 from app.business.cloud_services import cloud_service_factory
@@ -1070,17 +1071,72 @@ def update_runner(runner_id: int, updated_runner: Runner):
         session.commit()
         return updated_runner
 
-async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
-    """Wait 30 seconds for a runner record to be created, so that we can track its lifecycle token."""
-    with Session(engine) as session:
-        for _ in range(30):
-            await asyncio.sleep(1)
-            runner: Runner = runner_repository.find_runner_with_lifecycle_token(session, lifecycle_token)
-            if runner:
-                runner.lifecycle_token = uuid.uuid4().hex
-                runner_repository.update_runner(session, runner)
-                return runner
-        raise RunnerRetrievalException
+async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:
+    """
+    Wait for a runner record to be created with the given lifecycle token.
+
+    This function has been enhanced with better database error handling.
+
+    Args:
+        lifecycle_token: The token to wait for
+
+    Returns:
+        Runner object
+
+    Raises:
+        RunnerRetrievalException: If the token can't be found within the timeout period
+    """
+    logger.info(f"Waiting for lifecycle token: {lifecycle_token}")
+
+    # Try to find a runner with this lifecycle token for up to 30 seconds
+    retries = 0
+    max_retries = 60  # Try for 60 seconds (1 check per second)
+
+    # First, ensure the connection pool is clean
+    reset_db_connection()
+
+    while retries < max_retries:
+        try:
+            # Use a fresh session for each attempt
+            with get_session_context() as session:
+                # Look for a runner with this token
+                runner = runner_repository.find_runner_with_lifecycle_token(session, lifecycle_token)
+
+                if runner:
+                    logger.info(f"Found runner with lifecycle token: {lifecycle_token}")
+
+                    # Update the token to prevent reuse
+                    try:
+                        import uuid
+                        runner.lifecycle_token = str(uuid.uuid4())
+                        session.add(runner)
+                        session.commit()
+                    except Exception as e:
+                        logger.warning(f"Failed to update lifecycle token: {e}")
+                        # Continue anyway, this isn't critical
+
+                    return runner
+
+        except (OperationalError, InterfaceError, PendingRollbackError) as db_error:
+            # Handle database connection errors
+            error_msg = str(db_error)
+            logger.warning(f"Database error while looking for lifecycle token: {error_msg}")
+
+            # Reset connection pool for specific error types
+            if "MySQL server has gone away" in error_msg or "Connection timed out" in error_msg:
+                reset_db_connection()
+
+        except Exception as e:
+            # Log other errors but continue trying
+            logger.error(f"Error checking for lifecycle token: {e}")
+
+        # Wait before trying again
+        retries += 1
+        await asyncio.sleep(1)
+
+    # If we reach here, we couldn't find the token within the timeout period
+    logger.error(f"No runner found with lifecycle token: {lifecycle_token} after {max_retries} seconds")
+    raise RunnerRetrievalException(f"No runner found with lifecycle token: {lifecycle_token}")
 
 def validate_terminal_token(runner_id, terminal_token : str) -> Runner:
     """Check runner with a matching terminal token and replace."""
