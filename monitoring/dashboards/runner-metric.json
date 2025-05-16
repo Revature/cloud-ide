@@ -55,8 +55,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
-        "w": 9,
+        "h": 5,
+        "w": 5,
         "x": 0,
         "y": 0
       },
@@ -163,7 +163,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "RunnerCPU",
+  "title": "Runner-Metrics",
   "uid": "",
-  "version": 0
+  "version": 1
 }
