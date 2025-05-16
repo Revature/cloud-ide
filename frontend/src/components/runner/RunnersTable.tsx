@@ -19,9 +19,9 @@ const RunnersTable: React.FC = () => {
   const { data: runners = [], isLoading, error } = useRunners();
 
   // Fetch related images and machines using `useResourceForItems`
-  const { resourcesById: imagesById } = useImagesForItems(runners);
-  const { resourcesById: machinesById } = useMachinesForItems(runners);
-  const { resourcesById: connectorsById } = useCloudConnectorsForItems(Object.values(imagesById));
+  const { resourcesById: imagesById, isLoading: imagesLoading} = useImagesForItems(runners);
+  const { resourcesById: machinesById, isLoading: machinesLoading } = useMachinesForItems(runners);
+  const { resourcesById: connectorsById, isLoading: connectorsLoading } = useCloudConnectorsForItems(Object.values(imagesById));
   const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
 
 
@@ -106,7 +106,7 @@ const RunnersTable: React.FC = () => {
     });
   };
 
-  if (isLoading || isLatencyLoading) {
+  if (isLoading || isLatencyLoading || connectorsLoading || imagesLoading || machinesLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>

@@ -11,6 +11,7 @@ import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnector
 import { useDeleteImage, useImages } from "@/hooks/type-query/useImages";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
 import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
+import Tag from "../ui/tag/Tag";
 
 export default function ImagesTable() {
   const router = useRouter();
@@ -100,11 +101,6 @@ export default function ImagesTable() {
       ),
     },
     {
-      header: "Machine",
-      accessor: (item:Image) => item.machine?.name || "N/A",
-      searchAccessor: (item: Image) => item.machine?.name || "",
-    },
-    {
       header: "Resources",
       accessor: (item:Image) => (
         <div className="flex flex-col">
@@ -125,6 +121,34 @@ export default function ImagesTable() {
         </span>
       ),
       searchAccessor: (item: Image) => item.identifier || "",
+    },
+    {
+      header: "Tags",
+      accessor: (item: Image) => {
+        const maxVisibleTags = 2;
+        const visibleTags = item.tags?.slice(0, maxVisibleTags) || [];
+        const remainingTags = item.tags?.slice(maxVisibleTags) || [];
+    
+        return (
+          <div className="flex flex-wrap gap-2">
+            {/* Render visible tags */}
+            {visibleTags.map((tag) => (
+              <Tag key={tag} name={tag} />
+            ))}
+    
+            {/* Render '...' if there are more tags */}
+            {remainingTags.length > 0 && (
+              <div
+                className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded dark:bg-gray-700 dark:text-gray-300 cursor-pointer"
+                title={remainingTags.join(", ")} // Tooltip with remaining tags
+              >
+                ...
+              </div>
+            )}
+          </div>
+        );
+      },
+      searchAccessor: (item: Image) => item.tags?.join(", ") || "",
     },
     {
       header: "Status",

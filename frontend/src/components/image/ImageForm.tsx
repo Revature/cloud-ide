@@ -11,6 +11,7 @@ import { Machine, machineTypes } from "@/types/machines";
 import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
 import { useImages } from "@/hooks/type-query/useImages";
 import BaseImageSelection from "./BaseImageSelection";
+import TagInput from "../ui/tag/TagInput";
 
 export interface ImageFormData {
   baseImageIdentifier?: number;
@@ -20,6 +21,7 @@ export interface ImageFormData {
   cloudConnector?: { id: number };
   scriptVars?: Record<string, unknown>;
   envVars?: Record<string, unknown>;
+  tags?: string[];
 }
 
 interface ImageFormProps {
@@ -41,6 +43,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
     baseImageIdentifier: number | null; // Allow both null and string
     scriptVars: Record<string, unknown>;
     envVars: Record<string, unknown>;
+    tags: string[];
   }>({
     name: "",
     description: "",
@@ -49,8 +52,9 @@ const ImageForm: React.FC<ImageFormProps> = ({
     baseImageIdentifier: null, // No default image selected
     scriptVars: {},
     envVars: {},
+    tags: [],
   });
-  
+
   const { data: connectors = [] } = useCloudConnectors();
   const { data: images = [] } = useImages();
 
@@ -96,6 +100,19 @@ const ImageForm: React.FC<ImageFormProps> = ({
     }
   };
 
+  const handleTagAdd = (tag: string) => {
+    if (!formValues.tags.includes(tag)) {
+      setFormValues((prev) => ({ ...prev, tags: [...prev.tags, tag] }));
+    }
+  };
+
+  const handleTagRemove = (tag: string) => {
+    setFormValues((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((t) => t !== tag),
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -119,6 +136,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
       baseImageIdentifier: formValues.baseImageIdentifier,
       envVars: formValues.envVars,
       scriptVars: formValues.scriptVars,
+      tags: formValues.tags,
     };
 
     onSubmitAndConnect(submitData);
@@ -145,7 +163,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
           </div>
 
           {/* Image Name */}
-          <div className="col-span-full">
+          <div className="col-span-full md:col-span-1">
             <Label htmlFor="name">Image Name</Label>
             <Input
               id="name"
@@ -153,6 +171,16 @@ const ImageForm: React.FC<ImageFormProps> = ({
               placeholder="e.g., Ubuntu Java 17"
               defaultValue={formValues.name}
               onChange={(e) => handleChange("name", e.target.value)}
+            />
+          </div>
+
+          {/* Tags Input */}
+          <div className="col-span-full md:col-span-1">
+            <Label htmlFor="tags">Tags</Label>
+            <TagInput
+              selectedTags={formValues.tags}
+              onAddTag={handleTagAdd}
+              onRemoveTag={handleTagRemove}
             />
           </div>
 
@@ -180,7 +208,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
             )}
           </div>
 
-                    {/* Script and Environment Variables */}
+          {/* Script and Environment Variables */}
           <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Script Variables */}
             <div>
@@ -209,144 +237,144 @@ const ImageForm: React.FC<ImageFormProps> = ({
             </div>
           </div>
 
-           {/* Cloud Provider and Machine Configuration */}
-      <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Cloud Provider Information */}
-        {formValues.selectedConnector && (() => {
-          const connector = connectors.find(
-            (connector) => connector.id === formValues.selectedConnector
-          );
-          if (!connector) return null;
+          {/* Cloud Provider and Machine Configuration */}
+          <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Cloud Provider Information */}
+            {formValues.selectedConnector && (() => {
+              const connector = connectors.find(
+                (connector) => connector.id === formValues.selectedConnector
+              );
+              if (!connector) return null;
 
-          return (
-            <div className="p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-              <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-                Cloud Provider Information
-              </h2>
-              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Details of the selected cloud provider
-              </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Provider
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-6 h-6 relative flex-shrink-0">
-                      {connector.image ? (
-                        <ProxyImage
-                          src={connector.image}
-                          alt={connector.name || "Cloud provider"}
-                          width={32}
-                          height={32}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                      )}
+              return (
+                <div className="p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                  <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
+                    Cloud Provider Information
+                  </h2>
+                  <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Details of the selected cloud provider
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Provider
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="w-6 h-6 relative flex-shrink-0">
+                          {connector.image ? (
+                            <ProxyImage
+                              src={connector.image}
+                              alt={connector.name || "Cloud provider"}
+                              width={32}
+                              height={32}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                          )}
+                        </div>
+                        <p className="text-base font-medium dark:text-gray-200">
+                          {connector.name}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-base font-medium dark:text-gray-200">
-                      {connector.name}
-                    </p>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Region
+                      </p>
+                      <p className="text-base font-medium dark:text-gray-200">
+                        {connector.region}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Type
+                      </p>
+                      <p className="text-base font-medium dark:text-gray-200">
+                        {connector.type}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Status
+                      </p>
+                      <p className="text-base font-medium dark:text-gray-200">
+                        {connector.status ? "Active" : "Inactive"}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              );
+            })()}
+
+            {/* Machine Configuration */}
+            <div className="p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
+                Machine Configuration
+              </h2>
+              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Resource specifications for VM instances
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Region
+                    CPU
                   </p>
                   <p className="text-base font-medium dark:text-gray-200">
-                    {connector.region}
+                    {currentMachine.cpuCount}{" "}
+                    {currentMachine.cpuCount === 1 ? "Core" : "Cores"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Type
+                    Memory
                   </p>
                   <p className="text-base font-medium dark:text-gray-200">
-                    {connector.type}
+                    {currentMachine.memorySize} GB
                   </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Status
+                    Storage
                   </p>
                   <p className="text-base font-medium dark:text-gray-200">
-                    {connector.status ? "Active" : "Inactive"}
+                    {currentMachine.storageSize} GB
                   </p>
                 </div>
               </div>
+              <div className="mt-3">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Instance Type
+                </p>
+                <p className="text-base font-medium dark:text-gray-200">
+                  {currentMachine.identifier}
+                </p>
+              </div>
             </div>
-          );
-        })()}
-
-        {/* Machine Configuration */}
-        <div className="p-4 border border-gray-200 rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
-            Machine Configuration
-          </h2>
-          <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Resource specifications for VM instances
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                CPU
-              </p>
-              <p className="text-base font-medium dark:text-gray-200">
-                {currentMachine.cpuCount}{" "}
-                {currentMachine.cpuCount === 1 ? "Core" : "Cores"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Memory
-              </p>
-              <p className="text-base font-medium dark:text-gray-200">
-                {currentMachine.memorySize} GB
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Storage
-              </p>
-              <p className="text-base font-medium dark:text-gray-200">
-                {currentMachine.storageSize} GB
-              </p>
-            </div>
-          </div>
-          <div className="mt-3">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Instance Type
-            </p>
-            <p className="text-base font-medium dark:text-gray-200">
-              {currentMachine.identifier}
-            </p>
           </div>
         </div>
-      </div>
-    </div>
 
-    {/* Form Actions */}
-    <div className="flex justify-end gap-3 mt-8">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onCancel}
-        disabled={isLoading}
-      >
-        Cancel
-      </Button>
-      <Button
-        size="sm"
-        variant="primary"
-        type="submit"
-        disabled={isLoading || !formValues.baseImageIdentifier}
-      >
-        {isLoading ? "Preparing..." : "Connect & Prepare"}
-      </Button>
+        {/* Form Actions */}
+        <div className="flex justify-end gap-3 mt-8">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            type="submit"
+            disabled={isLoading || !formValues.baseImageIdentifier}
+          >
+            {isLoading ? "Preparing..." : "Connect & Prepare"}
+          </Button>
+        </div>
+      </Form>
     </div>
-  </Form>
-</div>
   );
 };
 

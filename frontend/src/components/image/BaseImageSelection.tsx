@@ -8,6 +8,7 @@ import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnector
 import Label from "../form/Label";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
 import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
+import Tag from "../ui/tag/Tag";
 
 interface BaseImageSelectionProps {
   images: Image[];
@@ -34,39 +35,23 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
     [connectorsById]
   );
 
-  const [processedImages] = useState(() => {
-    // Process images only once when the component is mounted
-    return enrichedImages.map((image) => {
-      return {
-        ...image,
-        tags: ["Java", "Spring", "Angular", "React", "Node.js"]
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 3), // Randomly select 3 tags
-      };
-    });
-  });
-
   // Filter images based on search term
   const filteredImages = useMemo(() => {
-    return processedImages.filter((image) => {
+    return enrichedImages.filter((image) => {
       const searchLower = searchTerm.toLowerCase();
       return (
         image.name.toLowerCase().includes(searchLower) ||
         image.description.toLowerCase().includes(searchLower) ||
-        image.tags.some((tag) => tag.toLowerCase().includes(searchLower))
+        image.tags?.some((tag) => tag.toLowerCase().includes(searchLower))
       );
     });
-  }, [processedImages, searchTerm]);
+  }, [enrichedImages, searchTerm]);
 
   // Handle image selection
   const handleSelectImage = (image: Image) => {
     setSelectedImageId(image.id); // Update the selected image ID
     onSelect(image); // Trigger the onSelect callback
   };
-
-  if (filteredImages.length === 0) {
-    return <p className="text-gray-500 dark:text-gray-400">No images match your search.</p>;
-  }
 
   return (
     <>
@@ -139,13 +124,8 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
           
                 {/* Tags */}
                 <div className="mt-auto flex flex-wrap gap-2">
-                  {image.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded dark:bg-gray-700 dark:text-gray-300"
-                    >
-                      {tag}
-                    </span>
+                  {image.tags?.map((tag) => (
+                    <Tag key={tag} name={tag} />
                   ))}
                 </div>
               </Card>

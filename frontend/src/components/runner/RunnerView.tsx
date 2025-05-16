@@ -266,6 +266,9 @@ const RunnerView: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow">
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
+                    {/* <iframe src={`http://34.223.156.189:3000/d-solo/celzsxhpytdkwe/runner-metrics?orgId=1&from=1747389791744&to=1747411391744&timezone=browser&var-RunnerIP=18.236.84.58&refresh=5m&panelId=1&__feature.dashboardSceneSolo`} width="450" height="200">
+                    </iframe> */}
+                    <div className="text-center">
                     <svg 
                       className="w-12 h-12 mx-auto text-gray-400" 
                       fill="none" 
@@ -285,6 +288,7 @@ const RunnerView: React.FC = () => {
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                       Runner usage statistics will be available in a future update.
                     </p>
+                  </div>
                   </div>
                 </div>
               </div>

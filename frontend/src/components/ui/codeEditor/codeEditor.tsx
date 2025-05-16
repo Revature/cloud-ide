@@ -68,7 +68,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
       {!readOnly && (
         <div className="mt-2">
           <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Upload a Script File
+            Upload a File
           </label>
           <input
             id="fileUpload"
