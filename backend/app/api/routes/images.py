@@ -6,6 +6,8 @@ from app.business import image_management
 from app.models.image import Image
 from app.business import image_management
 from app.util import constants
+from typing import Optional
+from sqlmodel import Field
 
 router = APIRouter()
 
@@ -17,6 +19,7 @@ class ImageCreate(BaseModel):
     machine_id: int
     cloud_connector_id: int
     runner_id: int
+    tags: Optional[list[str]] = Field(default=None, description="List of tags for the image")
 
 @router.post("/", response_model=Image, status_code=201)
 async def create_image(image: ImageCreate):
@@ -25,9 +28,19 @@ async def create_image(image: ImageCreate):
 
     Returns an Image with status 'creating'. The status will be updated to 'active'
     once the cloud provider confirms the image is available.
+
+    Tags can be provided to categorize the image (e.g., ['Angular', 'Java', 'Base Image']).
     """
     try:
-        created_image = await image_management.create_image(image.dict(), image.runner_id)
+        # Convert the Pydantic model to a dict and ensure tags is included
+        image_data = image.dict()
+
+        # Initialize to empty list if None provided
+        if image_data.get('tags') is None:
+            image_data['tags'] = []
+
+        # Create the image with tags
+        created_image = await image_management.create_image(image_data, image.runner_id)
         return created_image
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e!s}") from e
