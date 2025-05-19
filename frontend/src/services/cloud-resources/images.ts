@@ -1,6 +1,6 @@
 // src/services/cloud-resources/images.ts
 import { apiRequest } from '../base';
-import { Image, ImageRequest } from '@/types/images';
+import { Image, ImageRequest, ImageUpdateRequest } from '@/types/images';
 
 export const imagesApi = {
   getAll: () => 
@@ -9,11 +9,11 @@ export const imagesApi = {
   getById: (id: number) => 
     apiRequest<Image>(`/cloud-resources/images/${id}`),
     
-  // update: (id: number, data: UpdateVMImage) => 
-  //   apiRequest<VMImage>(`/cloud-resources/images/${id}`, {
-  //     method: 'PUT',
-  //     body: JSON.stringify(data)
-  //   }),
+  update: (id: number, data: ImageUpdateRequest) => 
+    apiRequest<Image>(`/cloud-resources/images/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
 
   delete: (id: number) => 
     apiRequest<void>(`/cloud-resources/images/${id}`, {

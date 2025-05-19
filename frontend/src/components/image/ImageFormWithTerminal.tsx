@@ -167,6 +167,7 @@ const ImageFormWithTerminal: React.FC = () => {
         machine_id: imageFormData.machine.id,
         cloud_connector_id: imageFormData.cloudConnector!.id,
         runner_id: runnerId,
+        tags: imageFormData.tags || [],
       };
 
       console.log("Payload being sent to the API:", payload);

@@ -8,6 +8,9 @@ import { Runner } from "@/types/runner";
 import { useImagesForItems } from "@/hooks/type-query/useImages";
 import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useRunners, useStartRunner, useStopRunner, useTerminateRunner } from "@/hooks/type-query/useRunners";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
+import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 
 const RunnersTable: React.FC = () => {
   const router = useRouter();
@@ -16,8 +19,11 @@ const RunnersTable: React.FC = () => {
   const { data: runners = [], isLoading, error } = useRunners();
 
   // Fetch related images and machines using `useResourceForItems`
-  const { resourcesById: imagesById } = useImagesForItems(runners);
-  const { resourcesById: machinesById } = useMachinesForItems(runners);
+  const { resourcesById: imagesById, isLoading: imagesLoading} = useImagesForItems(runners);
+  const { resourcesById: machinesById, isLoading: machinesLoading } = useMachinesForItems(runners);
+  const { resourcesById: connectorsById, isLoading: connectorsLoading } = useCloudConnectorsForItems(Object.values(imagesById));
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
+
 
   // Delete runner mutation
   const { mutate: deleteRunner } = useTerminateRunner(); 
@@ -63,6 +69,12 @@ const RunnersTable: React.FC = () => {
       searchAccessor: (item: Runner) => item.image?.name || "",
     },
     {
+      header: "Latency",
+      accessor: (item: Runner) => (
+        <LatencyIndicator latency={latencyData?.[connectorsById[item.image!.cloudConnectorId]?.region]} />
+      ),
+    },
+    {
       header: "User",
       accessor: (item: Runner) => item.userId || "In pool (no user assigned)",
       searchAccessor: (item: Runner) => (item.userId ? item.userId.toString() : ""),
@@ -94,7 +106,7 @@ const RunnersTable: React.FC = () => {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || isLatencyLoading || connectorsLoading || imagesLoading || machinesLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>

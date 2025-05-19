@@ -1,7 +1,7 @@
 import { useResourceQuery, useResourceByIdQuery, useResourceUpdate, useResourceDelete, useResourceToggle, useResourceCreate } from "@/hooks/useResource";
 import { ItemWithResourceID, useResourceForItems } from "@/hooks/useResourceForItems";
 import { imagesApi } from "@/services/cloud-resources/images";
-import { Image, ImageRequest } from "@/types/images";
+import { Image, ImageRequest, ImageUpdateRequest } from "@/types/images";
 
 export function useImages() {
   // Fetch all images
@@ -26,6 +26,13 @@ export function useCreateImage() {
   );
 }
 
+export function useUpdateImage() {
+  // Update an image
+  return useResourceUpdate<Image, { id: number; data: ImageUpdateRequest }>(
+    "images",
+    ({ id, data }: { id: number; data: ImageUpdateRequest }) => imagesApi.update(id, data)
+  );
+}
 
 export function usePatchRunnerPool() {
     // Patch the runner pool size for an image

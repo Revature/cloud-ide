@@ -36,7 +36,8 @@ def get_images_by_cloud_connector_id(cloud_connector_id: int) -> list[Image]:
     with Session(engine) as session:
         return image_repository.find_images_by_cloud_connector_id(session, cloud_connector_id)
 
-def update_image(image_id: int, updated_image: Image) -> bool:
+# In image_management.py
+def update_image(image_id: int, updated_image) -> bool:
     """Update an existing image with new values."""
     with Session(engine) as session:
         # Get the existing image first to check if pool size will change
@@ -45,14 +46,24 @@ def update_image(image_id: int, updated_image: Image) -> bool:
             logger.error(f"Image with id {image_id} not found for updating")
             return False
 
+        # Handle updated_image whether it's a dict or an Image object
+        if isinstance(updated_image, dict):
+            image_data = updated_image
+        else:
+            image_data = updated_image.dict(exclude_unset=True)
+
+        # Ensure tags are properly handled - convert None to empty list
+        if 'tags' in image_data and image_data['tags'] is None:
+            image_data['tags'] = []
+
         # Check if runner_pool_size is changing
         pool_size_changed = (
-            hasattr(updated_image, "runner_pool_size") and
-            existing_image.runner_pool_size != updated_image.runner_pool_size
+            'runner_pool_size' in image_data and
+            existing_image.runner_pool_size != image_data['runner_pool_size']
         )
 
         # Get the updated image from repository
-        db_image = image_repository.update_image(session, image_id, updated_image)
+        db_image = image_repository.update_image(session, image_id, image_data)
         session.commit()
 
         # If pool size changed, trigger the runner pool management task
@@ -188,6 +199,10 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
     3. Creates a new Image record with status 'creating'
     4. Schedules a background task to monitor the image creation and update status
 
+    Args:
+        image_data: Dictionary containing image information including optional tags
+        runner_id: ID of the runner to create the image from
+
     Returns:
         Image: The newly created image record with initial status of 'creating'
     """
@@ -224,8 +239,8 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
 
         image_name = image_data["name"]
 
-        # Create tags for the image
-        image_tags = [
+        # Create standard AWS tags for the image (no user tags included)
+        image_aws_tags = [
             {'Key': 'Name', 'Value': image_name},
             {'Key': 'Description', 'Value': image_data.get('description', '')},
             {'Key': 'SourceRunnerId', 'Value': str(runner_id)}
@@ -233,11 +248,11 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
 
         # Create the AMI from the runner instance
         try:
-            print(f"Creating AMI from runner {runner_id} with tags: {image_tags}")
+            print(f"Creating AMI from runner {runner_id} with tags: {image_aws_tags}")
             image_identifier = await cloud_service.create_runner_image(
                 instance_id=runner.identifier,
                 image_name=image_name,
-                image_tags=image_tags
+                image_tags=image_aws_tags
             )
             print(f"Image Identifier: {image_identifier}")
 
@@ -254,14 +269,15 @@ async def create_image(image_data: dict, runner_id: int) -> Image:
                 machine_id=image_data.get("machine_id"),
                 cloud_connector_id=cloud_connector_id,
                 runner_pool_size=0,
-                status="creating"  # Set initial status to 'creating'
+                status="creating",  # Set initial status to 'creating'
+                tags=image_data.get("tags", [])
             )
 
             # Save the new image to the database
             db_image = image_repository.create_image(session, new_image)
             session.commit()
 
-            logger.info(f"Image created with ID: {db_image.id}, status: creating")
+            logger.info(f"Image created with ID: {db_image.id}, status: creating, tags: {db_image.tags}")
 
             # Schedule a background task to monitor the image creation and update status
             # Use Celery for this to allow the API to return immediately

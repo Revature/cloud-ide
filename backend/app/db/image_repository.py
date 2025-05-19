@@ -47,15 +47,24 @@ def find_images_by_cloud_connector_id(session: Session, cloud_connector_id: int)
     statement = select(Image).where(Image.cloud_connector_id == cloud_connector_id)
     return session.exec(statement).all()
 
-def update_image(session: Session, image_id: int, image_data: Image) -> Image:
+# In image_repository.py
+def update_image(session: Session, image_id: int, image_data) -> Image:
     """Update an image by its id."""
     db_image = find_image_by_id(session, image_id)
     if not db_image:
         return None
 
-    for key, value in image_data.dict(exclude_unset=True).items():
+    # Handle both dict and Image objects
+    if not isinstance(image_data, dict):
+        image_data = image_data.dict(exclude_unset=True)
+
+    for key, value in image_data.items():
         if hasattr(db_image, key) and key != "id":
-            setattr(db_image, key, value)
+            # Special handling for tags if needed
+            if key == "tags" and value is None:
+                setattr(db_image, key, [])
+            else:
+                setattr(db_image, key, value)
 
     session.add(db_image)
     return db_image

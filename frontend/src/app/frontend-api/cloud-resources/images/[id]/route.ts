@@ -51,6 +51,27 @@ export async function PATCH(
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const awaitedParams = await params;
+    const id = awaitedParams.id;
+
+    const body = await request.json();
+
+    // Use backendServer to make the PATCH request
+    const response = await backendServer.put(`${endpoint}/${id}`, body);
+
+    const responseData = response.data;
+
+    return NextResponse.json(responseData);
+  } catch (error) {
+    return handleRouteError(error, { id: (await params).id, action: 'update image' });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
