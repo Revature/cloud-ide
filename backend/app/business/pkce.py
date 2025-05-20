@@ -37,7 +37,6 @@ def verify_token_exp(access_token: str):
     # We will want to add other logic here verifying orginization, user, issuer, role, etc
     return True
 
-
 def find_key_set(kid: str):
     """Find a key set in the cache or get from workos."""
     try:
@@ -46,8 +45,6 @@ def find_key_set(kid: str):
         update_keys()
 
     return get_key_set(kid = kid)
-
-
 
 def update_keys():
     """Update the cache with new keys."""

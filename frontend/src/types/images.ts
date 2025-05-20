@@ -18,6 +18,7 @@ export interface Image extends ItemWithResourceID<number> {
   updatedOn?: string;
   modifiedBy?: string;
   createdBy?: string;
+  tags?: string[];
 }
 
 export interface ImageRequest {
@@ -26,6 +27,13 @@ export interface ImageRequest {
   machine_id: number;
   cloud_connector_id: number;
   runner_id: number;
+  tags: string[];
+};
+
+export interface ImageUpdateRequest {
+  name: string;
+  description: string;
+  tags: string[];
 };
 
 
@@ -42,6 +50,7 @@ export interface ImageResponse {
   updated_on: string;
   modified_by: string;
   created_by: string;
+  tags: string[];
 }
 
 
@@ -71,5 +80,6 @@ export function convertImageResponse(imageResponse: ImageResponse): Image {
         cloudConnectorId: imageResponse.cloud_connector_id,
         machineId: imageResponse.machine_id,
         runnerPoolSize: imageResponse.runner_pool_size,
+        tags: imageResponse.tags || [],
       };
 }

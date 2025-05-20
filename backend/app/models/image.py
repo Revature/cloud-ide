@@ -3,8 +3,9 @@
 from __future__ import annotations
 from typing import Optional, Literal
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.orm import Mapped
+from sqlalchemy import JSON
 from app.models.mixins import TimestampMixin
 from app.db import database
 
@@ -35,3 +36,8 @@ class Image(TimestampMixin, SQLModel, table=True):
     machine_id: int | None = Field(default=None, foreign_key="machine.id")
     cloud_connector_id: int = Field(foreign_key="cloud_connector.id")
     status: str = Field(default="creating", description="Current status of the image")
+    tags: list[str] = Field(
+        default=[],
+        sa_column=Column(JSON, nullable=True),
+        description="List of tags associated with the image"
+    )

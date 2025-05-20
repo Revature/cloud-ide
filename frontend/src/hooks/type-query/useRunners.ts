@@ -5,7 +5,7 @@ import { Runner } from "@/types/runner";
 
 export function useRunners() {
   // Fetch all runners
-  return useResourceQuery<Runner[]>("runners", runnersApi.getAll);
+  return useResourceQuery<Runner[]>("runners", runnersApi.getAll, {refetchInterval: 20000});
 }
 
 export function useRunnerById(id: number | undefined) {

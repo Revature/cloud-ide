@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { shell } from "@codemirror/legacy-modes/mode/shell"; // Shell language for syntax highlighting
 import { StreamLanguage } from "@codemirror/language";
@@ -22,6 +22,7 @@ interface CodeEditorProps {
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = false, language }) => {
   const { theme } = useTheme(); // Get the current theme from ThemeContext
+  const editorThemeRef = useRef(theme === "dark" ? githubDark : githubLight); // Default theme 
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,9 +36,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
     }
   };
 
+  useEffect(() => {
+      editorThemeRef.current = theme === "dark" ? githubDark : githubLight; 
+    }, [theme]);
+
   return (
     <div>
       <CodeMirror
+        key={theme} // Key prop to force re-render on theme change}
         value={value}
         height="300px"
         extensions={[
@@ -52,7 +58,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
             ...lintKeymap, // Key bindings for linting
           ]),
         ]}
-        theme={theme === "dark" ? githubDark : githubLight} // Dynamically apply theme
+        theme={editorThemeRef.current} // Dynamically apply theme
         editable={!readOnly} // Disable editing if readOnly is true
         onChange={(value) => {
           if (!readOnly && onChange) onChange(value);
@@ -62,7 +68,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
       {!readOnly && (
         <div className="mt-2">
           <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Upload a Script File
+            Upload a File
           </label>
           <input
             id="fileUpload"

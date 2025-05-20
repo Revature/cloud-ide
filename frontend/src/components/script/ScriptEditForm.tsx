@@ -7,6 +7,8 @@ import { SpinnerIcon, SuccessIcon, ErrorIcon } from "@/components/ui/icons/Custo
 import CodeEditor from "../ui/codeEditor/codeEditor";
 import { ScriptRequest } from "@/types/scripts";
 import { useScriptById, useUpdateScript } from "@/hooks/type-query/useScripts";
+import Form from "../form/Form";
+import Input from "../form/input/InputField";
 
 interface ScriptEditFormProps {
   scriptId: number;
@@ -89,34 +91,21 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel, ima
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
+    <Form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="col-span-full md:col-span-1">
         <Label htmlFor="name">Script Name</Label>
-        <input
+        <Input
           id="name"
           type="text"
-          value={name}
+          defaultValue={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full mt-1 rounded-lg border-gray-300 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-          required
           placeholder="Enter script name..."
         />
       </div>
 
-      <div>
-        <Label htmlFor="description">Description</Label>
-        <textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full mt-1 rounded-lg border-gray-300 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-          rows={4}
-          required
-          placeholder="Description about what this script does..."
-        />
-      </div>
-
-      <div>
+      <div className="col-span-full md:col-span-1">
         <Label htmlFor="event">Event Type</Label>
         <Select
           options={eventOptions}
@@ -125,9 +114,21 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel, ima
         />
       </div>
 
+      <div className="col-span-full">
+        <Label htmlFor="description">Description</Label>
+        <textarea
+          id="description"
+          name="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="dark:bg-dark-900 h-24 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+        />
+      </div>
+
       <div>
         <Label htmlFor="script">Script</Label>
         <CodeEditor value={scriptContent} onChange={setScriptContent} language="shell"/>
+      </div>
       </div>
 
       <div className="flex justify-end items-center space-x-4">
@@ -163,7 +164,7 @@ const ScriptEditForm: React.FC<ScriptEditFormProps> = ({ scriptId, onCancel, ima
           </button>
         )}
       </div>
-    </form>
+    </Form>
   );
 };
 
