@@ -1,8 +1,9 @@
 # app/business/endpoint_permission_decorator.py
 """Decorator to check if the user has the required permission for this endpoint."""
 from functools import wraps
-from fastapi import Request, HTTPException, Depends
+from fastapi import Request, HTTPException, Depends, status
 from app.db.database import get_session
+from app.db import endpoint_permission_repository
 from sqlmodel import Session
 from app.business.pkce import user_has_permission
 from app.util import constants
@@ -18,145 +19,114 @@ def permission_required(resource: Optional[str] = None):
 
     Args:
         resource: Optional resource name override. If not provided, it will be extracted from the router prefix.
-
-    Usage:
-        @router.get("/")
-        @permission_required()
-        async def read_items():
-            ...
     """
     def decorator(func: Callable):
         @wraps(func)
-        async def async_wrapper(*args, request: Request = None, **kwargs):
+        async def async_wrapper(request: Request, *args, **kwargs):
             # check if AUTH_MODE is on
-            if constants.auth_mode=="OFF":
+            if constants.auth_mode == "OFF":
                 print("Auth mode is OFF, skipping permission check")
-                return await func(*args, **kwargs)
+                return await func(*args, request=request, **kwargs)
 
             # Get the access token
-            access_token = request.headers.get("Access-Token") if request else None
-            print(f"Access token: {access_token}")
+            access_token = request.headers.get("Access-Token")
 
-            # If no access token, let the authentication middleware handle it
+            # If no access token, raise appropriate exception
             if not access_token:
-                return await func(*args, **kwargs)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required"
+                )
 
             try:
-                # Get the endpoint function name
-                endpoint_func = func.__name__
-                print(f"Endpoint function: {endpoint_func}")
-
                 # Determine the resource
                 resource_name = resource
-                print(f"Resource name: {resource_name}")
                 if not resource_name:
-                    # Extract from router prefix
                     path_parts = request.url.path.split('/')
-                    path_parts_length = 4
-                    if len(path_parts) >= path_parts_length:  # /api/v1/resource/...
+                    if len(path_parts) >= 4:  # /api/v1/resource/...
                         resource_name = path_parts[3]
 
                 if not resource_name:
-                    logger.warning(f"Could not determine resource for {endpoint_func}")
-                    return await func(*args, **kwargs)
+                    logger.warning(f"Could not determine resource for {func.__name__}")
+                    return await func(*args, request=request, **kwargs)
 
-                # Check if this endpoint requires specific permissions
+                # Check if endpoint requires specific permissions
                 session = next(get_session())
-                from app.db import endpoint_permission_repository
-
                 endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
-                    session, resource_name, endpoint_func
+                    session, resource_name, func.__name__
                 )
-                print(f"Endpoint permission: {endpoint_permission}")
 
                 # If permission is required, check if user has it
                 if endpoint_permission:
                     required_permission = endpoint_permission.permission
                     if not user_has_permission(access_token, required_permission):
-                        print(f"User does not have permission: {required_permission}")
-                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{endpoint_func}")
+                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
                         raise HTTPException(
                             status_code=403,
                             detail=f"You don't have the required permission: {required_permission}"
                         )
 
             except HTTPException:
-                # Rethrow HTTP exceptions
                 raise
             except Exception as e:
-                # Log other errors but continue - don't block user because permission check failed
                 logger.exception(f"Error in permission check: {e}")
 
-            # If we get here, either permission check passed or wasn't needed
-            print(f"Permission check passed for {endpoint_func}")
-            return await func(*args, **kwargs)
+            # Permission check passed
+            return await func(request, *args, **kwargs)
 
         @wraps(func)
-        def sync_wrapper(*args, request: Request = None, **kwargs):
+        def sync_wrapper(request: Request, *args, **kwargs):
             # check if AUTH_MODE is on
-            if constants.auth_mode=="OFF":
+            if constants.auth_mode == "OFF":
                 print("Auth mode is OFF, skipping permission check")
-                return func(*args, **kwargs)
+                return func(*args, request=request, **kwargs)
 
             # Get the access token
-            access_token = request.headers.get("Access-Token") if request else None
-            print(f"Access token: {access_token}")
+            access_token = request.headers.get("Access-Token")
 
-            # If no access token, let the authentication middleware handle it
+            # If no access token, raise appropriate exception
             if not access_token:
-                return func(*args, **kwargs)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required"
+                )
 
             try:
-                # Get the endpoint function name
-                endpoint_func = func.__name__
-                print(f"Endpoint function: {endpoint_func}")
-
                 # Determine the resource
                 resource_name = resource
-                print(f"Resource name: {resource_name}")
                 if not resource_name:
-                    # Extract from router prefix
                     path_parts = request.url.path.split('/')
-                    path_parts_length = 4
-                    if len(path_parts) >= path_parts_length:  # /api/v1/resource/...
+                    if len(path_parts) >= 4:  # /api/v1/resource/...
                         resource_name = path_parts[3]
 
                 if not resource_name:
-                    logger.warning(f"Could not determine resource for {endpoint_func}")
-                    return func(*args, **kwargs)
+                    logger.warning(f"Could not determine resource for {func.__name__}")
+                    return func(*args, request=request, **kwargs)
 
-                # Check if this endpoint requires specific permissions
+                # Check if endpoint requires specific permissions
                 session = next(get_session())
-                from app.db import endpoint_permission_repository
-
                 endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
-                    session, resource_name, endpoint_func
+                    session, resource_name, func.__name__
                 )
-                print(f"Endpoint permission: {endpoint_permission}")
 
                 # If permission is required, check if user has it
                 if endpoint_permission:
                     required_permission = endpoint_permission.permission
                     if not user_has_permission(access_token, required_permission):
-                        print(f"User does not have permission: {required_permission}")
-                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{endpoint_func}")
+                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
                         raise HTTPException(
                             status_code=403,
                             detail=f"You don't have the required permission: {required_permission}"
                         )
 
             except HTTPException:
-                # Rethrow HTTP exceptions
                 raise
             except Exception as e:
-                # Log other errors but continue - don't block user because permission check failed
                 logger.exception(f"Error in permission check: {e}")
 
-            # If we get here, either permission check passed or wasn't needed
-            print(f"Permission check passed for {endpoint_func}")
-            return func(*args, **kwargs)
+            # Permission check passed
+            return func(request, *args, **kwargs)
 
-        # Determine if the decorated function is asynchronous or synchronous
         if inspect.iscoroutinefunction(func):
             return async_wrapper
         else:

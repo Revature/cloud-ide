@@ -1,6 +1,6 @@
 """Images API routes."""
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from pydantic import BaseModel
 from app.models.image import Image
 from app.business import image_management, endpoint_permission_decorator
@@ -22,7 +22,7 @@ class ImageCreate(BaseModel):
 
 @router.post("/", response_model=Image, status_code=201)
 @endpoint_permission_decorator.permission_required("images")
-async def create_image(image: ImageCreate):
+async def create_image(image: ImageCreate, request: Request):
     """
     Create a new Image record.
 
@@ -48,7 +48,7 @@ async def create_image(image: ImageCreate):
 @router.get("/", response_model=list[Image])
 @endpoint_permission_decorator.permission_required("images")
 def read_images(
-                #access_token: str = Header(..., alias="Access-Token")
+                request: Request
          ):
     """Retrieve a list of all Images."""
     images = image_management.get_all_images()
@@ -59,7 +59,7 @@ def read_images(
 @router.get("/{image_id}", response_model=Image)
 @endpoint_permission_decorator.permission_required("images")
 def read_image(image_id: int,
-               #access_token: str = Header(..., alias="Access-Token")
+               request: Request
                ):
     """Retrieve a single Image by ID."""
     image = image_management.get_image_by_id(image_id, include_deleted=True, include_inactive=True)
@@ -72,7 +72,7 @@ def read_image(image_id: int,
 def update_image(
     image_id: int,
     updated_image: Image,
-    #access_token: str = Header(..., alias="Access-Token")
+    request: Request
 ):
     """Update an existing Image record."""
     success = image_management.update_image(image_id, updated_image)
@@ -89,7 +89,8 @@ class RunnerPoolUpdate(BaseModel):
 @endpoint_permission_decorator.permission_required("images")
 def update_runner_pool(
     image_id: int,
-    pool_update: RunnerPoolUpdate
+    pool_update: RunnerPoolUpdate,
+    request: Request
 ):
     """Update the runner pool size of an existing Image."""
     if pool_update.runner_pool_size > constants.max_runner_pool_size:
@@ -111,7 +112,8 @@ class ImageStatusUpdate(BaseModel):
 @endpoint_permission_decorator.permission_required("images")
 async def toggle_image_status(
     image_id: int,
-    status_update: ImageStatusUpdate
+    status_update: ImageStatusUpdate,
+    request: Request
 ):
     """
     Update the active status of an image.
@@ -140,7 +142,8 @@ async def toggle_image_status(
 @router.delete("/{image_id}", response_model=dict[str, str])
 @endpoint_permission_decorator.permission_required("images")
 async def delete_image(
-    image_id: int
+    image_id: int,
+    request: Request
 ):
     """Delete an Image record."""
     success = await image_management.delete_image(image_id)

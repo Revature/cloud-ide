@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Header, Request, responses
 from app.models.cloud_connector import CloudConnector
 from app.business import cloud_connector_management, endpoint_permission_decorator
 from app.exceptions import cloud_connector_exceptions
+from app.util.transactions import with_database_resilience, with_background_resilience
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -17,8 +18,9 @@ class CloudConnectorCreate(BaseModel):
     secret_key: str
 
 @router.get("/", response_model=list[CloudConnector])
+@with_database_resilience
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def read_cloud_connectors():
+async def read_cloud_connectors(request: Request):
     """Retrieve a list of all cloud_connectors."""
     try:
         cloud_connectors = cloud_connector_management.get_all_cloud_connectors()
@@ -32,9 +34,10 @@ async def read_cloud_connectors():
         raise HTTPException(status_code=500, detail=f"Internal server error: {e!s}") from e
 
 @router.get("/{cloud_connector_id}", response_model=CloudConnector)
+@with_database_resilience
 @endpoint_permission_decorator.permission_required("cloud_connectors")
 def read_cloud_connector(cloud_connector_id: int,
-               #access_token: str = Header(..., alias="Access-Token")
+               request: Request
                ):
     """Retrieve a single cloud_connector by ID."""
     cloud_connector = cloud_connector_management.get_cloud_connector_by_id(cloud_connector_id)
@@ -43,10 +46,12 @@ def read_cloud_connector(cloud_connector_id: int,
     return cloud_connector
 
 @router.put("/{cloud_connector_id}", response_model=CloudConnector)
+@with_database_resilience
 @endpoint_permission_decorator.permission_required("cloud_connectors")
 async def update_cloud_connector(
     cloud_connector_id: int,
-    updated_cloud_connector: CloudConnector
+    updated_cloud_connector: CloudConnector,
+    request: Request
 ):
     """Update an existing cloud_connector."""
     # Get the existing cloud_connector
@@ -64,7 +69,8 @@ class CloudConnectorStatusUpdate(BaseModel):
 @endpoint_permission_decorator.permission_required("cloud_connectors")
 async def toggle_cloud_connector_status(
     cloud_connector_id: int,
-    status_update: CloudConnectorStatusUpdate
+    status_update: CloudConnectorStatusUpdate,
+    request: Request
 ):
     """Update the active status of a cloud connector."""
     try:
@@ -97,7 +103,7 @@ async def toggle_cloud_connector_status(
 
 @router.post("/", response_model=dict)
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def create_cloud_connector(cloud_connector: CloudConnectorCreate):
+async def create_cloud_connector(cloud_connector: CloudConnectorCreate, request: Request):
     """Create a new cloud connector and test its connection."""
     try:
         # This will raise exceptions on validation failure
@@ -154,7 +160,7 @@ async def create_cloud_connector(cloud_connector: CloudConnectorCreate):
 
 @router.post("/{cloud_connector_id}/test", response_model=dict)
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def test_cloud_connector(cloud_connector_id: int):
+async def test_cloud_connector(cloud_connector_id: int, request: Request):
     """Test an existing cloud connector's connection and permissions."""
     # Get the cloud connector
     cloud_connector = cloud_connector_management.get_cloud_connector_by_id(cloud_connector_id)

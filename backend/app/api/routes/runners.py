@@ -1,7 +1,8 @@
 """Runners API routes."""
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket, WebSocketDisconnect, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket
+from fastapi import WebSocketDisconnect, Query, HTTPException, Request
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -26,6 +27,7 @@ router = APIRouter()
 @router.get("/", response_model=list[Runner])
 @endpoint_permission_decorator.permission_required("runners")
 def read_runners(
+    request: Request,
     status: Optional[str] = Query(None, description="Filter by specific status"),
     alive_only: bool = Query(False, description="Return only alive runners"),
     session: Session = Depends(get_session)
@@ -50,8 +52,7 @@ def read_runners(
 
 @router.get("/{runner_id}", response_model=Runner)
 @endpoint_permission_decorator.permission_required("runners")
-def read_runner(runner_id: int, session: Session = Depends(get_session),
-        #access_token: str = Header(..., alias="Access-Token")
+def read_runner(runner_id: int, request: Request, session: Session = Depends(get_session),
     ):
     """Retrieve a single Runner by ID."""
     runner = runner_repository.find_runner_by_id(session, runner_id)
@@ -273,6 +274,7 @@ async def update_runner_state(
 def update_runner(
     runner_id: int,
     updated_runner: Runner,
+    request: Request
 ):
     """Update an existing Runner record."""
     success = runner_management.update_runner(runner_id, updated_runner)
@@ -284,6 +286,7 @@ def update_runner(
 @endpoint_permission_decorator.permission_required("runners")
 async def stop_runner_endpoint(
     runner_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """Stop a runner in an alive state."""
@@ -318,6 +321,7 @@ async def stop_runner_endpoint(
 @endpoint_permission_decorator.permission_required("runners")
 async def start_runner_endpoint(
     runner_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """Start a runner in closed state."""
@@ -351,6 +355,7 @@ async def start_runner_endpoint(
 @endpoint_permission_decorator.permission_required("runners")
 async def terminate_runner(
     runner_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """

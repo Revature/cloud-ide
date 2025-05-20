@@ -88,6 +88,7 @@ def get_user_permissions_from_token(access_token: str) -> list:
     try:
         # Use your existing function to decode the token
         decoded = decode_token(access_token)
+        print(f"Decoded token: {decoded}")
 
         # Extract permissions directly from the token
         # Based on the actual token structure you shared

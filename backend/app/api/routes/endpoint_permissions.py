@@ -1,10 +1,10 @@
-# app/api/routes/endpoint_permissions.py
 """Endpoint permission management routes."""
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.db.database import get_session
 from sqlmodel import Session
 from app.models import EndpointPermission
 from app.business import endpoint_permission_management, endpoint_permission_decorator
+from app.util.transactions import with_database_resilience
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -23,16 +23,19 @@ class EndpointPermissionUpdate(BaseModel):
 
 @router.get("/endpoint-permissions/", response_model=list[EndpointPermission])
 @endpoint_permission_decorator.permission_required("endpoint_permissions")
+@with_database_resilience
 async def read_endpoint_permissions(
-    session: Session = Depends(get_session)
+    request: Request, session: Session = Depends(get_session)
 ):
     """List all endpoint permission mappings."""
     return endpoint_permission_management.get_all_endpoint_permissions(session)
 
 @router.post("/endpoint-permissions/", response_model=EndpointPermission)
 @endpoint_permission_decorator.permission_required("endpoint_permissions")
+@with_database_resilience
 async def create_new_endpoint_permission(
     endpoint_permission: EndpointPermissionCreate,
+    request: Request,
     session: Session = Depends(get_session)
 ):
     """Create a new endpoint permission mapping."""
@@ -58,10 +61,12 @@ async def create_new_endpoint_permission(
 
 @router.put("/endpoint-permissions/{resource}/{endpoint}", response_model=EndpointPermission)
 @endpoint_permission_decorator.permission_required("endpoint_permissions")
+@with_database_resilience
 async def update_existing_endpoint_permission(
     resource: str,
     endpoint: str,
     endpoint_permission: EndpointPermissionUpdate,
+    request: Request,
     session: Session = Depends(get_session)
 ):
     """Update an existing endpoint permission mapping."""
@@ -79,9 +84,11 @@ async def update_existing_endpoint_permission(
 
 @router.delete("/endpoint-permissions/{resource}/{endpoint}", response_model=dict)
 @endpoint_permission_decorator.permission_required("endpoint_permissions")
+@with_database_resilience
 async def delete_existing_endpoint_permission(
     resource: str,
     endpoint: str,
+    request: Request,
     session: Session = Depends(get_session)
 ):
     """Delete an endpoint permission mapping."""

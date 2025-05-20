@@ -1,6 +1,6 @@
 """Script API routes."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Optional
 from app.models.script import Script
 from app.business import script_management, endpoint_permission_decorator
@@ -29,7 +29,7 @@ class ScriptUpdate(BaseModel):
 
 @router.get("/", response_model=list[Script])
 @endpoint_permission_decorator.permission_required("scripts")
-async def read_scripts():
+async def read_scripts(request: Request):
     """
     Retrieve a list of scripts.
 
@@ -58,7 +58,7 @@ async def read_scripts():
 
 @router.get("/{script_id}", response_model=Script)
 @endpoint_permission_decorator.permission_required("scripts")
-async def read_script(script_id: int):
+async def read_script(script_id: int, request: Request):
     """Retrieve a single script by ID."""
     script = script_management.get_script_by_id(script_id)
     if not script:
@@ -67,7 +67,7 @@ async def read_script(script_id: int):
 
 @router.post("/", response_model=Script)
 @endpoint_permission_decorator.permission_required("scripts")
-async def create_script(script: ScriptCreate):
+async def create_script(script: ScriptCreate, request: Request):
     """Create a new script."""
     try:
         new_script = script_management.create_script(
@@ -85,7 +85,7 @@ async def create_script(script: ScriptCreate):
 
 @router.put("/{script_id}", response_model=Script)
 @endpoint_permission_decorator.permission_required("scripts")
-async def update_script(script_id: int, script_update: ScriptUpdate):
+async def update_script(script_id: int, script_update: ScriptUpdate, request: Request):
     """Update an existing script."""
     # First check if script exists
     existing_script = script_management.get_script_by_id(script_id)
@@ -109,7 +109,7 @@ async def update_script(script_id: int, script_update: ScriptUpdate):
 
 @router.delete("/{script_id}", response_model=dict)
 @endpoint_permission_decorator.permission_required("scripts")
-async def delete_script(script_id: int):
+async def delete_script(script_id: int, request: Request):
     """Delete a script."""
     try:
         # Check if script exists
@@ -127,7 +127,7 @@ async def delete_script(script_id: int):
 
 @router.get("/image/{image_id}", response_model=list[Script])
 @endpoint_permission_decorator.permission_required("scripts")
-async def read_scripts_by_image(image_id: int):
+async def read_scripts_by_image(image_id: int, request: Request):
     """Retrieve all scripts associated with a specific image."""
     scripts = script_management.get_scripts_by_image_id(image_id)
     return scripts
