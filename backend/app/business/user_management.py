@@ -40,17 +40,10 @@ def create_user(*, password: str, user: User, session: Session = next(get_sessio
         logger.exception(error_msg)
         raise EmailInUseException(error_msg)
 
-    # Create the user in workos
-    # Convert the user object to a dictionary that can be unpacked
-    user_dict = {
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name
-    }
-
+    # Create the user in workos - no need to create a dictionary here anymore
     user.workos_id = create_workos_user(
         password=password,
-        **user_dict
+        user=user  # Pass the user object directly
     )
 
     # Persist and refresh user
