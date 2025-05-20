@@ -8,6 +8,7 @@ import Select from "@/components/form/Select";
 import { Image } from "@/types/images";
 import CodeEditor from "../ui/codeEditor/codeEditor";
 import { useImages } from "@/hooks/type-query/useImages";
+import BaseImageSelection from "../image/BaseImageSelection";
 
 export interface RunnerFormData {
   image: Image;
@@ -23,12 +24,6 @@ interface RunnerFormProps {
 
 const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
   const { data: images = [] } = useImages();
-
-  // Convert images for select dropdown
-  const imageOptions = images.filter((image) => image.status === 'active').map((image) => ({
-    value: image.id.toString(),
-    label: `${image.name}`,
-  }));
 
   // Duration options
   const durationOptions = [
@@ -121,34 +116,13 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
       <Form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Runner Configuration Section */}
-          <div className="col-span-full mb-4">
+          <div className="col-span-1 mb-4">
             <h2 className="text-lg font-medium text-gray-700 dark:text-white/80">
               Runner Configuration
             </h2>
             <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Configure the VM instance that will be provisioned.
             </div>
-          </div>
-
-          {/* Image Selection */}
-          <div className="col-span-full md:col-span-1">
-            <Label htmlFor="image">VM Image</Label>
-            {images.length > 0 ? (
-              <Select
-                options={imageOptions}
-                defaultValue={selectedImage}
-                onChange={(value) => setSelectedImage(value)}
-              />
-            ) : (
-              <div className="flex items-center h-[42px] px-4 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-800 dark:border-gray-700">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No active images available.
-                  <a href="/images/add" className="text-brand-500 ml-1 hover:underline">
-                    Add an image
-                  </a>
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Session Duration */}
@@ -161,50 +135,17 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
             />
           </div>
 
-          {/* Script Variables
-          <div className="col-span-full">
-            <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
-            </p>
-            <textarea
-              id="scriptVars"
-              name="scriptVars"
-              placeholder='e.g., {"git_url": "https://github.com/user/repo", "git_username": "your-username"}'
-              defaultValue={JSON.stringify(scriptVars || {}, null, 2)}
-              onChange={(e) => handleJsonChange("scriptVars", e.target.value)}
-              className={`dark:bg-dark-900 h-24 w-full rounded-lg border ${
-                scriptVarsError ? "border-red-500" : "border-gray-300"
-              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
+          {/* Image Selection (BaseImageSelection) */}
+          <div className="col-span-full md:col-span-2">
+            <BaseImageSelection
+              images={images.filter((image) => image.status === "active")}
+              onSelect={(image) => setSelectedImage(image.id.toString())}
             />
-            {scriptVarsError && (
-              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
-            )}
           </div>
 
-          {/* Environment Variables */}
-          {/* <div className="col-span-full">
-            <Label htmlFor="envVars">Environment Variables (JSON)</Label>
-            <textarea
-              id="envVars"
-              name="envVars"
-              placeholder='e.g., {"key": "value"}'
-              defaultValue={JSON.stringify(envVars || {}, null, 2)}
-              onChange={(e) => handleJsonChange("envVars", e.target.value)}
-              className={`dark:bg-dark-900 h-24 w-full rounded-lg border ${
-                envVarsError ? "border-red-500" : "border-gray-300"
-              } bg-transparent py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800`}
-            />
-            {envVarsError && (
-              <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
-            )}
-          </div> */} 
-                    {/* Script Variables */}
-          <div className="col-span-full">
+          {/* Script Variables */}
+          <div className="col-span-full md:col-span-1">
             <Label htmlFor="scriptVars">Script Variables (JSON)</Label>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Add any script-specific variables required for your image. For example, you can include fields like <code>git_url</code> and <code>git_username</code>.
-            </p>
             <CodeEditor
               language="json"
               value={JSON.stringify(scriptVars || {}, null, 2)}
@@ -214,13 +155,10 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
               <p className="mt-1 text-sm text-red-500">Invalid JSON format. Please correct the input.</p>
             )}
           </div>
-          
+
           {/* Environment Variables */}
-          <div className="col-span-full">
+          <div className="col-span-full md:col-span-1">
             <Label htmlFor="envVars">Environment Variables (JSON)</Label>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Add any environment variables required for your runner. For example, you can include fields like <code>API_KEY</code> and <code>SECRET</code>.
-            </p>
             <CodeEditor
               language="json"
               value={JSON.stringify(envVars || {}, null, 2)}
@@ -231,7 +169,6 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
             )}
           </div>
         </div>
-
         {/* Form Actions */}
         <div className="flex justify-end gap-3 mt-8">
           <Button size="sm" variant="outline" onClick={onCancel}>
