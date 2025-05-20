@@ -124,24 +124,12 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        # wos_cookie = request.cookies.get("wos-session")
+
         #print route
         print(f"\n\nRequest Path: {request.url.path}")
 
         if not access_token:
             print('not access-token')
-        # if not wos_cookie:
-        #     print('not workos cookie')
-
-        # What's with these cookies?
-        # print("\n\n================Cookies:================")
-        # print(request.cookies)
-        # print("\n\n================Headers:================")
-        # print(request.headers)
-
-        # if request.headers.get("upgrade", "").lower() == "websocket":
-        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
-        #     return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
@@ -161,27 +149,6 @@ def start_api():
                     runner_token = request.headers.get("Runner-Token")
                     if runner_management.auth_runner(runner_id, runner_token):
                         final_response = await call_next(request)
-
-            # Check for wos_session cookie, if needed refresh it
-            # if (not final_response) and wos_cookie:
-            #     print('wos_cookie secured route entered.')
-            #     auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
-            #     if auth_result.authenticated:
-            #         final_response = await call_next(request)
-            #     else:
-            #         print('Failed to auth with cookie, refreshing...')
-            #         refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
-            #         final_response = await call_next(request)
-            #         final_response.set_cookie(
-            #             key = "wos-session",
-            #             value = refresh_result.sealed_session,
-            #             secure = True,
-            #             httponly = True,
-            #             samesite = "lax",
-            #             domain = os.getenv("DOMAIN"),
-            #             path = "/"
-            #         )
-
 
             # If none of the above, we must find an access token
             if not final_response and not access_token:
@@ -225,7 +192,7 @@ def start_api():
                 status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
                 content = '{"response":"Internal Server Error: ' + str(e) + '"}'
             )
-        print('returning final respose.')
+        print('returning final response.')
         return final_response
 
     return api
