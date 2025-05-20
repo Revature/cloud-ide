@@ -51,7 +51,7 @@ def create_user(*, password: str, user: User, session: Session = next(get_sessio
 
     # Set default role
     default_role = user_repository.read_role(default_role_name, session=session)
-    user_repository.assign_role(user=user, role=default_role.id, session=session)
+    user_repository.assign_role(user=user, role_id=default_role.id, session=session)
     return user
 
 def update_user(user: UserUpdate, session: Session = next(get_session())):
