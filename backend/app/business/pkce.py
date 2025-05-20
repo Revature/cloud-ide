@@ -31,6 +31,9 @@ def verify_token_exp(access_token: str):
     key_set = find_key_set(kid = jwt.get_unverified_header(access_token)["kid"])
     key = jwt.algorithms.RSAAlgorithm.from_jwk(key_set)
     decoded_token = jwt.decode(access_token, key=key, algorithms=["RS256"], options={"verify_signature": False})
+    print("decoded token")
+    print(decoded_token)
+    print("\n")
 
     if int(time.time()) >= decoded_token.get("exp"):
         return False
@@ -57,6 +60,52 @@ def update_keys():
         keystring = json.dumps(jwk)
         store_key_set(kid, keystring)
 
+def get_user_permissions_from_token(access_token: str) -> list:
+    """
+    Extract user permissions from a WorkOS JWT token.
+
+    Returns:
+        List of permission strings
+    """
+    try:
+        # Use your existing function to decode the token
+        decoded = decode_token(access_token)
+
+        # Extract permissions directly from the token
+        # Based on the actual token structure you shared
+        if "permissions" in decoded and isinstance(decoded["permissions"], list):
+            return decoded["permissions"]
+
+        return []
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error extracting permissions from token: {e!s}")
+        return []
+
+def user_has_permission(access_token: str, required_permission: str) -> bool:
+    """
+    Check if a user has a specific permission based on their JWT token.
+
+    Args:
+        access_token: The JWT token from WorkOS
+        required_permission: The permission string to check for
+
+    Returns:
+        True if the user has the permission, False otherwise
+    """
+    try:
+        # Get all user permissions
+        user_permissions = get_user_permissions_from_token(access_token)
+
+        # Check if the required permission is in the user's permissions
+        return required_permission in user_permissions
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error checking user permission: {e!s}")
+        return False
+
 # This function is deprecated in favor of the newer ones in this file
 def decode_signed_token(access_token: str):
     """Decode a digitally signed token. Uses workOS signing keys.
@@ -78,3 +127,4 @@ def decode_signed_token(access_token: str):
     key = public_keys[kid]
 
     return jwt.decode(access_token, key=key, algorithms=["RS256"], options={"verify_exp": False})
+
