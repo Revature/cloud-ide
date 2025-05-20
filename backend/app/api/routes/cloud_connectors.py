@@ -18,7 +18,7 @@ class CloudConnectorCreate(BaseModel):
 
 @router.get("/", response_model=list[CloudConnector])
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def read_cloud_connectors(request: Request):
+async def read_cloud_connectors():
     """Retrieve a list of all cloud_connectors."""
     try:
         cloud_connectors = cloud_connector_management.get_all_cloud_connectors()

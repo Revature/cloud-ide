@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.db.database import get_session
 from sqlmodel import Session
 from app.models import EndpointPermission
-from app.business import endpoint_permission_management
+from app.business import endpoint_permission_management, endpoint_permission_decorator
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -22,6 +22,7 @@ class EndpointPermissionUpdate(BaseModel):
   permission: str
 
 @router.get("/endpoint-permissions/", response_model=list[EndpointPermission])
+@endpoint_permission_decorator.permission_required("endpoint_permissions")
 async def read_endpoint_permissions(
     session: Session = Depends(get_session)
 ):
@@ -29,6 +30,7 @@ async def read_endpoint_permissions(
     return endpoint_permission_management.get_all_endpoint_permissions(session)
 
 @router.post("/endpoint-permissions/", response_model=EndpointPermission)
+@endpoint_permission_decorator.permission_required("endpoint_permissions")
 async def create_new_endpoint_permission(
     endpoint_permission: EndpointPermissionCreate,
     session: Session = Depends(get_session)
@@ -55,6 +57,7 @@ async def create_new_endpoint_permission(
     )
 
 @router.put("/endpoint-permissions/{resource}/{endpoint}", response_model=EndpointPermission)
+@endpoint_permission_decorator.permission_required("endpoint_permissions")
 async def update_existing_endpoint_permission(
     resource: str,
     endpoint: str,
@@ -75,6 +78,7 @@ async def update_existing_endpoint_permission(
     return updated
 
 @router.delete("/endpoint-permissions/{resource}/{endpoint}", response_model=dict)
+@endpoint_permission_decorator.permission_required("endpoint_permissions")
 async def delete_existing_endpoint_permission(
     resource: str,
     endpoint: str,

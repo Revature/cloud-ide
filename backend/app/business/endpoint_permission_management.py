@@ -137,7 +137,54 @@ def initialize_default_permissions(session: Session) -> None:
         {"resource": "cloud_connectors", "endpoint": "toggle_cloud_connector_status", "permission": "cloud_connectors:edit"},
         {"resource": "cloud_connectors", "endpoint": "test_cloud_connector", "permission": "cloud_connectors:view"},
 
-        # Add more default permissions here
+        # App Requests
+        {"resource": "app_requests", "endpoint": "get_ready_runner", "permission": "app_requests:create"},
+        {"resource": "app_requests", "endpoint": "get_ready_runner_with_status", "permission": "app_requests:create"},
+
+        # Endpoint Permissions
+        {"resource": "endpoint_permissions", "endpoint": "read_endpoint_permissions", "permission": "endpoint_permissions:view"},
+        {"resource": "endpoint_permissions", "endpoint": "create_new_endpoint_permission", "permission": "endpoint_permissions:create"},
+        {"resource": "endpoint_permissions", "endpoint": "update_existing_endpoint_permission", "permission": "endpoint_permissions:edit"},
+        {"resource": "endpoint_permissions", "endpoint": "delete_existing_endpoint_permission", "permission": "endpoint_permissions:delete"},
+
+        # Images
+        {"resource": "images", "endpoint": "read_images", "permission": "images:view"},
+        {"resource": "images", "endpoint": "read_image", "permission": "images:view"},
+        {"resource": "images", "endpoint": "create_image", "permission": "images:create"},
+        {"resource": "images", "endpoint": "update_image", "permission": "images:edit"},
+        {"resource": "images", "endpoint": "update_runner_pool", "permission": "images:edit"},
+        {"resource": "images", "endpoint": "toggle_image_status", "permission": "images:edit"},
+        {"resource": "images", "endpoint": "delete_image", "permission": "images:delete"},
+
+        # Machines
+        {"resource": "machines", "endpoint": "read_machines", "permission": "machines:view"},
+        {"resource": "machines", "endpoint": "read_machine", "permission": "machines:view"},
+
+        # Runners
+        {"resource": "runners", "endpoint": "read_runners", "permission": "runners:view"},
+        {"resource": "runners", "endpoint": "read_runner", "permission": "runners:view"},
+        {"resource": "runners", "endpoint": "update_runner", "permission": "runners:edit"},
+        {"resource": "runners", "endpoint": "stop_runner_endpoint", "permission": "runners:edit"},
+        {"resource": "runners", "endpoint": "start_runner_endpoint", "permission": "runners:edit"},
+        {"resource": "runners", "endpoint": "terminate_runner", "permission": "runners:delete"},
+
+        # Scripts
+        {"resource": "scripts", "endpoint": "read_scripts", "permission": "scripts:view"},
+        {"resource": "scripts", "endpoint": "read_script", "permission": "scripts:view"},
+        {"resource": "scripts", "endpoint": "create_script", "permission": "scripts:create"},
+        {"resource": "scripts", "endpoint": "update_script", "permission": "scripts:edit"},
+        {"resource": "scripts", "endpoint": "delete_script", "permission": "scripts:delete"},
+        {"resource": "scripts", "endpoint": "read_scripts_by_image", "permission": "scripts:view"},
+
+        # Users
+        {"resource": "users", "endpoint": "get_all_users", "permission": "users:view"},
+        {"resource": "users", "endpoint": "get_user", "permission": "users:view"},
+        {"resource": "users", "endpoint": "get_user_by_email_path", "permission": "users:view"},
+        {"resource": "users", "endpoint": "post_user", "permission": "users:create"},
+        {"resource": "users", "endpoint": "update_user", "permission": "users:edit"},
+        {"resource": "users", "endpoint": "delete_user", "permission": "users:delete"}
+
+        # Add more here if needed
     ]
 
     for perm in permissions:

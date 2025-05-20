@@ -13,7 +13,7 @@ from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
 from app.util import terminal_management
-from app.business import runner_management, script_management
+from app.business import runner_management, script_management, endpoint_permission_decorator
 from app.db import runner_repository
 import logging
 import asyncio
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[Runner])
+@endpoint_permission_decorator.permission_required("runners")
 def read_runners(
     status: Optional[str] = Query(None, description="Filter by specific status"),
     alive_only: bool = Query(False, description="Return only alive runners"),
@@ -48,6 +49,7 @@ def read_runners(
     return runners
 
 @router.get("/{runner_id}", response_model=Runner)
+@endpoint_permission_decorator.permission_required("runners")
 def read_runner(runner_id: int, session: Session = Depends(get_session),
         #access_token: str = Header(..., alias="Access-Token")
     ):
@@ -267,6 +269,7 @@ async def update_runner_state(
     return f"State for runner {runner.id} updated to {runner.state}"
 
 @router.put("/{runner_id}", response_model=dict)
+@endpoint_permission_decorator.permission_required("runners")
 def update_runner(
     runner_id: int,
     updated_runner: Runner,
@@ -278,6 +281,7 @@ def update_runner(
     return {"message": f"Runner {runner_id} updated successfully"}
 
 @router.patch("/{runner_id}/stop", response_model=dict)
+@endpoint_permission_decorator.permission_required("runners")
 async def stop_runner_endpoint(
     runner_id: int,
     session: Session = Depends(get_session),
@@ -311,6 +315,7 @@ async def stop_runner_endpoint(
     return result
 
 @router.patch("/{runner_id}/start", response_model=dict)
+@endpoint_permission_decorator.permission_required("runners")
 async def start_runner_endpoint(
     runner_id: int,
     session: Session = Depends(get_session),
@@ -343,6 +348,7 @@ async def start_runner_endpoint(
     return result
 
 @router.delete("/{runner_id}", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("runners")
 async def terminate_runner(
     runner_id: int,
     session: Session = Depends(get_session),

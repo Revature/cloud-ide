@@ -16,7 +16,7 @@ from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants, websocket_management, runner_status_management
-from app.business import image_management, user_management, runner_management, script_management
+from app.business import image_management, user_management, runner_management, script_management, endpoint_permission_decorator
 from app.exceptions.runner_exceptions import RunnerLaunchError, RunnerClaimError
 from app.util.transactions import with_database_resilience, with_background_resilience
 from fastapi import APIRouter, HTTPException
@@ -674,6 +674,7 @@ def app_requests_dto(url: str, runner: Runner) -> dict:
     return {"url": url, "runner_id": str(runner.id)}
 
 @router.post("/", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("app_requests")
 @with_database_resilience
 async def get_ready_runner(
     request: RunnerRequest,
@@ -711,6 +712,7 @@ async def get_ready_runner(
         raise
 
 @router.post("/with_status/", response_model=dict)
+@endpoint_permission_decorator.permission_required("app_requests")
 @with_database_resilience
 async def get_ready_runner_with_status(
     request: RunnerRequest

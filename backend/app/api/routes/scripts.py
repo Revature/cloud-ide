@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from app.models.script import Script
-from app.business import script_management
+from app.business import script_management, endpoint_permission_decorator
 from pydantic import BaseModel
 import logging
 
@@ -28,6 +28,7 @@ class ScriptUpdate(BaseModel):
     script: Optional[str] = None
 
 @router.get("/", response_model=list[Script])
+@endpoint_permission_decorator.permission_required("scripts")
 async def read_scripts():
     """
     Retrieve a list of scripts.
@@ -56,6 +57,7 @@ async def read_scripts():
         raise HTTPException(status_code=500, detail=f"Internal server error: {e!s}") from e
 
 @router.get("/{script_id}", response_model=Script)
+@endpoint_permission_decorator.permission_required("scripts")
 async def read_script(script_id: int):
     """Retrieve a single script by ID."""
     script = script_management.get_script_by_id(script_id)
@@ -64,6 +66,7 @@ async def read_script(script_id: int):
     return script
 
 @router.post("/", response_model=Script)
+@endpoint_permission_decorator.permission_required("scripts")
 async def create_script(script: ScriptCreate):
     """Create a new script."""
     try:
@@ -81,6 +84,7 @@ async def create_script(script: ScriptCreate):
         raise HTTPException(status_code=500, detail=f"Failed to create script: {e}") from e
 
 @router.put("/{script_id}", response_model=Script)
+@endpoint_permission_decorator.permission_required("scripts")
 async def update_script(script_id: int, script_update: ScriptUpdate):
     """Update an existing script."""
     # First check if script exists
@@ -104,6 +108,7 @@ async def update_script(script_id: int, script_update: ScriptUpdate):
         raise HTTPException(status_code=500, detail=f"Failed to update script: {e}") from e
 
 @router.delete("/{script_id}", response_model=dict)
+@endpoint_permission_decorator.permission_required("scripts")
 async def delete_script(script_id: int):
     """Delete a script."""
     try:
@@ -121,6 +126,7 @@ async def delete_script(script_id: int):
         raise HTTPException(status_code=500, detail=f"Failed to delete script: {e}") from e
 
 @router.get("/image/{image_id}", response_model=list[Script])
+@endpoint_permission_decorator.permission_required("scripts")
 async def read_scripts_by_image(image_id: int):
     """Retrieve all scripts associated with a specific image."""
     scripts = script_management.get_scripts_by_image_id(image_id)

@@ -7,19 +7,21 @@ from workos import exceptions as workos_exceptions
 from app.db.database import get_session
 from app.exceptions.user_exceptions import EmailInUseException, NoSuchRoleException
 from app.schemas.user import UserCreate
-from app.business import user_management
+from app.business import user_management, endpoint_permission_decorator
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 @router.get("/", response_model=list[User])
+@endpoint_permission_decorator.permission_required("users")
 def get_all_users(session: Session = Depends(get_session)):
     """Retrieve all users."""
     return user_management.get_all_users(session)
 
 @router.get("/{user_id}")
 @router.get("/{user_id}/")
+@endpoint_permission_decorator.permission_required("users")
 def get_user(user_id: int):
     """Retrieve a single user by ID."""
     user = user_management.get_user_by_id(user_id)
@@ -31,6 +33,7 @@ def get_user(user_id: int):
     return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
 
 @router.get("/email/{email}")
+@endpoint_permission_decorator.permission_required("users")
 def get_user_by_email_path(email: str,  session: Session = Depends(get_session)):
     """Retrieve a single user by email address using path parameter."""
     user = user_management.get_user_by_email(email, session)
@@ -42,6 +45,7 @@ def get_user_by_email_path(email: str,  session: Session = Depends(get_session))
     return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
 
 @router.post("/", response_model=User)
+@endpoint_permission_decorator.permission_required("users")
 def post_user(user_create: UserCreate,
               session: Session = Depends(get_session)):
     """Create a new user, reutrn the new user."""
@@ -73,6 +77,7 @@ def post_user(user_create: UserCreate,
 
 @router.patch("/{user_id}")
 @router.patch("/{user_id}/")
+@endpoint_permission_decorator.permission_required("users")
 def update_user(user_id: int, user: UserUpdate, session: Session = Depends(get_session)):
     """Update an existing user, return the updated user."""
     db_user = user_management.get_user_by_id(user_id, session)
@@ -89,6 +94,7 @@ def update_user(user_id: int, user: UserUpdate, session: Session = Depends(get_s
 
 @router.delete("/{user_id}")
 @router.delete("/{user_id}/")
+@endpoint_permission_decorator.permission_required("users")
 def delete_user(user_id: int, session: Session = Depends(get_session)):
     """Delete a user, return the deleted user."""
     user = user_management.get_user_by_id(user_id)

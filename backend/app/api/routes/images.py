@@ -2,9 +2,8 @@
 
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
-from app.business import image_management
 from app.models.image import Image
-from app.business import image_management
+from app.business import image_management, endpoint_permission_decorator
 from app.util import constants
 from typing import Optional
 from sqlmodel import Field
@@ -22,6 +21,7 @@ class ImageCreate(BaseModel):
     tags: Optional[list[str]] = Field(default=None, description="List of tags for the image")
 
 @router.post("/", response_model=Image, status_code=201)
+@endpoint_permission_decorator.permission_required("images")
 async def create_image(image: ImageCreate):
     """
     Create a new Image record.
@@ -46,6 +46,7 @@ async def create_image(image: ImageCreate):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e!s}") from e
 
 @router.get("/", response_model=list[Image])
+@endpoint_permission_decorator.permission_required("images")
 def read_images(
                 #access_token: str = Header(..., alias="Access-Token")
          ):
@@ -56,6 +57,7 @@ def read_images(
     return images
 
 @router.get("/{image_id}", response_model=Image)
+@endpoint_permission_decorator.permission_required("images")
 def read_image(image_id: int,
                #access_token: str = Header(..., alias="Access-Token")
                ):
@@ -66,6 +68,7 @@ def read_image(image_id: int,
     return image
 
 @router.put("/{image_id}", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("images")
 def update_image(
     image_id: int,
     updated_image: Image,
@@ -83,6 +86,7 @@ class RunnerPoolUpdate(BaseModel):
     runner_pool_size: int
 
 @router.patch("/{image_id}/runner_pool", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("images")
 def update_runner_pool(
     image_id: int,
     pool_update: RunnerPoolUpdate
@@ -104,6 +108,7 @@ class ImageStatusUpdate(BaseModel):
     is_active: bool
 
 @router.patch("/{image_id}/toggle", response_model=Image)
+@endpoint_permission_decorator.permission_required("images")
 async def toggle_image_status(
     image_id: int,
     status_update: ImageStatusUpdate
@@ -133,6 +138,7 @@ async def toggle_image_status(
         ) from e
 
 @router.delete("/{image_id}", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("images")
 async def delete_image(
     image_id: int
 ):

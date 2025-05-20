@@ -1,12 +1,13 @@
 """Business layer for user management."""
 import logging
+import os
 from app.db import user_repository
 from sqlmodel import Session
 from app.util.constants import default_role_name
 from app.db.database import get_session
 from app.exceptions.user_exceptions import EmailInUseException
 from app.models.user import User, UserUpdate
-from app.business.workos import create_workos_user
+from app.business.workos import create_workos_user, create_organization_membership
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,11 @@ def create_user(*, password: str, user: User, session: Session = next(get_sessio
     user.workos_id = create_workos_user(
         password=password,
         user=user  # Pass the user object directly
+    )
+
+    organization_membership = create_organization_membership(
+        workos_user_id=user.workos_id,
+        organization_id=os.getenv('WORKOS_ORG_ID')
     )
 
     # Persist and refresh user

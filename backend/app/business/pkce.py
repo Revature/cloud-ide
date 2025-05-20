@@ -27,18 +27,36 @@ def auto_verify_token(access_token: str):
     return jwt.decode(access_token, key=key, algorithms=["RS256"])
 
 def verify_token_exp(access_token: str):
-    """Manually verify token."""
-    key_set = find_key_set(kid = jwt.get_unverified_header(access_token)["kid"])
-    key = jwt.algorithms.RSAAlgorithm.from_jwk(key_set)
-    decoded_token = jwt.decode(access_token, key=key, algorithms=["RS256"], options={"verify_signature": False})
-    print("decoded token")
-    print(decoded_token)
-    print("\n")
+    """Verify token expiration and signature."""
+    try:
+        key_set = find_key_set(kid=jwt.get_unverified_header(access_token)["kid"])
+        key = jwt.algorithms.RSAAlgorithm.from_jwk(key_set)
 
-    if int(time.time()) >= decoded_token.get("exp"):
+        # Verify the token with full signature verification
+        jwt.decode(
+            access_token,
+            key=key,
+            algorithms=["RS256"],
+            options={
+                "verify_signature": True,  # Always verify signature
+                "verify_exp": True,        # Check expiration
+            },
+            issuer="https://api.workos.com"
+        )
+
+        # If we get here, verification succeeded
+        return True
+
+    except jwt.ExpiredSignatureError:
+        # Token is expired
         return False
-    # We will want to add other logic here verifying orginization, user, issuer, role, etc
-    return True
+
+    except (jwt.InvalidTokenError, Exception) as e:
+        # Any other validation errors
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Token verification failed: {e!s}")
+        return False
 
 def find_key_set(kid: str):
     """Find a key set in the cache or get from workos."""
