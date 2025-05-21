@@ -42,32 +42,50 @@ def get_user_by_email_path(email: str,  session: Session = Depends(get_session))
     return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
 
 @router.post("/", response_model=User)
-def post_user(user_create: UserCreate,
-              session: Session = Depends(get_session)):
-    """Create a new user, reutrn the new user."""
+def post_user(user_create: UserCreate, session: Session = Depends(get_session)):
+    """Create a new user, return the new user."""
     # Create a new User instance from the UserCreate data.
-    user = User(**user_create.model_dump(exclude = 'password'), created_by = "system", modified_by = "system")
-    password = user_create.model_dump(include = 'password').get('password')
+    user = User(**user_create.model_dump(exclude='password'), created_by="system", modified_by="system")
+    password = user_create.model_dump(include='password').get('password')
 
     try:
-        user = user_management.create_user(password=password, user=user)
-        return user
+        # Create the user
+        created_user = user_management.create_user(password=password, user=user)
+
+        # Create a clean dictionary directly from the created user's attributes
+        # This bypasses potential issues with SQLModel's dict() method
+        user_dict = {
+            "id": created_user.id,
+            "first_name": created_user.first_name,
+            "last_name": created_user.last_name,
+            "email": created_user.email,
+            "workos_id": created_user.workos_id,
+            "created_on": created_user.created_on,
+            "updated_on": created_user.updated_on,
+            "created_by": created_user.created_by,
+            "modified_by": created_user.modified_by
+        }
+
+        # Return the manually created dictionary
+        return user_dict
+
     except workos_exceptions.BadRequestException as e:
-        logger.exception(f'Unable to persist user with workos.')
-        return Response(status_code = status.HTTP_400_BAD_REQUEST,
-                        content = '{"response": "Unable to create user."}')
+        # Error handlers remain the same
+        logger.exception('Unable to persist user with workos.')
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                          detail="Unable to create user.") from e
     except EmailInUseException as e:
         logger.exception(f'Email {user.email} already in use.')
-        return Response(status_code = status.HTTP_400_BAD_REQUEST,
-                        content = '"response": "That email is already in use."')
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                           detail="That email is already in use.") from e
     except NoSuchRoleException as e:
-        logger.exception(f'Unable to assign the default user role to new user.')
-        return Response(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        content = '{"response": "Unable to create user with default role."}')
+        logger.exception('Unable to assign the default user role to new user.')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                           detail="Unable to create user with default role.") from e
     except Exception as e:
-        logger.exception(f'Exception raised while creating new user.')
-        return Response(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        content = '{"response": "Unable to create user."}')
+        logger.exception(f'Exception raised while creating new user: {e!s}')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                           detail=f"Unable to create user: {e!s}") from e
 
 @router.patch("/{user_id}")
 @router.patch("/{user_id}/")

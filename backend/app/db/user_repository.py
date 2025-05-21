@@ -25,6 +25,7 @@ def persist_user(user: User, session: Session = next(get_session())):
     session.add(user)
     session.commit()
     session.refresh(user)
+    print(f"Persisted user: {user}")
     return user
 
 def update_user(user: UserUpdate, session: Session = next(get_session())):
