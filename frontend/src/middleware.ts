@@ -2,7 +2,6 @@
 import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest, NextFetchEvent } from 'next/server';
-import { jwtVerify } from 'jose';
 
 const AUTH_MODE = process.env.AUTH_MODE === 'OFF' ? false : true;
 const ORG_ID = process.env.WORKOS_ORG_ID || 'org_L0C4L';
@@ -25,65 +24,79 @@ const baseAuthMiddleware = authkitMiddleware({
   redirectUri: process.env['NEXT_PUBLIC_WORKOS_REDIRECT_URI'],
 });
 
-// Custom function to extract user information from the session token
-async function getUserFromSession(request: NextRequest) {
+// Use server-side state to cache authentication information
+// This reduces API calls for subsequent middleware executions
+const authCache = new Map<string, {
+  role: string;
+  organizationId: string;
+  timestamp: number;
+}>();
+
+// Cache TTL in milliseconds (2 minutes)
+const CACHE_TTL = 2 * 60 * 1000;
+
+// Custom function to get user role and organization
+async function getUserAuth(request: NextRequest) {
   if (!AUTH_MODE) {
     return { role: 'member', organizationId: ORG_ID };
   }
 
   try {
-    console.log('Extracting ', request);
-    // Get the session cookie
-    const authKitSessionCookie = request.cookies.get('wos-session');
+    // Generate a cache key based on the request cookies
+    // This ensures each user session gets its own cache entry
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cacheKey = cookieHeader; // Using the entire cookie string as the cache key
+    const now = Date.now();
     
-    if (!authKitSessionCookie?.value) {
-      console.log('No session cookie found');
+    // Check for cached authentication
+    const cachedAuth = authCache.get(cacheKey);
+    if (cachedAuth && (now - cachedAuth.timestamp) < CACHE_TTL) {
+      console.log('Using cached authentication');
+      return { 
+        role: cachedAuth.role, 
+        organizationId: cachedAuth.organizationId 
+      };
+    }
+    
+    // Make a server-side request to our auth verification API
+    const protocol = request.nextUrl.protocol;
+    const host = request.headers.get('host') || 'localhost:3000';
+    const verifyUrl = `${protocol}//${host}/ui/frontend-api/auth/verify`;
+    
+    console.log(`Making authentication verification request to ${verifyUrl}`);
+    
+    // Pass along all cookies to ensure authentication works
+    const response = await fetch(verifyUrl, {
+      headers: {
+        cookie: cookieHeader,
+      },
+    });
+    
+    if (!response.ok) {
+      console.log('Auth verification failed:', await response.text());
       return null;
     }
     
-    // Get the JWT token from the cookie
-    const token = authKitSessionCookie.value;
+    const authData = await response.json();
     
-    try {
-      // Basic JWT verification - we need to extract the data without full validation
-      // since we don't have access to the WorkOS client in the middleware
-      const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-jwt-secret');
-      const { payload } = await jwtVerify(token, secretKey, {
-        algorithms: ['HS256']
-      });
-      
-      // Extract user information from the payload
-      // Note: The exact structure depends on how WorkOS stores user data in the JWT
-      const user = payload;
-      const organizationId = user.organization_id || user.org_id || null;
-      const role = user.role || user.user_role || 'member';
-      
-      return { role, organizationId };
-    } catch (jwtError) {
-      // If standard JWT verification fails, try parsing the token directly
-      // This is a fallback approach for when we don't have the correct secret
-      console.log('Standard JWT verification failed, attempting manual parsing: ', jwtError);
-      
-      try {
-        // Split the token and decode the payload part (second segment)
-        const [_header, payloadBase64, _signature] = token.split('.');
-        console.log(_header, payloadBase64, _signature);
-        const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf-8');
-        const payload = JSON.parse(payloadJson);
-        console.log('Parsed payload:', payload);
-        
-        // Extract user information from the payload
-        const organizationId = payload.organization_id || payload.org_id || null;
-        const role = payload.role || payload.user_role || 'member';
-        
-        return { role, organizationId };
-      } catch (parseError) {
-        console.error('Error parsing JWT manually:', parseError);
-        return null;
-      }
+    if (!authData.authenticated) {
+      console.log('User not authenticated');
+      return null;
     }
+    
+    // Get role and organization ID from the response
+    const { role, organizationId } = authData;
+    
+    // Cache the result
+    authCache.set(cacheKey, {
+      role,
+      organizationId,
+      timestamp: now
+    });
+    
+    return { role, organizationId };
   } catch (error) {
-    console.error('Error extracting user from session:', error);
+    console.error('Error getting user authentication:', error);
     return null;
   }
 }
@@ -111,7 +124,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   }
 
   // Use our custom function instead of withAuth()
-  const user = await getUserFromSession(request);
+  const user = await getUserAuth(request);
   
   if (!user) {
     console.log('No user information available');
