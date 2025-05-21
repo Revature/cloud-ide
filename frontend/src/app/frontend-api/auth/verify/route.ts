@@ -2,10 +2,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { withAuth } from '@workos-inc/authkit-nextjs';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export async function GET(req: NextApiRequest, res: NextApiResponse) {
   try {
     // This will work here because we're in an API route, not middleware
     const { role, organizationId } = await withAuth();
+    console.log(req);
     
     // Return just the data we need for the middleware
     res.status(200).json({
