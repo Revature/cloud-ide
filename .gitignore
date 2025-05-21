@@ -8,6 +8,8 @@ secrets.json
 /test/logs/
 /test/logs/*
 /test/karate-1.40.jar
+test/*.jar
+test/**/*.jar
 
 # Don't Ignore
 !local-compose.env

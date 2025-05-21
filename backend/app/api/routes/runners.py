@@ -274,8 +274,8 @@ def update_runner(
     """Update an existing Runner record."""
     try:
         runner_management.update_runner(runner_id, updated_runner)
-    except:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+    except Exception as ex:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found") from ex
     return {"message": f"Runner {runner_id} updated successfully"}
 
 @router.patch("/{runner_id}/stop", response_model=dict)
