@@ -43,7 +43,8 @@ def permission_required(resource: Optional[str] = None):
                 resource_name = resource
                 if not resource_name:
                     path_parts = request.url.path.split('/')
-                    if len(path_parts) >= 4:  # /api/v1/resource/...
+                    max_parts = 4
+                    if len(path_parts) >= max_parts:  # /api/v1/resource/...
                         resource_name = path_parts[3]
 
                 if not resource_name:
@@ -96,7 +97,8 @@ def permission_required(resource: Optional[str] = None):
                 resource_name = resource
                 if not resource_name:
                     path_parts = request.url.path.split('/')
-                    if len(path_parts) >= 4:  # /api/v1/resource/...
+                    max_parts = 4
+                    if len(path_parts) >= max_parts:  # /api/v1/resource/...
                         resource_name = path_parts[3]
 
                 if not resource_name:

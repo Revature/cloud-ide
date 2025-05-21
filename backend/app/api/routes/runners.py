@@ -49,7 +49,7 @@ def read_runners(
 
     if not runner_results:
         raise HTTPException(status_code=204, detail="No runners found")
-    
+
      # Transform to response model
     response_runners = []
     for runner, email in runner_results:
