@@ -7,7 +7,7 @@ from app.util.constants import default_role_name
 from app.db.database import get_session
 from app.exceptions.user_exceptions import EmailInUseException
 from app.models.user import User, UserUpdate
-from app.business.workos import create_workos_user, create_organization_membership
+from app.business.workos import create_workos_user, create_organization_membership, delete_workos_user
 
 logger = logging.getLogger(__name__)
 
@@ -66,5 +66,26 @@ def update_user(user: UserUpdate, session: Session = next(get_session())):
     return user_repository.update_user(user = user, session = session)
 
 def delete_user(user_id: int, session: Session = next(get_session())):
-    """Delete a user."""
-    user_repository.delete_user(user_id = user_id, session = session)
+    """
+    Mark a user as deleted in our database and delete them from WorkOS.
+
+    This is a soft delete operation that maintains the user record with 'deleted' status.
+    """
+    # Get the user to be deleted
+    user = get_user_by_id(user_id, session=session)
+    if not user:
+        return None
+
+    # If the user has a WorkOS ID, delete them from WorkOS
+    if user.workos_id:
+        try:
+            delete_workos_user(user.workos_id)
+            logger.info(f"Deleted user {user.email} from WorkOS (ID: {user.workos_id})")
+        except Exception as e:
+            # Log the error but continue with soft delete
+            logger.error(f"Failed to delete user from WorkOS: {e}")
+
+    # Use the repository layer to perform the soft delete
+    updated_user = user_repository.delete_user(user_id=user_id, session=session)
+
+    return updated_user

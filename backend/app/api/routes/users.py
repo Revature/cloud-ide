@@ -1,6 +1,7 @@
 """Users API routes."""
 import logging
-from app.models.user import User, UserUpdate
+from typing import get_args
+from app.models.user import User, UserUpdate, UserStatus
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from sqlmodel import Session
 from workos import exceptions as workos_exceptions
@@ -104,21 +105,44 @@ def update_user(user_id: int, user: UserUpdate, request: Request, session: Sessi
             detail="User not found"
         )
 
-    user_management.update_user(user = user, session = session)
+    # Validate status if it's included in the update
+    if user.status is not None:
+        # Get the valid values from the UserStatus Literal type
+        valid_statuses = get_args(UserStatus)
+        if user.status not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status value. Status must be one of: {', '.join(valid_statuses)}"
+            )
 
-    return Response(status_code=status.HTTP_200_OK,
-                    content=db_user.model_dump_json())
+    # Proceed with the update
+    updated_user = user_management.update_user(user=user, session=session)
+
+    return Response(
+        status_code=status.HTTP_200_OK,
+        content=updated_user.model_dump_json()
+    )
 
 @router.delete("/{user_id}")
 @router.delete("/{user_id}/")
 @endpoint_permission_decorator.permission_required("users")
 def delete_user(user_id: int, request: Request, session: Session = Depends(get_session)):
-    """Delete a user, return the deleted user."""
-    user = user_management.get_user_by_id(user_id)
+    """
+    Delete a user (mark as deleted and remove from WorkOS).
+
+    Return the soft-deleted user.
+    """
+    user = user_management.get_user_by_id(user_id, session=session)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    user_management.delete_user(user_id = user_id, session = session)
-    return Response(status_code=status.HTTP_200_OK, content=user.model_dump_json())
+
+    print(f"Deleting user {user.email} with ID {user_id}")
+
+    # Perform the mark as deleted operation and remove from WorkOS
+    deleted_user = user_management.delete_user(user_id=user_id, session=session)
+
+    # Return the updated user with deleted status
+    return Response(status_code=status.HTTP_200_OK, content=deleted_user.model_dump_json())
