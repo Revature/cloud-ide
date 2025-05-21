@@ -13,3 +13,4 @@ from app.models.key import Key
 from app.models.cloud_connector import CloudConnector
 from app.models.security_group import SecurityGroup
 from app.models.runner_security_group import RunnerSecurityGroup
+from app.models.endpoint_permission import EndpointPermission

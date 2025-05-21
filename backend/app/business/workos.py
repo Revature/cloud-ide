@@ -39,6 +39,18 @@ def create_workos_user(*, password: str, user: User):
         **user_dict  # Unpack the dictionary here, not the User object
     ).id
 
+def create_organization_membership(workos_user_id: str, organization_id: str):
+    """
+    Create an organization membership in WorkOS.
+
+    If the process fails, workos will raise BadRequestException
+    """
+    return workos.user_management.create_organization_membership(
+        user_id=workos_user_id,
+        organization_id=organization_id,
+        role_slug="member"
+    )
+
 def generate_auth_url():
     """Return an authkit URL for login."""
     return workos.user_management.get_authorization_url(
