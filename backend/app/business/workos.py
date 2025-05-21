@@ -39,6 +39,18 @@ def create_workos_user(*, password: str, user: User):
         **user_dict  # Unpack the dictionary here, not the User object
     ).id
 
+def create_organization_membership(workos_user_id: str, organization_id: str):
+    """
+    Create an organization membership in WorkOS.
+
+    If the process fails, workos will raise BadRequestException
+    """
+    return workos.user_management.create_organization_membership(
+        user_id=workos_user_id,
+        organization_id=organization_id,
+        role_slug="member"
+    )
+
 def generate_auth_url():
     """Return an authkit URL for login."""
     return workos.user_management.get_authorization_url(
@@ -71,3 +83,18 @@ def refresh_sealed_session(sealed_session: str):
     if not refresh_result.authenticated:
         raise BadRefreshException('Authentication failed after WorkOS token refresh.')
     return refresh_result
+
+def delete_workos_user(workos_user_id: str):
+    """
+    Delete a user from WorkOS.
+
+    If the process fails, workos will raise an exception.
+    """
+    try:
+        workos.user_management.delete_user(user_id=workos_user_id)
+        return True
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error deleting user from WorkOS: {e}")
+        # Re-raise to handle upstream
+        raise

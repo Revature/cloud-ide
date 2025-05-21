@@ -1,7 +1,8 @@
 """User model."""
 
 from __future__ import annotations
-from typing import Optional
+from enum import Enum
+from typing import Optional, Literal
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship, Session
 from sqlalchemy.orm import Mapped
@@ -14,6 +15,9 @@ from app.models import role, user_role
 # runners: Mapped[List["Runner"]] = Relationship(back_populates="user")
 # user_roles: Mapped[List["UserRole"]] = Relationship(back_populates="user")
 
+# Define valid status values as a Literal type
+UserStatus = Literal["active", "inactive", "suspended", "deleted"]
+
 class User(TimestampMixin, SQLModel, table=True):
     """User model for the application."""
 
@@ -22,6 +26,7 @@ class User(TimestampMixin, SQLModel, table=True):
     last_name: str
     email: str
     workos_id: str | None = None
+    status: str = Field(default="active")
 
 class UserUpdate(TimestampMixin, SQLModel):
     """User update model."""
@@ -29,3 +34,4 @@ class UserUpdate(TimestampMixin, SQLModel):
     first_name: str | None = None
     last_name: str | None = None
     email: str | None = None
+    status: str | None = None

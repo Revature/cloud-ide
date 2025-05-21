@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from sqlmodel import Session, select
 from app.business.runner_management import launch_runners
+from app.business import endpoint_permission_management
 from app.db.database import engine, get_session
 from app.db.image_repository import find_images_with_pool
 from app.models import User, Machine, Image, Script
@@ -296,3 +297,14 @@ async def fill_runner_pools():
     from app.tasks.runner_pool_management import manage_runner_pool
     # Queue the task to run immediately (using .delay() for async execution)
     manage_runner_pool.delay()
+
+def setup_endpoint_permissions():
+    """
+    Set up default endpoint permissions.
+
+    This function is a placeholder and should be implemented to set up
+    the necessary endpoint permissions in the database.
+    """
+    with Session(engine) as session:
+        # Initialize default permissions
+        endpoint_permission_management.initialize_default_permissions(session)

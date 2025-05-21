@@ -39,10 +39,19 @@ def update_user(user: UserUpdate, session: Session = next(get_session())):
     return user_from_db
 
 def delete_user(user_id: int, session: Session = next(get_session())):
-    """Delete a user record from the database."""
-    user = get_user_by_id(user_id)
-    session.delete(user)
-    session.commit()
+    """
+    Soft delete a user record by setting status to 'deleted'.
+
+    Previously this physically deleted the record.
+    """
+    user = get_user_by_id(user_id, session=session)
+    if user:
+        user.status = "deleted"
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+    return None
 
 def assign_role(user: User, role_id: int, session: Session = next(get_session())):
     """Assign a role to a user."""

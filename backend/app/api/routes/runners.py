@@ -1,7 +1,8 @@
 """Runners API routes."""
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket, WebSocketDisconnect, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Body, WebSocket
+from fastapi import WebSocketDisconnect, Query, HTTPException, Request
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -13,7 +14,7 @@ from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
 from app.util import terminal_management
-from app.business import runner_management, script_management
+from app.business import runner_management, script_management, endpoint_permission_decorator
 from app.db import runner_repository
 import logging
 import asyncio
@@ -24,7 +25,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=list[RunnerResponse])
+@endpoint_permission_decorator.permission_required("runners")
 def read_runners(
+    request: Request,
     status: Optional[str] = Query(None, description="Filter by specific status"),
     alive_only: bool = Query(False, description="Return only alive runners"),
     session: Session = Depends(get_session)
@@ -47,7 +50,7 @@ def read_runners(
     if not runner_results:
         raise HTTPException(status_code=204, detail="No runners found")
 
-    # Transform to response model
+     # Transform to response model
     response_runners = []
     for runner, email in runner_results:
         runner_dict = runner.dict()
@@ -57,7 +60,9 @@ def read_runners(
     return response_runners
 
 @router.get("/{runner_id}", response_model=RunnerResponse)
-def read_runner(runner_id: int, session: Session = Depends(get_session)):
+@endpoint_permission_decorator.permission_required("runners")
+def read_runner(runner_id: int, request: Request, session: Session = Depends(get_session),
+    ):
     """Retrieve a single Runner by ID."""
     runner_result = runner_repository.find_runner_by_id_with_user_email(session, runner_id)
     if not runner_result:
@@ -279,9 +284,11 @@ async def update_runner_state(
     return f"State for runner {runner.id} updated to {runner.state}"
 
 @router.put("/{runner_id}", response_model=dict)
+@endpoint_permission_decorator.permission_required("runners")
 def update_runner(
     runner_id: int,
     updated_runner: Runner,
+    request: Request
 ):
     """Update an existing Runner record."""
     success = runner_management.update_runner(runner_id, updated_runner)
@@ -290,8 +297,10 @@ def update_runner(
     return {"message": f"Runner {runner_id} updated successfully"}
 
 @router.patch("/{runner_id}/stop", response_model=dict)
+@endpoint_permission_decorator.permission_required("runners")
 async def stop_runner_endpoint(
     runner_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """Stop a runner in an alive state."""
@@ -323,8 +332,10 @@ async def stop_runner_endpoint(
     return result
 
 @router.patch("/{runner_id}/start", response_model=dict)
+@endpoint_permission_decorator.permission_required("runners")
 async def start_runner_endpoint(
     runner_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """Start a runner in closed state."""
@@ -355,8 +366,10 @@ async def start_runner_endpoint(
     return result
 
 @router.delete("/{runner_id}", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("runners")
 async def terminate_runner(
     runner_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """
