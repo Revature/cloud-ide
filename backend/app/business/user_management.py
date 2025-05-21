@@ -54,6 +54,7 @@ def create_user(*, password: str, user: User, session: Session = next(get_sessio
 
     # Persist and refresh user
     user = user_repository.persist_user(user, session=session)
+    print(f"Persisted user: {user}")
 
     # Set default role
     default_role = user_repository.read_role(default_role_name, session=session)

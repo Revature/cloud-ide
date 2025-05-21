@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from app.api import http
 from app.db.database import get_session
-from app.models.runner import Runner
+from app.models.runner import Runner, RunnerResponse
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/", response_model=list[Runner])
+@router.get("/", response_model=list[RunnerResponse])
 @endpoint_permission_decorator.permission_required("runners")
 def read_runners(
     request: Request,
@@ -39,26 +39,40 @@ def read_runners(
             detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
         )
 
+    # Get runners with user emails
     if status:
-        runners = runner_repository.find_runners_by_status(session, status)
+        runner_results = runner_repository.find_runners_by_status_with_user_email(session, status)
     elif alive_only:
-        runners = runner_repository.find_alive_runners(session)
+        runner_results = runner_repository.find_alive_runners_with_user_email(session)
     else:
-        runners = runner_repository.find_all_runners(session)
+        runner_results = runner_repository.find_all_runners_with_user_email(session)
 
-    if not runners:
+    if not runner_results:
         raise HTTPException(status_code=204, detail="No runners found")
-    return runners
+    
+     # Transform to response model
+    response_runners = []
+    for runner, email in runner_results:
+        runner_dict = runner.dict()
+        runner_dict["user_email"] = email
+        response_runners.append(RunnerResponse(**runner_dict))
 
-@router.get("/{runner_id}", response_model=Runner)
+    return response_runners
+
+@router.get("/{runner_id}", response_model=RunnerResponse)
 @endpoint_permission_decorator.permission_required("runners")
 def read_runner(runner_id: int, request: Request, session: Session = Depends(get_session),
     ):
     """Retrieve a single Runner by ID."""
-    runner = runner_repository.find_runner_by_id(session, runner_id)
-    if not runner:
+    runner_result = runner_repository.find_runner_by_id_with_user_email(session, runner_id)
+    if not runner_result:
         raise HTTPException(status_code=400, detail="Runner not found")
-    return runner
+
+    runner, email = runner_result
+    runner_dict = runner.dict()
+    runner_dict["user_email"] = email
+
+    return RunnerResponse(**runner_dict)
 
 @router.put("/{runner_id}/extend_session", response_model=str)
 def extend_runner_session(

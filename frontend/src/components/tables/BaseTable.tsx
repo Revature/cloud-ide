@@ -3,7 +3,7 @@ import { CustomPagination } from "@/components/ui/pagination/CustomPagination";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import ActionsButton from "@/components/ui/buttons/ActionsButton";
 import DeleteButton from "@/components/ui/buttons/DeleteButton";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { QueryKey } from "@tanstack/react-query";
 
 interface ColumnDefinition<T> {
@@ -11,6 +11,9 @@ interface ColumnDefinition<T> {
   accessor: (item: T) => React.ReactNode; // Function to render cell content
   searchAccessor?: (item: T) => string; // Function to return a searchable string
   className?: string; // Optional class for styling
+  filterable?: boolean; // Enable filter dropdown
+  filterOptions?: { label: string; value: string }[]; // Options for filter dropdown
+  defaultFilterValues?: string[]; // Default enabled filter values
 }
 
 interface BaseTableProps<T> {
@@ -40,6 +43,32 @@ export function BaseTable<T>({
 }: BaseTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [openDropdownIndex, setOpenDropdownIndex] = useState<number | null>(null);
+  const [columnFilters, setColumnFilters] = useState<{ [colIdx: number]: string[] }>(() => {
+    const initial: { [colIdx: number]: string[] } = {};
+    columns.forEach((col, idx) => {
+      if (col.filterable && col.defaultFilterValues) {
+        initial[idx] = col.defaultFilterValues;
+      }
+    });
+    return initial;
+  });
+  const dropdownRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    if (openDropdownIndex === null) return;
+    function handleClick(event: MouseEvent) {
+      const idx = openDropdownIndex;
+      if (idx === null) return;
+      const ref = dropdownRefs.current[idx];
+      if (ref && !ref.contains(event.target as Node)) {
+        setOpenDropdownIndex(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [openDropdownIndex]);
 
   // Handle search input
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,19 +76,59 @@ export function BaseTable<T>({
     setSearchTerm(value);
   };
 
-  // Filter data based on search term
+  // Handle filter change
+  const handleFilterChange = (colIdx: number, value: string) => {
+    setColumnFilters((prev) => {
+      const prevValues = prev[colIdx] || [];
+      let newValues: string[];
+      if (prevValues.includes(value)) {
+        newValues = prevValues.filter((v) => v !== value);
+      } else {
+        newValues = [...prevValues, value];
+      }
+      return { ...prev, [colIdx]: newValues };
+    });
+  };
+
+  // Select all filter options for a column
+  const handleSelectAll = (colIdx: number) => {
+    const opts = columns[colIdx].filterOptions?.map((o) => o.value) || [];
+    setColumnFilters((prev) => ({ ...prev, [colIdx]: opts }));
+  };
+  // Clear all filter options for a column
+  const handleClearAll = (colIdx: number) => {
+    setColumnFilters((prev) => ({ ...prev, [colIdx]: [] }));
+  };
+
+  // Filter data based on search term and column filters
   const filteredData = useMemo(() => {
-  if (!searchTerm.trim()) return data;
-  const lowercasedSearch = searchTerm.toLowerCase();
-  return data.filter((item) =>
-    columns.some((col) => {
-      const searchValue = col.searchAccessor
-        ? col.searchAccessor(item)
-        : String(col.accessor(item));
-      return searchValue.toLowerCase().includes(lowercasedSearch);
-    })
-  );
-}, [data, searchTerm, columns]);
+    let filtered = data;
+    // Search filter
+    if (searchTerm.trim()) {
+      const lowercasedSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter((item) =>
+        columns.some((col) => {
+          const searchValue = col.searchAccessor
+            ? col.searchAccessor(item)
+            : String(col.accessor(item));
+          return searchValue.toLowerCase().includes(lowercasedSearch);
+        })
+      );
+    }
+    // Column filters
+    columns.forEach((col, idx) => {
+      if (col.filterable && columnFilters[idx] && columnFilters[idx].length > 0 && col.filterOptions) {
+        filtered = filtered.filter((item) => {
+          // Use searchAccessor or accessor for filter value
+          const val = col.searchAccessor
+            ? col.searchAccessor(item)
+            : String(col.accessor(item));
+          return columnFilters[idx].includes(val);
+        });
+      }
+    });
+    return filtered;
+  }, [data, searchTerm, columns, columnFilters]);
 
   // Paginate data
   const paginatedData = useMemo(() => {
@@ -125,7 +194,7 @@ export function BaseTable<T>({
 
       {/* Table */}
       <div className="overflow-visible">
-        <div className="max-w-full px-5 overflow-x-auto sm:px-6 z-18">
+        <div className="max-w-full px-5 overflow-visible sm:px-6 z-18">
           <Table>
             <TableHeader className="border-gray-100 border-y dark:border-white/[0.05]">
               <TableRow>
@@ -133,11 +202,67 @@ export function BaseTable<T>({
                   <TableCell
                     key={index}
                     isHeader
-                    className={`py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 ${
-                      col.className || ""
-                    }`}
+                    className={`py-3 font-normal text-gray-500 text-start text-theme-sm dark:text-gray-400 ${col.className || ""}`}
                   >
-                    {col.header}
+                    <div className="flex items-center gap-2">
+                      {col.header}
+                      {col.filterable && col.filterOptions && (
+                        <div
+                          className="relative"
+                          ref={(el) => {
+                            dropdownRefs.current[index] = el;
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="ml-1 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                            tabIndex={0}
+                            aria-label="Filter column"
+                            onClick={() => setOpenDropdownIndex(index === openDropdownIndex ? null : index)}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="1.5"
+                              stroke="currentColor"
+                              className="w-4 h-4 text-gray-500 dark:text-gray-300"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="m19.5 8.25-7.5 7.5-7.5-7.5"
+                              />
+                            </svg>
+                          </button>
+                          {openDropdownIndex === index && (
+                            <div className="absolute left-0 z-20 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded shadow-lg min-w-[180px] p-2">
+                              <div className="flex justify-between mb-1">
+                                <button type="button" className="text-xs text-blue-600 hover:underline" onClick={() => handleSelectAll(index)}>
+                                  Select All
+                                </button>
+                                <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => handleClearAll(index)}>
+                                  Clear All
+                                </button>
+                              </div>
+                              <div className="max-h-40 overflow-visible overflow-y-auto">
+                                {col.filterOptions.map((opt) => (
+                                  <label key={opt.value} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={columnFilters[index]?.includes(opt.value) || false}
+                                      onChange={() => handleFilterChange(index, opt.value)}
+                                      className="accent-brand-500"
+                                    />
+                                    {opt.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 ))}
                 {(actions || onDelete) && (
@@ -156,7 +281,7 @@ export function BaseTable<T>({
                   <TableCell
                     className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                   >
-                    No data found.
+                    No {title} found based on the default filters. Try adjusting filters or adding a new {title.toLowerCase().slice(0,-1)} to get started.
                   </TableCell>
                 </TableRow>
               ) : (

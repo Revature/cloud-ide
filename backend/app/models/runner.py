@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
 from sqlalchemy.orm import Mapped
 from app.models.mixins import TimestampMixin
+from pydantic import BaseModel
 from app.db import database
 
 # states
@@ -72,6 +73,39 @@ class Runner(TimestampMixin, SQLModel, table=True):
         }
         return self.state not in do_not_run
 
+class RunnerResponse(BaseModel):
+    """Runner response model with user email."""
+
+    id: int
+    machine_id: int
+    image_id: int
+    user_id: int | None = None
+    key_id: int | None = None
+    state: str
+    url: str
+    lifecycle_token: str | None = None
+    terminal_token: str | None = None
+    user_ip: str | None = None
+    identifier: str
+    external_hash: str
+    env_data: dict[str, Any]
+    session_start: datetime | None = None
+    session_end: datetime | None = None
+    ended_on: datetime | None = None
+
+    # Add timestamp fields from TimestampMixin
+    created_on: datetime | None = None
+    updated_on: datetime | None = None
+    modified_by: str | None = None
+    created_by: str | None = None
+
+    # Add user email field
+    user_email: str | None = None
+
+    class Config:
+        """config for runner response model."""
+
+        orm_mode = True
 
 class RunnerUpdate(TimestampMixin, SQLModel):
     """Runner update model."""
