@@ -10,7 +10,7 @@ const roleProtectedRoutes: Record<string, string[]> = {
   '/cloud-connectors': ['admin'], 
   '/images': ['admin'], 
   '/runner-pools': ['admin'],
-  '/ui/runners': ['admin', 'member'], 
+  '/runners': ['admin', 'member'], 
 };
 
 const baseAuthMiddleware = authkitMiddleware({
