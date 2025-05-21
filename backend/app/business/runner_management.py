@@ -1303,7 +1303,7 @@ def update_runner(runner_id: int, updated_runner: Runner):
     with Session(engine) as session:
         runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
         if not runner:
-            raise RunnerRetrievalException
+            raise RunnerRetrievalException(f"No such runner: {runner_id}")
         runner_repository.update_whole_runner(session, runner_id, updated_runner)
         session.commit()
         return updated_runner
@@ -1318,7 +1318,7 @@ async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
                 runner.lifecycle_token = uuid.uuid4().hex
                 runner_repository.update_runner(session, runner)
                 return runner
-        raise RunnerRetrievalException
+        raise RunnerRetrievalException(f"No runner with lifecycle token: {lifecycle_token}")
 
 def validate_terminal_token(runner_id, terminal_token : str) -> Runner:
     """Check runner with a matching terminal token and replace."""
@@ -1328,4 +1328,4 @@ def validate_terminal_token(runner_id, terminal_token : str) -> Runner:
             runner.terminal_token = uuid.uuid4().hex
             runner_repository.update_runner(session, runner)
             return runner
-        raise RunnerRetrievalException
+        raise RunnerRetrievalException(f"No such found with matching id & terminal token: {runner_id}, {terminal_token}")

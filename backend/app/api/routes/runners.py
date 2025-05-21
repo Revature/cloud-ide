@@ -54,7 +54,7 @@ def read_runner(runner_id: int, session: Session = Depends(get_session),
     """Retrieve a single Runner by ID."""
     runner = runner_repository.find_runner_by_id(session, runner_id)
     if not runner:
-        raise HTTPException(status_code=400, detail="Runner not found")
+        raise HTTPException(status_code=404, detail="Runner not found")
     return runner
 
 @router.put("/{runner_id}/extend_session", response_model=str)
@@ -272,9 +272,10 @@ def update_runner(
     updated_runner: Runner,
 ):
     """Update an existing Runner record."""
-    success = runner_management.update_runner(runner_id, updated_runner)
-    if not success:
-        raise HTTPException(status_code=404, detail="Runner not found")
+    try:
+        runner_management.update_runner(runner_id, updated_runner)
+    except:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
     return {"message": f"Runner {runner_id} updated successfully"}
 
 @router.patch("/{runner_id}/stop", response_model=dict)
@@ -361,7 +362,7 @@ async def terminate_runner(
     runner = runner_repository.find_runner_by_id(session, runner_id)
     # Delete is idempotent, if no runner exists, just return.
     if not runner:
-        return
+        return {"status": "success", "message": f"Runner {runner_id} not found or already terminated"}
 
     # Get the image to check if it has a runner pool
     image_id = runner.image_id

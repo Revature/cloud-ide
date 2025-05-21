@@ -150,6 +150,21 @@ async def process_runner_request(
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
+        if request.session_time <= 0:
+            error_msg = f"Invalid session time."
+            await emit_status(
+                lifecycle_token,
+                "ERROR",
+                error_msg,
+                {
+                    "error_type": "invalid_request",
+                    "details": {"invalid_session_time": True}
+                },
+                is_error=True
+            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+
+
         # Get image
         db_image = image_management.get_image_by_id(request.image_id, include_deleted=False, include_inactive=False)
         if not db_image:

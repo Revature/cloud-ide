@@ -1,1 +1,0 @@
-1. Expect that an API call to /api/docs responds with 200 OK and some form of API documentation.
