@@ -8,8 +8,9 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
+from sqlalchemy.exc import OperationalError, PendingRollbackError, InterfaceError
 from typing import Optional
-from app.db.database import engine, get_session
+from app.db.database import engine, get_session, get_session_context, reset_db_connection
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
 from app.util import constants, runner_status_management
 from app.business.cloud_services import cloud_service_factory
@@ -930,6 +931,7 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
         A dictionary with the result of the termination process.
     """
     logger.info(f"[{initiated_by}] Starting termination request for runner {runner_id}")
+    print(f"[{initiated_by}] Starting termination request for runner {runner_id}")
 
     try:
         # Find runner and validate state
@@ -1030,6 +1032,7 @@ async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> 
 
     This is a lightweight method that just validates and queues tasks.
     """
+    print(f"shutdown_runners called with instance_ids: {instance_ids}")
     results = []
     for instance_id in instance_ids:
         with Session(engine) as session:
@@ -1058,267 +1061,82 @@ async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> 
 
     return results
 
-
-async def force_shutdown_runners(instance_ids: list, initiated_by: str = "system"):
-    """
-    Force stop and terminate instances without running scripts or using intermediate states.
-
-    Used during application shutdown to ensure all runners are terminated
-    without waiting for potentially time-consuming scripts to complete.
-    Skips the "closed" state entirely to minimize database operations.
-
-    Args:
-        instance_ids: List of instance IDs to terminate
-        initiated_by: Identifier of the service/job that initiated the termination
-    """
-    from app.models.runner_history import RunnerHistory
-    import urllib.request
-    import urllib.error
-    from http.client import HTTPResponse
-
-    logger.info(f"[{initiated_by}] force_shutdown_runners called with instance_ids: {instance_ids}")
-
-    results = []
-
-    for instance_id in instance_ids:
-        result = {"instance_id": instance_id, "status": "success", "details": [], "initiated_by": initiated_by}
-
-        try:
-            # Find the runner and related resources
-            with Session(engine) as session:
-                stmt = select(Runner).where(Runner.identifier == instance_id)
-                runner = session.exec(stmt).first()
-
-                if not runner:
-                    logger.warning(f"[{initiated_by}] Runner with instance ID {instance_id} not found, skipping")
-                    continue
-
-                # Skip if already terminated
-                if runner.state == "terminated":
-                    logger.info(f"[{initiated_by}] Runner {runner.id} already in terminated state, skipping")
-                    continue
-
-                # Store runner ID for later use with security groups
-                runner_id = runner.id
-                runner_url = runner.url
-
-                # Get necessary info for cloud operations
-                image = session.get(Image, runner.image_id)
-                if not image or not image.cloud_connector_id:
-                    logger.warning(f"[{initiated_by}] Missing image or cloud connector for runner {runner.id}, skipping")
-                    continue
-
-                cloud_connector = session.get(CloudConnector, image.cloud_connector_id)
-                if not cloud_connector:
-                    logger.warning(f"[{initiated_by}] Cloud connector {image.cloud_connector_id} not found, skipping")
-                    continue
-
-                # Get cloud service
-                cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
-
-                # Update runner state directly to terminated and record the change
-                old_state = runner.state
-                runner.state = "terminated"  # Skip intermediate states
-                runner.ended_on = datetime.utcnow()
-
-                # Create history record
-                terminating_history = RunnerHistory(
-                    runner_id=runner.id,
-                    event_name="runner_force_terminated",
-                    event_data={
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "old_state": old_state,
-                        "new_state": "terminated",
-                        "initiated_by": initiated_by,
-                        "note": "Force termination - skipping scripts and intermediate states"
-                    },
-                    created_by="system",
-                    modified_by="system"
-                )
-                session.add(terminating_history)
-                session.commit()
-
-                result["runner_id"] = runner.id
-
-            # Perform the actual instance operations with the cloud provider
-            try:
-                # Stop and terminate in sequence with timeouts
-                logger.info(f"[{initiated_by}] Force stopping and terminating instance {instance_id} for runner {runner_id}")
-
-                # Try to stop first with a short timeout
-                try:
-                    stop_future = cloud_service.stop_instance(instance_id)
-                    await asyncio.wait_for(stop_future, timeout=15)  # 15 second timeout for stop
-                except (asyncio.TimeoutError, Exception) as e:
-                    logger.warning(f"[{initiated_by}] Stop operation for instance {instance_id} failed or timed out: {e}, proceeding to terminate")
-
-                # Always attempt to terminate, even if stop failed
-                try:
-                    terminate_future = cloud_service.terminate_instance(instance_id)
-                    await asyncio.wait_for(terminate_future, timeout=15)  # 15 second timeout for terminate
-                    logger.info(f"[{initiated_by}] Successfully terminated instance {instance_id}")
-                except (asyncio.TimeoutError, Exception) as e:
-                    logger.error(f"[{initiated_by}] Terminate operation for instance {instance_id} failed or timed out: {e}")
-
-                # Force cleanup security groups with a short timeout
-                try:
-                    logger.info(f"[{initiated_by}] Force cleaning up security groups for runner {runner_id}")
-                    cleanup_future = security_group_management.handle_runner_termination(runner_id, cloud_service)
-                    await asyncio.wait_for(cleanup_future, timeout=15)  # 15 second timeout for security group cleanup
-                    logger.info(f"[{initiated_by}] Successfully cleaned up security groups for runner {runner_id}")
-                    result["details"].append({"step": "security_group_cleanup", "status": "success"})
-                except (asyncio.TimeoutError, Exception) as e:
-                    logger.warning(f"[{initiated_by}] Security group cleanup for runner {runner_id} failed or timed out: {e}")
-                    result["details"].append({"step": "security_group_cleanup", "status": "warning", "message": str(e)})
-                    # Continue without failing the overall operation
-
-                try:
-                    prometheus_host = os.environ.get("PROMETHEUS_PUSHGATEWAY_URL", "http://prometheus-pushgateway:9091")
-                    prometheus_url = f"{prometheus_host}/metrics/job/{runner_url}"
-                    # Create a DELETE request
-                    req = urllib.request.Request(
-                        url=prometheus_url,
-                        method="DELETE"
-                    )
-
-                    # Set a timeout for the request
-                    metrics_success = False
-                    status_code = None
-                    try:
-                        # Open the request with a timeout
-                        response = urllib.request.urlopen(req, timeout=5)
-                        status_code = response.status
-                        metrics_success = (status_code in (200, 202))
-                        response.close()
-                    except urllib.error.HTTPError as http_err:
-                        status_code = http_err.code
-                        logger.warning(f"[{initiated_by}] HTTP error deleting metrics: {http_err}")
-                    except Exception as open_err:
-                        logger.warning(f"[{initiated_by}] Error opening URL: {open_err}")
-
-                    if metrics_success:
-                        logger.info(f"[{initiated_by}] Successfully deleted metrics for runner {runner_id} ({runner_url})")
-
-                        # Add a history record for the metrics deletion
-                        metrics_history = RunnerHistory(
-                            runner_id=runner.id,
-                            event_name="prometheus_metrics_deleted",
-                            event_data={
-                                "timestamp": datetime.utcnow().isoformat(),
-                                "initiated_by": initiated_by,
-                                "prometheus_url": prometheus_url,
-                                "status_code": status_code,
-                                "context": "force_shutdown"
-                            },
-                            created_by="system",
-                            modified_by="system"
-                        )
-                        session.add(metrics_history)
-                        session.commit()
-
-                        result["details"].append({"step": "delete_prometheus_metrics", "status": "success"})
-                    else:
-                        message = f"Failed with status code {status_code}" if status_code else "Failed to connect"
-                        logger.warning(
-                            f"[{initiated_by}] Failed to delete metrics for runner {runner_id} ({runner_url}). {message}"
-                        )
-                        result["details"].append({
-                            "step": "delete_prometheus_metrics",
-                            "status": "warning",
-                            "message": message
-                        })
-                except Exception as metrics_error:
-                    logger.warning(f"[{initiated_by}] Error deleting Prometheus metrics for runner {runner_id}: {metrics_error}")
-                    result["details"].append({
-                        "step": "delete_prometheus_metrics",
-                        "status": "warning",
-                        "message": str(metrics_error)
-                    })
-
-            except Exception as e:
-                logger.error(f"[{initiated_by}] Error in cloud provider operations for instance {instance_id}: {e}")
-                # We don't change the database state back since we want it to show as terminated
-                # even if the cloud operation failed
-                result["status"] = "partial"
-                result["details"].append({"step": "cloud_operations", "error": str(e)})
-
-            results.append(result)
-
-        except Exception as e:
-            logger.error(f"[{initiated_by}] Error processing instance {instance_id}: {e}")
-            results.append({
-                "instance_id": instance_id,
-                "status": "error",
-                "message": f"Error during forced shutdown: {e!s}"
-            })
-
-    return results
-
-async def shutdown_all_runners():
-    """
-    Stop and then terminate all instances for runners that are not in the 'terminated' state.
-
-    During application shutdown, skips script execution and intermediate states
-    to ensure quick and reliable termination.
-    """
-    initiated_by = "shutdown_all_runners"
-    logger.info(f"[{initiated_by}] Starting shutdown of all active runners")
-
-    try:
-        # Get all non-terminated runner IDs in a single transaction
-        instance_ids = []
-        with Session(engine) as session:
-            stmt = select(Runner.identifier).where(Runner.state != "terminated")
-            instance_ids = session.exec(stmt).all()
-
-        if not instance_ids:
-            logger.info(f"[{initiated_by}] No active runners found to terminate")
-            return []
-
-        logger.info(f"[{initiated_by}] Found {len(instance_ids)} runners to terminate: {instance_ids}")
-
-        # Process in smaller batches to avoid overloading
-        batch_size = 5
-        results = []
-
-        for i in range(0, len(instance_ids), batch_size):
-            batch = instance_ids[i:i+batch_size]
-            logger.info(f"[{initiated_by}] Processing batch {i//batch_size + 1}: {batch}")
-            try:
-                batch_results = await force_shutdown_runners(batch, initiated_by)
-                results.extend(batch_results)
-                logger.info(f"[{initiated_by}] Batch {i//batch_size + 1} complete: {batch_results}")
-            except Exception as e:
-                logger.error(f"[{initiated_by}] Error in batch {i//batch_size + 1}: {e}")
-                # Continue with next batch instead of failing completely
-
-        logger.info(f"[{initiated_by}] Completed shutdown of all active runners. Results: {results}")
-        return results
-    except Exception as e:
-        logger.error(f"[{initiated_by}] Critical error during shutdown_all_runners: {e}")
-        return [{"status": "error", "message": f"Global error in shutdown_all_runners: {e!s}"}]
-
 def update_runner(runner_id: int, updated_runner: Runner):
     """Update an existing runner."""
     with Session(engine) as session:
         runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
         if not runner:
-            raise RunnerRetrievalException(f"No such runner: {runner_id}")
+            raise RunnerRetrievalException
         runner_repository.update_whole_runner(session, runner_id, updated_runner)
         session.commit()
         return updated_runner
 
-async def wait_for_lifecycle_token(lifecycle_token : str) -> Runner:
-    """Wait 30 seconds for a runner record to be created, so that we can track its lifecycle token."""
-    with Session(engine) as session:
-        for _ in range(30):
-            await asyncio.sleep(1)
-            runner: Runner = runner_repository.find_runner_with_lifecycle_token(session, lifecycle_token)
-            if runner:
-                runner.lifecycle_token = uuid.uuid4().hex
-                runner_repository.update_runner(session, runner)
-                return runner
-        raise RunnerRetrievalException(f"No runner with lifecycle token: {lifecycle_token}")
+async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:
+    """
+    Wait for a runner record to be created with the given lifecycle token.
+
+    This function has been enhanced with better database error handling.
+
+    Args:
+        lifecycle_token: The token to wait for
+
+    Returns:
+        Runner object
+
+    Raises:
+        RunnerRetrievalException: If the token can't be found within the timeout period
+    """
+    logger.info(f"Waiting for lifecycle token: {lifecycle_token}")
+
+    # Try to find a runner with this lifecycle token for up to 30 seconds
+    retries = 0
+    max_retries = 60  # Try for 60 seconds (1 check per second)
+
+    # First, ensure the connection pool is clean
+    reset_db_connection()
+
+    while retries < max_retries:
+        try:
+            # Use a fresh session for each attempt
+            with get_session_context() as session:
+                # Look for a runner with this token
+                runner = runner_repository.find_runner_with_lifecycle_token(session, lifecycle_token)
+
+                if runner:
+                    logger.info(f"Found runner with lifecycle token: {lifecycle_token}")
+
+                    # Update the token to prevent reuse
+                    try:
+                        import uuid
+                        runner.lifecycle_token = str(uuid.uuid4())
+                        session.add(runner)
+                        session.commit()
+                    except Exception as e:
+                        logger.warning(f"Failed to update lifecycle token: {e}")
+                        # Continue anyway, this isn't critical
+
+                    return runner
+
+        except (OperationalError, InterfaceError, PendingRollbackError) as db_error:
+            # Handle database connection errors
+            error_msg = str(db_error)
+            logger.warning(f"Database error while looking for lifecycle token: {error_msg}")
+
+            # Reset connection pool for specific error types
+            if "MySQL server has gone away" in error_msg or "Connection timed out" in error_msg:
+                reset_db_connection()
+
+        except Exception as e:
+            # Log other errors but continue trying
+            logger.error(f"Error checking for lifecycle token: {e}")
+
+        # Wait before trying again
+        retries += 1
+        await asyncio.sleep(1)
+
+    # If we reach here, we couldn't find the token within the timeout period
+    logger.error(f"No runner found with lifecycle token: {lifecycle_token} after {max_retries} seconds")
+    raise RunnerRetrievalException(f"No runner found with lifecycle token: {lifecycle_token}")
 
 def validate_terminal_token(runner_id, terminal_token : str) -> Runner:
     """Check runner with a matching terminal token and replace."""

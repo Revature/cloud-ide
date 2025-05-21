@@ -22,13 +22,21 @@ def request_email_invite(email: str) -> str:
 
 def create_workos_user(*, password: str, user: User):
     """
-    Create a user in workos orginization.
+    Create a user in workos organization.
 
     If the process fails, workos will raise BadRequestException
     """
+    # Create a dictionary of the user attributes required by WorkOS
+    user_dict = {
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name
+        # Add any other attributes WorkOS expects here
+    }
+
     return workos.user_management.create_user(
         password=password,
-        **user
+        **user_dict  # Unpack the dictionary here, not the User object
     ).id
 
 def generate_auth_url():

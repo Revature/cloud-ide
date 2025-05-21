@@ -45,8 +45,7 @@ const RunnerFormWithTerminal: React.FC = () => {
     setErrorMessage(null);
     setWorkflowStage('webSocketSetup');
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const deploymentUrl = process.env['NEXT_PUBLIC_DEPLOYMENT_URL'] || 'localhost:8000'; 
-    // const deploymentUrl = 'localhost:8000'; 
+    const deploymentUrl = window.location.protocol === "https:" ? process.env["NEXT_PUBLIC_DEPLOYMENT_URL"] : "localhost:8000";
     const SETUP_WS_URL = `${wsProtocol}//${deploymentUrl}/api/v1/app_requests/runner_status`
 
     try {

@@ -1,14 +1,13 @@
 "use client";
 import Button from "@/components/ui/button/Button";
 import dynamic from 'next/dynamic';
-import { useRunnerQuery } from '@/hooks/api/runners/useRunnersData';
-import { runnersApi } from '@/services/cloud-resources/runners';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 // Import the props interface from the terminal component
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
 import StatusBadge from "../ui/badge/StatusBadge";
+import { useRunnerById, useTerminateRunner } from "@/hooks/type-query/useRunners";
 
 // Import terminal component with ssr: false to prevent server-side rendering
 const TerminalComponent = dynamic<TerminalComponentProps>(
@@ -25,7 +24,8 @@ const RunnerView: React.FC = () => {
   const autoConnect = searchParams.get('autoConnect') === 'true';
   const cloudIdeUrl = searchParams.get('url'); // Extract the URL from query parameters
 
-  const { data: runner, isLoading, error } = useRunnerQuery(Number(runnerId));
+  const { data: runner, isLoading, error } = useRunnerById(Number(runnerId));
+  const { mutateAsync: terminateRunner } = useTerminateRunner();
 
   const [terminalVisible, setTerminalVisible] = useState(false);
   const [terminalConnected, setTerminalConnected] = useState(false);
@@ -72,7 +72,7 @@ const RunnerView: React.FC = () => {
       setIsTerminating(true);
       setUiMessage(null); // Clear any previous messages
       try {
-        await runnersApi.terminate(runner.id);
+        await terminateRunner(runner.id);
         setUiMessage({ type: 'success', message: `Runner with ID ${runner.id} terminated successfully.` });
         router.push('/runners'); // Redirect to the runners list
       } catch (error) {
@@ -266,6 +266,9 @@ const RunnerView: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow">
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
+                    {/* <iframe src={`http://34.223.156.189:3000/d-solo/celzsxhpytdkwe/runner-metrics?orgId=1&from=1747389791744&to=1747411391744&timezone=browser&var-RunnerIP=18.236.84.58&refresh=5m&panelId=1&__feature.dashboardSceneSolo`} width="450" height="200">
+                    </iframe> */}
+                    <div className="text-center">
                     <svg 
                       className="w-12 h-12 mx-auto text-gray-400" 
                       fill="none" 
@@ -285,6 +288,7 @@ const RunnerView: React.FC = () => {
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                       Runner usage statistics will be available in a future update.
                     </p>
+                  </div>
                   </div>
                 </div>
               </div>

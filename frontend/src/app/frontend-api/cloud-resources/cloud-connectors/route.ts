@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CloudConnector } from '@/types/cloudConnectors';
-import { BackendCloudConnector } from '@/types/api';
+import { CloudConnector, CloudConnectorResponse, convertCloudConnectorResponse } from '@/types/cloudConnectors';
 import { backendServer } from '../../../../utils/axios';
 import { handleRouteError } from '@/utils/errorHandler';
 
@@ -8,33 +7,11 @@ const endpoint = '/api/v1/cloud_connectors/';
 
 export async function GET() {
   try {
-    const response = await backendServer.get<BackendCloudConnector[]>(endpoint);
+    const response = await backendServer.get<CloudConnectorResponse[]>(endpoint);
 
     const backendData = response.data;
 
-    const transformedData: CloudConnector[] = backendData.map((item: BackendCloudConnector) => ({
-      id: item.id,
-      provider: item.provider,
-      name: `${item.provider} ${item.region}`,
-      type: item.provider,
-      region: item.region,
-      status: item.status,
-      accessKey: item.encrypted_access_key,
-      secretKey: item.encrypted_secret_key,
-      createdOn: new Date(item.created_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      updatedOn: new Date(item.updated_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      image: `/images/brand/${item.provider.toLowerCase()}-logo.svg`,
-      modifiedBy: item.modified_by,
-      createdBy: item.created_by,
-    }));
+    const transformedData: CloudConnector[] = backendData.map(convertCloudConnectorResponse);
 
     return NextResponse.json(transformedData);
   } catch (error) {
@@ -53,33 +30,11 @@ export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
 
-    const response = await backendServer.post<BackendCloudConnector>(endpoint, requestBody);
+    const response = await backendServer.post<CloudConnectorResponse>(endpoint, requestBody);
 
-    const connector = response.data;
+    const backendData = response.data;
 
-    const transformedConnector: CloudConnector = {
-      id: connector.id,
-      provider: connector.provider,
-      name: `${connector.provider} ${connector.region}`,
-      type: connector.provider,
-      region: connector.region,
-      status: connector.status,
-      accessKey: connector.encrypted_access_key,
-      secretKey: connector.encrypted_secret_key,
-      createdOn: new Date(connector.created_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      updatedOn: new Date(connector.updated_on).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }),
-      image: `/images/brand/${connector.provider.toLowerCase()}-logo.svg`,
-      modifiedBy: connector.modified_by,
-      createdBy: connector.created_by,
-    };
+    const transformedConnector: CloudConnector = convertCloudConnectorResponse(backendData);
 
     return NextResponse.json(transformedConnector);
   } catch (error) {

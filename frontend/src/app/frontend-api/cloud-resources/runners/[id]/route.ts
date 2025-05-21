@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Runner } from '@/types/runner';
-import { BackendRunner } from '@/types/api';
-import { backendServer } from '../../../../../utils/axios';
+import { convertRunnerResponse, Runner, RunnerResponse } from '@/types/runner';
 import { handleRouteError } from '@/utils/errorHandler';
+import { backendServer } from '@/utils/axios';
 
 
 // Backend API endpoint
@@ -17,7 +16,7 @@ export async function GET(
     console.log(request);
 
     // Use backendServer to make the request
-    const response = await backendServer.get<BackendRunner>(`${endpoint}/${id}`);
+    const response = await backendServer.get<RunnerResponse>(`${endpoint}/${id}`);
 
     // Extract backend data
     const runnerData = response.data;
@@ -28,28 +27,9 @@ export async function GET(
       throw new Error('Invalid runner data returned from backend');
     }
 
-    const transformedData: Runner = {
-      id: runnerData.id,
-      userId: runnerData.user_id,
-      imageId: runnerData.image_id,
-      machineId: runnerData.machine_id,
-      keyId: runnerData.key_id,
-      state: runnerData.state,
-      identifier: runnerData.identifier,
-      externalHash: runnerData.external_hash,
-      url: runnerData.url,
-      userIP: runnerData.user_ip,
-      envData: runnerData.env_data,
-      sessionStart: new Date(runnerData.session_start).toLocaleString('en-US'),
-      sessionEnd: new Date(runnerData.session_end).toLocaleString('en-US'),
-      endedOn: new Date(runnerData.ended_on).toLocaleString('en-US'),
-      createdOn: new Date(runnerData.created_on).toLocaleDateString('en-US'),
-      updatedOn: new Date(runnerData.updated_on).toLocaleDateString('en-US'),
-      modifiedBy: runnerData.modified_by,
-      terminalToken: runnerData.terminal_token,
-    };
+    const runner : Runner = convertRunnerResponse(runnerData);
 
-    return NextResponse.json(transformedData);
+    return NextResponse.json(runner);
   } catch (error) {
     return handleRouteError(error, {action: 'fetching runner', id: (await params).id});
   }

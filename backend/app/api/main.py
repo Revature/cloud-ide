@@ -13,7 +13,7 @@ from app.business.workos import authenticate_sealed_session, get_workos_client, 
 from app.util import constants
 from app.db.database import create_db_and_tables
 from app.business.resource_setup import fill_runner_pools, setup_resources
-from app.business.runner_management import shutdown_all_runners
+# from app.business.runner_management import shutdown_all_runners
 from app.business.pkce import verify_token_exp
 from app.exceptions.authentication_exceptions import NoMatchingKeyException
 from app.models.workos_session import get_refresh_token, refresh_session
@@ -124,24 +124,12 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        # wos_cookie = request.cookies.get("wos-session")
+
         #print route
         print(f"\n\nRequest Path: {request.url.path}")
 
         if not access_token:
             print('not access-token')
-        # if not wos_cookie:
-        #     print('not workos cookie')
-
-        # What's with these cookies?
-        # print("\n\n================Cookies:================")
-        # print(request.cookies)
-        # print("\n\n================Headers:================")
-        # print(request.headers)
-
-        # if request.headers.get("upgrade", "").lower() == "websocket":
-        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
-        #     return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
@@ -161,27 +149,6 @@ def start_api():
                     runner_token = request.headers.get("Runner-Token")
                     if runner_management.auth_runner(runner_id, runner_token):
                         final_response = await call_next(request)
-
-            # Check for wos_session cookie, if needed refresh it
-            # if (not final_response) and wos_cookie:
-            #     print('wos_cookie secured route entered.')
-            #     auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
-            #     if auth_result.authenticated:
-            #         final_response = await call_next(request)
-            #     else:
-            #         print('Failed to auth with cookie, refreshing...')
-            #         refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
-            #         final_response = await call_next(request)
-            #         final_response.set_cookie(
-            #             key = "wos-session",
-            #             value = refresh_result.sealed_session,
-            #             secure = True,
-            #             httponly = True,
-            #             samesite = "lax",
-            #             domain = os.getenv("DOMAIN"),
-            #             path = "/"
-            #         )
-
 
             # If none of the above, we must find an access token
             if not final_response and not access_token:
@@ -225,7 +192,7 @@ def start_api():
                 status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
                 content = '{"response":"Internal Server Error: ' + str(e) + '"}'
             )
-        print('returning final respose.')
+        print('returning final response.')
         return final_response
 
     return api
@@ -237,16 +204,16 @@ async def shutdown_api():
         logger = logging.getLogger(__name__)
         logger.info("Starting application shutdown process...")
 
-        # Set a reasonable timeout for the shutdown process
-        import asyncio
-        shutdown_task = asyncio.create_task(shutdown_all_runners())
+        # # Set a reasonable timeout for the shutdown process
+        # import asyncio
+        # shutdown_task = asyncio.create_task(shutdown_all_runners())
 
-        # Wait with a timeout to ensure we don't hang forever
-        try:
-            await asyncio.wait_for(shutdown_task, timeout=60)  # 60 second timeout
-            logger.info("All runners successfully terminated")
-        except asyncio.TimeoutError:
-            logger.error("Timeout while shutting down runners - some may remain active")
+        # # Wait with a timeout to ensure we don't hang forever
+        # try:
+        #     await asyncio.wait_for(shutdown_task, timeout=120)  # 60 second timeout
+        #     logger.info("All runners successfully terminated")
+        # except asyncio.TimeoutError:
+        #     logger.error("Timeout while shutting down runners - some may remain active")
     except Exception as e:
         import traceback
-        logger.error(f"Error during shutdown_all_runners: {e}\n{traceback.format_exc()}")
+        logger.error(f"Error during shutdown application: {e}\n{traceback.format_exc()}")

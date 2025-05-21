@@ -9,7 +9,7 @@ export default function HomeHeader() {
   const [isScrolled, setIsScrolled] = useState(false);
   
   // Use AuthKit hook to get authentication state and auth functions
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -50,12 +50,22 @@ export default function HomeHeader() {
                 </div>
                 
                 {/* Dashboard Link for authenticated users */}
+                {role === 'admin' ? (
                 <Link 
                   href={`/cloud-connectors`} 
                   className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700"
                 >
-                  Cloud Connectors
-                </Link>
+                  Dashboard
+                </Link>)
+                : (
+                  <Link 
+                    href={`/runners`} 
+                    className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700"
+                  >
+                    Dashboard
+                  </Link>
+                )}
+            
               </>
             ) : (
                 <Link 

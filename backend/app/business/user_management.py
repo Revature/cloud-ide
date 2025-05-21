@@ -35,23 +35,24 @@ def create_user(*, password: str, user: User, session: Session = next(get_sessio
     Can raise workos.BadRequestException, EmailInUseException, NoSuchRoleException.
     """
     # Make sure email is not already in use
-    if get_user_by_email(email = user.email, session = session):
+    if get_user_by_email(email=user.email, session=session):
         error_msg = f'Unable to create new user, email: {user.email} is already in use.'
         logger.exception(error_msg)
         raise EmailInUseException(error_msg)
 
-    # Create the user in workos
+    # Create the user in workos - no need to create a dictionary here anymore
     user.workos_id = create_workos_user(
         password=password,
-        **user
-        )
+        user=user  # Pass the user object directly
+    )
 
     # Persist and refresh user
-    user = user_repository.persist_user(user, session = session)
+    user = user_repository.persist_user(user, session=session)
+    print(f"Persisted user: {user}")
 
     # Set default role
-    default_role = user_repository.read_role(default_role_name, session = session)
-    user_repository.assign_role(user = user, role = default_role.id, session = session)
+    default_role = user_repository.read_role(default_role_name, session=session)
+    user_repository.assign_role(user=user, role_id=default_role.id, session=session)
     return user
 
 def update_user(user: UserUpdate, session: Session = next(get_session())):

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from app.api import http
 from app.db.database import get_session
-from app.models.runner import Runner
+from app.models.runner import Runner, RunnerResponse
 from app.models.runner_history import RunnerHistory
 from app.models.image import Image
 from app.schemas.runner import ExtendSessionRequest
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/", response_model=list[Runner])
+@router.get("/", response_model=list[RunnerResponse])
 def read_runners(
     status: Optional[str] = Query(None, description="Filter by specific status"),
     alive_only: bool = Query(False, description="Return only alive runners"),
@@ -36,26 +36,38 @@ def read_runners(
             detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
         )
 
+    # Get runners with user emails
     if status:
-        runners = runner_repository.find_runners_by_status(session, status)
+        runner_results = runner_repository.find_runners_by_status_with_user_email(session, status)
     elif alive_only:
-        runners = runner_repository.find_alive_runners(session)
+        runner_results = runner_repository.find_alive_runners_with_user_email(session)
     else:
-        runners = runner_repository.find_all_runners(session)
+        runner_results = runner_repository.find_all_runners_with_user_email(session)
 
-    if not runners:
+    if not runner_results:
         raise HTTPException(status_code=204, detail="No runners found")
-    return runners
 
-@router.get("/{runner_id}", response_model=Runner)
-def read_runner(runner_id: int, session: Session = Depends(get_session),
-        #access_token: str = Header(..., alias="Access-Token")
-    ):
+    # Transform to response model
+    response_runners = []
+    for runner, email in runner_results:
+        runner_dict = runner.dict()
+        runner_dict["user_email"] = email
+        response_runners.append(RunnerResponse(**runner_dict))
+
+    return response_runners
+
+@router.get("/{runner_id}", response_model=RunnerResponse)
+def read_runner(runner_id: int, session: Session = Depends(get_session)):
     """Retrieve a single Runner by ID."""
-    runner = runner_repository.find_runner_by_id(session, runner_id)
-    if not runner:
+    runner_result = runner_repository.find_runner_by_id_with_user_email(session, runner_id)
+    if not runner_result:
         raise HTTPException(status_code=404, detail="Runner not found")
-    return runner
+
+    runner, email = runner_result
+    runner_dict = runner.dict()
+    runner_dict["user_email"] = email
+
+    return RunnerResponse(**runner_dict)
 
 @router.put("/{runner_id}/extend_session", response_model=str)
 def extend_runner_session(
@@ -371,7 +383,9 @@ async def terminate_runner(
     image_identifier = image.identifier if image else None
 
     # Call the terminate_runner function from runner_management.py
+    print(f"Terminating runner {runner_id} with image {image_identifier}")
     result = await runner_management.terminate_runner(runner_id, initiated_by="manual_termination_endpoint")
+    print(f"Result of termination: {result}")
 
     # Check for various error conditions with specific messages
     if result["status"] == "error":

@@ -11,13 +11,15 @@ from pydantic import BaseModel
 from typing import Any, Optional, Callable
 from datetime import datetime, timezone
 from app.db import runner_repository
-from app.db.database import engine
+from app.db.database import engine, reset_db_connection, safe_session
 from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants, websocket_management, runner_status_management
 from app.business import image_management, user_management, runner_management, script_management
 from app.exceptions.runner_exceptions import RunnerLaunchError, RunnerClaimError
+from app.util.transactions import with_database_resilience, with_background_resilience
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -108,6 +110,45 @@ def handle_runner_errors(func):
             )
             raise HTTPException(status_code=500, detail=f"Unexpected error: {e!s}") from e
     return wrapper
+
+@with_background_resilience
+async def process_runner_request_with_error_handling(
+    request: RunnerRequest,
+    lifecycle_token: Optional[str] = None,
+    client_ip: Optional[str] = None,
+    x_forwarded_for: Optional[str] = None,
+) -> dict:
+    """Wrap around process_runner_request with resilience for background tasks."""
+    try:
+        # Reset connection pool first
+        reset_db_connection()
+
+        return await process_runner_request(
+            request=request,
+            lifecycle_token=lifecycle_token,
+            client_ip=client_ip,
+            x_forwarded_for=x_forwarded_for
+        )
+    except Exception as e:
+        logger.error(f"Error in background process_runner_request: {e}")
+
+        # Emit error status
+        await emit_status(
+            lifecycle_token,
+            "ERROR",
+            f"Error processing runner request: {e!s}",
+            {
+                "error_type": "background_processing",
+                "details": {"exception": str(e)}
+            },
+            is_error=True
+        )
+
+        # Reset connection pool after error
+        reset_db_connection()
+
+        # Re-raise the exception
+        raise
 
 async def process_runner_request(
     request: RunnerRequest,
@@ -626,8 +667,8 @@ async def awaiting_client_hook(
         )
 
         # Shutdown the runner
-        await runner_management.force_shutdown_runners(
-            [runner.identifier],
+        await runner_management.terminate_runner(
+            runner.id,
             initiated_by="app_requests_endpoint"
         )
         raise
@@ -648,6 +689,7 @@ def app_requests_dto(url: str, runner: Runner) -> dict:
     return {"url": url, "runner_id": str(runner.id)}
 
 @router.post("/", response_model=dict[str, str])
+@with_database_resilience
 async def get_ready_runner(
     request: RunnerRequest,
     x_forwarded_for: Optional[str] = Header(None),
@@ -670,6 +712,9 @@ async def get_ready_runner(
     logger.info(f"Processing direct runner request for image {request.image_id} and user {request.user_email}")
 
     try:
+        # Make sure we start with a clean database connection pool
+        reset_db_connection()
+
         return await process_runner_request(
             request=request,
             client_ip=client_ip,
@@ -681,6 +726,7 @@ async def get_ready_runner(
         raise
 
 @router.post("/with_status/", response_model=dict)
+@with_database_resilience
 async def get_ready_runner_with_status(
     request: RunnerRequest
 ):
@@ -692,8 +738,12 @@ async def get_ready_runner_with_status(
     """
     # Generate a unique lifecycle token
     lifecycle_token = str(uuid4())
-    print(f"with status runner request for image {request.image_id} and user {request.user_email}")
+    logger.info(f"With status runner request for image {request.image_id} and user {request.user_email}")
+
     try:
+        # Make sure we start with a clean database connection pool
+        reset_db_connection()
+
         # Emit an initial status update for the with-status endpoint
         await emit_status(
             lifecycle_token,
@@ -707,9 +757,9 @@ async def get_ready_runner_with_status(
             }
         )
 
-        # Start processing in background task
+        # Start processing in background task with error handling
         asyncio.create_task(
-            process_runner_request(
+            process_runner_request_with_error_handling(
                 request=request,
                 lifecycle_token=lifecycle_token
             )
@@ -748,32 +798,34 @@ async def runner_status_websocket(
     websocket: WebSocket,
     lifecycle_token: str = Query(...),
 ):
-    """
-    WebSocket endpoint for runner status updates.
-
-    Clients connect to this endpoint with a lifecycle_token to receive
-    real-time updates about runner provisioning and lifecycle events.
-    The lifecycle_token is provided as a query parameter.
-    """
+    """WebSocket endpoint for runner status updates."""
     print(f"WebSocket connection request with lifecycle_token: {lifecycle_token}")
+
     try:
-        await runner_management.wait_for_lifecycle_token(lifecycle_token)
-    except Exception as err:
-        await websocket.send_json({
+        # Validate the lifecycle token before accepting the connection
+        try:
+            # First ensure we have a clean connection pool
+            reset_db_connection()
+
+            # Wait for lifecycle token - this should handle database errors internally
+            await runner_management.wait_for_lifecycle_token(lifecycle_token)
+        except Exception as err:
+            # Accept the connection to send the error
+            await websocket.accept()
+            logger.error(f"Error validating lifecycle token: {err}")
+            await websocket.send_json({
                 "type": "ERROR",
                 "status": 403,
                 "error": "FORBIDDEN",
                 "message": "Lifecycle token invalid or expired"
             })
+            await websocket.close(code=1008)  # Policy violation
+            return
 
-            # 2. Close with 1008 (Policy Violation) - closest WebSocket equivalent to HTTP 403
-        await websocket.close(code=1008)
-        return
-    try:
-        # Connect the client (will send any buffered messages)
+        # Let the connection manager accept the connection and deliver buffered messages
         await websocket_management.connection_manager.connect(websocket, "runner_status", lifecycle_token)
 
-        # Send initial connection confirmation
+        # Send initial connection confirmation (connection is already accepted by connection_manager)
         await websocket.send_json({
             "type": "CONNECTED",
             "message": f"Connected to runner status updates for token {lifecycle_token}",

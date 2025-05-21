@@ -1,18 +1,17 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useCloudConnectorQuery } from "@/hooks/api/cloudConnectors/useCloudConnectorsData";
-import { BaseTable } from "./BaseTable";
 import ProxyImage from "@/components/ui/images/ProxyImage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
-import { CloudConnector } from "@/types";
 import Link from "next/link";
-// import { cloudConnectorsApi } from "@/services";
-// import { useQueryClient } from "@tanstack/react-query";
-
+import { CloudConnector } from "@/types/cloudConnectors";
+import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
+import { BaseTable } from "../tables/BaseTable";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
 export default function CloudConnectorsTable() {
-  const { data: connectorsData = [], isLoading, error } = useCloudConnectorQuery();
+  const { data: connectorsData = [], isLoading, isError } = useCloudConnectors();
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
   const router = useRouter();
-  // const queryClient = useQueryClient();
 
   // Define columns for the table
   const columns = [
@@ -47,6 +46,12 @@ export default function CloudConnectorsTable() {
       searchAccessor: (item: CloudConnector) => item.name || "",
     },
     {
+      header: "Latency",
+      accessor: (item: CloudConnector) => (
+        <LatencyIndicator latency={latencyData?.[item.region]} />
+      ),
+    },
+    {
       header: "Added",
       accessor: (item: CloudConnector) => item.createdOn,
       searchAccessor: (item: CloudConnector) => item.createdOn || "",
@@ -79,7 +84,7 @@ export default function CloudConnectorsTable() {
   //     }
   //   };
 
-  if (isLoading) {
+  if (isLoading || isLatencyLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-pulse">Loading cloud connectors...</div>
@@ -87,11 +92,11 @@ export default function CloudConnectorsTable() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="text-red-500">
-          Error loading cloud connectors: {error.message}
+          Error loading cloud connectors.
         </div>
       </div>
     );
@@ -107,7 +112,7 @@ export default function CloudConnectorsTable() {
       // onDelete={(item) => item && handleDelete(item.id)}
       onAddClick={() => router.push("/cloud-connectors/add")}
       addButtonText="Add Connector"
-      queryKeys={["cloud-connectors"]}
+      queryKey={["cloud-connectors"]}
       itemsPerPage={5}
     />
   );
