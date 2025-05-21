@@ -1,5 +1,5 @@
 """Repository layer for the Runner entity."""
-from app.models import Runner
+from app.models import Runner, User
 from sqlmodel import Session, select
 from typing import Optional
 
@@ -137,3 +137,32 @@ def delete_runner(session: Session, runner_id: int) -> None:
     runner = session.get(Runner, runner_id)
     if runner:
         session.delete(runner)
+
+# With user_email
+# Add these functions to app/db/runner_repository.py
+
+def find_all_runners_with_user_email(session: Session) -> list[tuple[Runner, Optional[str]]]:
+    """Retrieve all runners with user email."""
+    # Using join to get user email
+    statement = select(Runner, User.email).outerjoin(User, Runner.user_id == User.id)
+    return session.exec(statement).all()
+
+def find_runners_by_status_with_user_email(session: Session, status: str) -> list[tuple[Runner, Optional[str]]]:
+    """Find runners with a specific status and include user email."""
+    query = select(Runner, User.email).outerjoin(User, Runner.user_id == User.id).where(Runner.state == status)
+    return session.exec(query).all()
+
+def find_alive_runners_with_user_email(session: Session) -> list[tuple[Runner, Optional[str]]]:
+    """Find runners in 'alive' states and include user email."""
+    alive_states = [
+        "runner_starting", "app_starting", "ready",
+        "runner_starting_claimed", "ready_claimed", "setup",
+        "awaiting_client", "active", "disconnecting", "disconnected"
+    ]
+    query = select(Runner, User.email).outerjoin(User, Runner.user_id == User.id).where(Runner.state.in_(alive_states))
+    return session.exec(query).all()
+
+def find_runner_by_id_with_user_email(session: Session, id: int) -> tuple[Runner, Optional[str]]:
+    """Retrieve the runner by its ID and include user email."""
+    statement = select(Runner, User.email).outerjoin(User, Runner.user_id == User.id).where(Runner.id == id)
+    return session.exec(statement).first()

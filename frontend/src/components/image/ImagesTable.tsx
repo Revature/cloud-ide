@@ -51,6 +51,29 @@ export default function ImagesTable() {
     router.push(`/images/edit/${id}`);
   };
 
+  // Cloud Provider filter options
+  const cloudProviderOptions = useMemo(() => {
+    const uniqueProviders = Array.from(
+      new Set(enrichedImages.map(img => img.cloudConnector?.name).filter((name): name is string => Boolean(name)))
+    );
+    return uniqueProviders.map(name => ({ label: name, value: name }));
+  }, [enrichedImages]);
+
+  // Latency filter options
+  const latencyOptions = [
+    { label: "Fast (0-125ms)", value: "Fast" },
+    { label: "Acceptable (125-300ms)", value: "Acceptable" },
+    { label: "Slow (300ms+)", value: "Slow" },
+  ];
+
+  // Status filter options
+  const statusOptions = [
+    { label: "Active", value: "active" },
+    { label: "Inactive", value: "inactive" },
+    { label: "Creating", value: "creating" },
+    { label: "Deleted", value: "deleted" },
+  ];
+
   // Define columns for the table
   const columns = [
     {
@@ -92,13 +115,29 @@ export default function ImagesTable() {
         ) : (
           <span className="text-gray-500 text-theme-sm dark:text-gray-500">Not specified</span>
         ),
-        searchAccessor: (item: Image) => item.cloudConnector?.name || "",
+      searchAccessor: (item: Image) => item.cloudConnector?.name || "",
+      filterable: true,
+      filterOptions: cloudProviderOptions,
+      defaultFilterValues: cloudProviderOptions.map(opt => opt.value), // All selected by default
     },
     {
       header: "Latency",
-      accessor: (item: Image) => (
-        <LatencyIndicator latency={latencyData?.[connectorsById[item.cloudConnectorId].region]} />
-      ),
+      accessor: (item: Image) => {
+        const region = item.cloudConnectorId ? connectorsById[item.cloudConnectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        return <LatencyIndicator latency={latency} />;
+      },
+      searchAccessor: (item: Image) => {
+        const region = item.cloudConnectorId ? connectorsById[item.cloudConnectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        if (latency === undefined) return "";
+        if (latency <= 125) return "Fast";
+        if (latency <= 300) return "Acceptable";
+        return "Slow";
+      },
+      filterable: true,
+      filterOptions: latencyOptions,
+      defaultFilterValues: ["Fast", "Acceptable"],
     },
     {
       header: "Resources",
@@ -154,6 +193,9 @@ export default function ImagesTable() {
       header: "Status",
       accessor: (item: Image) => <StatusBadge status={item.status} />,
       searchAccessor: (item: Image) => item.status || "",
+      filterable: true,
+      filterOptions: statusOptions,
+      defaultFilterValues: statusOptions.filter(opt => opt.value !== "deleted").map(opt => opt.value),
     },
   ];
 

@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { BaseTable } from "../tables/BaseTable";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
-import { Runner } from "@/types/runner";
+import { Runner, RunnerState } from "@/types/runner";
 import { useImagesForItems } from "@/hooks/type-query/useImages";
 import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useRunners, useStartRunner, useStopRunner, useTerminateRunner } from "@/hooks/type-query/useRunners";
@@ -40,6 +40,28 @@ const RunnersTable: React.FC = () => {
     })).reverse();
   }, [runners, imagesById, machinesById]);
 
+  // Use all RunnerState values for filter options
+  const runnerStateLabels: Record<RunnerState, string> = {
+    starting: "Starting",
+    ready: "Ready",
+    awaiting_client: "Awaiting Client",
+    active: "Active",
+    terminated: "Terminated",
+    runner_starting: "Runner Starting",
+    ready_claimed: "Ready Claimed",
+    closed: "Closed",
+  };
+  const runnerStates = (Object.keys(runnerStateLabels) as RunnerState[]).map((state) => ({
+    label: runnerStateLabels[state],
+    value: state,
+  }));
+
+  const latencyOptions = [
+    { label: "Fast (0-125ms)", value: "Fast" },
+    { label: "Acceptable (125-300ms)", value: "Acceptable" },
+    { label: "Slow (300ms+)", value: "Slow" },
+  ];
+
   // Define columns for the table
   const columns = [
     {
@@ -70,9 +92,24 @@ const RunnersTable: React.FC = () => {
     },
     {
       header: "Latency",
-      accessor: (item: Runner) => (
-        <LatencyIndicator latency={latencyData?.[connectorsById[item.image!.cloudConnectorId]?.region]} />
-      ),
+      accessor: (item: Runner) => {
+        const connectorId = item.image?.cloudConnectorId;
+        const region = connectorId ? connectorsById[connectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        return <LatencyIndicator latency={latency} />;
+      },
+      searchAccessor: (item: Runner) => {
+        const connectorId = item.image?.cloudConnectorId;
+        const region = connectorId ? connectorsById[connectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        if (latency === undefined) return "";
+        if (latency <= 125) return "Fast";
+        if (latency <= 300) return "Acceptable";
+        return "Slow";
+      },
+      filterable: true,
+      filterOptions: latencyOptions,
+      defaultFilterValues: ["Fast", "Acceptable"], // Exclude Slow by default
     },
     {
       header: "User",
@@ -83,6 +120,9 @@ const RunnersTable: React.FC = () => {
       header: "State",
       accessor: (item: Runner) => <StatusBadge status={item.state} />,
       searchAccessor: (item: Runner) => item.state || "",
+      filterable: true,
+      filterOptions: runnerStates,
+      defaultFilterValues: runnerStates.filter(opt => opt.value !== "terminated").map(opt => opt.value),
     },
   ];
 
