@@ -1,11 +1,12 @@
 // pages/api/auth/verify.ts
 import { withAuth } from '@workos-inc/authkit-nextjs';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     // This will work here because we're in an API route, not middleware
     const { role, organizationId } = await withAuth();
+  
     // Return just the data we need for the middleware
     return NextResponse.json({
       authenticated: true,
