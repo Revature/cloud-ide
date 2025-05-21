@@ -46,8 +46,6 @@ def find_key_set(kid: str):
 
     return get_key_set(kid = kid)
 
-
-
 def update_keys():
     """Update the cache with new keys."""
     workos_client = get_workos_client()
