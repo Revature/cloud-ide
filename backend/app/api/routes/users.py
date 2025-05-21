@@ -51,6 +51,7 @@ def post_user(user_create: UserCreate,
 
     try:
         user = user_management.create_user(password=password, user=user)
+        return user
     except workos_exceptions.BadRequestException as e:
         logger.exception(f'Unable to persist user with workos.')
         return Response(status_code = status.HTTP_400_BAD_REQUEST,
@@ -67,9 +68,6 @@ def post_user(user_create: UserCreate,
         logger.exception(f'Exception raised while creating new user.')
         return Response(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                         content = '{"response": "Unable to create user."}')
-
-    return Response(status_code = status.HTTP_200_OK,
-                    content = user.model_dump_json())
 
 @router.patch("/{user_id}")
 @router.patch("/{user_id}/")
