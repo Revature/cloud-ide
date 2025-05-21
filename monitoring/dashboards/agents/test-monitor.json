@@ -1143,6 +1143,7 @@
   "refresh": "10s",
   "schemaVersion": 41,
   "tags": [
+    "agent",
     "docker"
   ],
   "templating": {
@@ -1156,5 +1157,5 @@
   "timezone": "browser",
   "title": "Test Dashboard",
   "uid": "test-dashboard",
-  "version": 3
+  "version": 4
 }

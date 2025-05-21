@@ -1139,6 +1139,7 @@
   "refresh": "10s",
   "schemaVersion": 41,
   "tags": [
+    "agent",
     "docker"
   ],
   "templating": {
@@ -1152,5 +1153,5 @@
   "timezone": "browser",
   "title": "Prod Dashboard",
   "uid": "prod-dashboard",
-  "version": 5
+  "version": 6
 }

@@ -15,13 +15,119 @@
       }
     ]
   },
-  "description": "Environment Tops",
+  "description": "Agent Tops",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 3,
   "links": [],
   "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "dehww4iizin0gd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "decimals": 0,
+          "displayName": "Runner Count",
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 75
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "dehww4iizin0gd"
+          },
+          "editorMode": "code",
+          "expr": "count(count by( job) (increase(node_cpu_seconds_total[30s])))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Runners",
+      "type": "timeseries"
+    },
     {
       "datasource": {
         "type": "prometheus",
@@ -58,9 +164,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 4,
+        "w": 3,
         "x": 0,
-        "y": 0
+        "y": 7
       },
       "id": 25,
       "links": [
@@ -99,7 +205,7 @@
           "refId": "A"
         }
       ],
-      "title": "Panel Title",
+      "title": "Current runners",
       "type": "gauge"
     },
     {
@@ -169,8 +275,8 @@
       "gridPos": {
         "h": 6,
         "w": 10,
-        "x": 4,
-        "y": 0
+        "x": 3,
+        "y": 7
       },
       "id": 23,
       "links": [
@@ -276,9 +382,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 10,
-        "x": 14,
-        "y": 0
+        "w": 11,
+        "x": 13,
+        "y": 7
       },
       "id": 24,
       "links": [
@@ -359,7 +465,7 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 6
+        "y": 13
       },
       "id": 7,
       "links": [
@@ -449,7 +555,7 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 6
+        "y": 13
       },
       "id": 5,
       "links": [
@@ -537,7 +643,7 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 6
+        "y": 13
       },
       "id": 6,
       "links": [
@@ -650,7 +756,7 @@
         "h": 5,
         "w": 7,
         "x": 10,
-        "y": 6
+        "y": 13
       },
       "id": 2,
       "links": [
@@ -763,7 +869,7 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 6
+        "y": 13
       },
       "id": 1,
       "links": [
@@ -849,7 +955,7 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 11
+        "y": 18
       },
       "id": 8,
       "links": [
@@ -939,7 +1045,7 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 11
+        "y": 18
       },
       "id": 9,
       "links": [
@@ -1027,7 +1133,7 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 11
+        "y": 18
       },
       "id": 10,
       "links": [
@@ -1140,7 +1246,7 @@
         "h": 5,
         "w": 7,
         "x": 10,
-        "y": 11
+        "y": 18
       },
       "id": 17,
       "links": [
@@ -1253,7 +1359,7 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 11
+        "y": 18
       },
       "id": 20,
       "links": [
@@ -1339,7 +1445,7 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 16
+        "y": 23
       },
       "id": 11,
       "links": [
@@ -1429,7 +1535,7 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 16
+        "y": 23
       },
       "id": 12,
       "links": [
@@ -1517,7 +1623,7 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 16
+        "y": 23
       },
       "id": 13,
       "maxDataPoints": 100,
@@ -1624,7 +1730,7 @@
         "h": 5,
         "w": 7,
         "x": 10,
-        "y": 16
+        "y": 23
       },
       "id": 18,
       "links": [
@@ -1737,7 +1843,7 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 16
+        "y": 23
       },
       "id": 21,
       "links": [
@@ -1823,7 +1929,7 @@
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 21
+        "y": 28
       },
       "id": 14,
       "links": [
@@ -1913,7 +2019,7 @@
         "h": 5,
         "w": 3,
         "x": 3,
-        "y": 21
+        "y": 28
       },
       "id": 15,
       "links": [
@@ -2001,7 +2107,7 @@
         "h": 5,
         "w": 3,
         "x": 6,
-        "y": 21
+        "y": 28
       },
       "id": 16,
       "links": [
@@ -2114,7 +2220,7 @@
         "h": 5,
         "w": 7,
         "x": 10,
-        "y": 21
+        "y": 28
       },
       "id": 19,
       "links": [
@@ -2227,7 +2333,7 @@
         "h": 5,
         "w": 7,
         "x": 17,
-        "y": 21
+        "y": 28
       },
       "id": 22,
       "links": [
@@ -2277,7 +2383,8 @@
   "refresh": "10s",
   "schemaVersion": 41,
   "tags": [
-    "environment"
+    "agent",
+    "docker"
   ],
   "templating": {
     "list": []
@@ -2290,5 +2397,5 @@
   "timezone": "browser",
   "title": "Environment Tops",
   "uid": "env-tops",
-  "version": 24
+  "version": 29
 }
