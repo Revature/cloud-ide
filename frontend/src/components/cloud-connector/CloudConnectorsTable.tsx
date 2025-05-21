@@ -8,7 +8,6 @@ import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
 import { BaseTable } from "../tables/BaseTable";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
 import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
-
 export default function CloudConnectorsTable() {
   const { data: connectorsData = [], isLoading, isError } = useCloudConnectors();
   const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
