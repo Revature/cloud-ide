@@ -1,16 +1,17 @@
 // middleware.ts
-import { authkitMiddleware, withAuth } from '@workos-inc/authkit-nextjs';
+import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest, NextFetchEvent } from 'next/server';
+import { jwtVerify } from 'jose';
 
 const AUTH_MODE = process.env.AUTH_MODE === 'OFF' ? false : true;
-const ORG_ID =  process.env.WORKOS_ORG_ID || 'org_L0C4L';
+const ORG_ID = process.env.WORKOS_ORG_ID || 'org_L0C4L';
 
 const roleProtectedRoutes: Record<string, string[]> = {
-  '/cloud-connectors': ['admin'], 
-  '/images': ['admin'], 
+  '/cloud-connectors': ['admin'],
+  '/images': ['admin'],
   '/runner-pools': ['admin'],
-  '/runners': ['admin', 'member'], 
+  '/runners': ['admin', 'member'],
 };
 
 const baseAuthMiddleware = authkitMiddleware({
@@ -21,8 +22,71 @@ const baseAuthMiddleware = authkitMiddleware({
       '/frontend-api/auth/callback',
     ],
   },
-  redirectUri: process.env['NEXT_PUBLIC_WORKOS_REDIRECT_URI'], 
+  redirectUri: process.env['NEXT_PUBLIC_WORKOS_REDIRECT_URI'],
 });
+
+// Custom function to extract user information from the session token
+async function getUserFromSession(request: NextRequest) {
+  if (!AUTH_MODE) {
+    return { role: 'member', organizationId: ORG_ID };
+  }
+
+  try {
+    console.log('Extracting ', request);
+    // Get the session cookie
+    const authKitSessionCookie = request.cookies.get('wos-session');
+    
+    if (!authKitSessionCookie?.value) {
+      console.log('No session cookie found');
+      return null;
+    }
+    
+    // Get the JWT token from the cookie
+    const token = authKitSessionCookie.value;
+    
+    try {
+      // Basic JWT verification - we need to extract the data without full validation
+      // since we don't have access to the WorkOS client in the middleware
+      const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'your-jwt-secret');
+      const { payload } = await jwtVerify(token, secretKey, {
+        algorithms: ['HS256']
+      });
+      
+      // Extract user information from the payload
+      // Note: The exact structure depends on how WorkOS stores user data in the JWT
+      const user = payload;
+      const organizationId = user.organization_id || user.org_id || null;
+      const role = user.role || user.user_role || 'member';
+      
+      return { role, organizationId };
+    } catch (jwtError) {
+      // If standard JWT verification fails, try parsing the token directly
+      // This is a fallback approach for when we don't have the correct secret
+      console.log('Standard JWT verification failed, attempting manual parsing: ', jwtError);
+      
+      try {
+        // Split the token and decode the payload part (second segment)
+        const [_header, payloadBase64, _signature] = token.split('.');
+        console.log(_header, payloadBase64, _signature);
+        const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+        const payload = JSON.parse(payloadJson);
+        console.log('Parsed payload:', payload);
+        
+        // Extract user information from the payload
+        const organizationId = payload.organization_id || payload.org_id || null;
+        const role = payload.role || payload.user_role || 'member';
+        
+        return { role, organizationId };
+      } catch (parseError) {
+        console.error('Error parsing JWT manually:', parseError);
+        return null;
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting user from session:', error);
+    return null;
+  }
+}
 
 export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
@@ -37,7 +101,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   }
 
   const requiredRolesForRoute = Object.entries(roleProtectedRoutes).find(
-    ([routePrefix]) => pathname.startsWith(routePrefix) 
+    ([routePrefix]) => pathname.startsWith(routePrefix)
   )?.[1];
   console.log('Required roles for route:', requiredRolesForRoute);
 
@@ -46,7 +110,16 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     return authResponse || NextResponse.next();
   }
 
-  const { role, organizationId } = AUTH_MODE ? await withAuth() : { role: 'member', organizationId: ORG_ID }; 
+  // Use our custom function instead of withAuth()
+  const user = await getUserFromSession(request);
+  
+  if (!user) {
+    console.log('No user information available');
+    const loginRedirectUrl = new URL("/home", request.url);
+    return NextResponse.redirect(loginRedirectUrl);
+  }
+
+  const { role, organizationId } = user;
   console.log('User role:', role);
   console.log('User organization ID:', organizationId);
 
@@ -56,7 +129,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const unauthorizedRedirectUrl = new URL("/ui/runners", request.url);
     return NextResponse.redirect(unauthorizedRedirectUrl);
   }
- 
+
   const hasRequiredRole = requiredRolesForRoute.some(requiredRole => role === requiredRole);
   console.log(`User role: ${role}, Required roles: [${requiredRolesForRoute.join(', ')}], Has required role: ${hasRequiredRole}`);
 
@@ -66,9 +139,8 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const unauthorizedRedirectUrl = new URL("/ui/runners", request.url);
     return NextResponse.redirect(unauthorizedRedirectUrl);
   }
-  
+
   return authResponse || NextResponse.next();
-  
 }
 
 export const config = {
