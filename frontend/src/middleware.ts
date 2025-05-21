@@ -128,7 +128,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   
   if (!user) {
     console.log('No user information available');
-    const loginRedirectUrl = new URL("/home", request.url);
+    const loginRedirectUrl = new URL("/ui/home", request.url);
     return NextResponse.redirect(loginRedirectUrl);
   }
 
