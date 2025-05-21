@@ -20,7 +20,7 @@ class CloudConnectorCreate(BaseModel):
 @router.get("/", response_model=list[CloudConnector])
 @with_database_resilience
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def read_cloud_connectors(request: Request):
+def read_cloud_connectors(request: Request):
     """Retrieve a list of all cloud_connectors."""
     try:
         cloud_connectors = cloud_connector_management.get_all_cloud_connectors()
@@ -48,7 +48,7 @@ def read_cloud_connector(cloud_connector_id: int,
 @router.put("/{cloud_connector_id}", response_model=CloudConnector)
 @with_database_resilience
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def update_cloud_connector(
+def update_cloud_connector(
     cloud_connector_id: int,
     updated_cloud_connector: CloudConnector,
     request: Request
@@ -67,7 +67,7 @@ class CloudConnectorStatusUpdate(BaseModel):
 
 @router.patch("/{cloud_connector_id}/toggle", response_model=CloudConnector)
 @endpoint_permission_decorator.permission_required("cloud_connectors")
-async def toggle_cloud_connector_status(
+def toggle_cloud_connector_status(
     cloud_connector_id: int,
     status_update: CloudConnectorStatusUpdate,
     request: Request
