@@ -83,3 +83,18 @@ def refresh_sealed_session(sealed_session: str):
     if not refresh_result.authenticated:
         raise BadRefreshException('Authentication failed after WorkOS token refresh.')
     return refresh_result
+
+def delete_workos_user(workos_user_id: str):
+    """
+    Delete a user from WorkOS.
+
+    If the process fails, workos will raise an exception.
+    """
+    try:
+        workos.user_management.delete_user(user_id=workos_user_id)
+        return True
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error deleting user from WorkOS: {e}")
+        # Re-raise to handle upstream
+        raise
