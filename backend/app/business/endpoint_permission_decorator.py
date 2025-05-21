@@ -73,8 +73,12 @@ def permission_required(resource: Optional[str] = None):
                 logger.exception(f"Error in permission check: {e}")
 
             # Permission check passed
+            print("Permission check passed async")
             kwargs['request'] = request  # Add request as a keyword argument
-            return func(*args, **kwargs)
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
 
         @wraps(func)
         def sync_wrapper(request: Request, *args, **kwargs):
@@ -128,6 +132,7 @@ def permission_required(resource: Optional[str] = None):
                 logger.exception(f"Error in permission check: {e}")
 
             # Permission check passed
+            print("Permission check passed sync")
             kwargs['request'] = request  # Add request as a keyword argument
             return func(*args, **kwargs)
 
