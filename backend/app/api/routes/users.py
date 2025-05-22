@@ -3,9 +3,7 @@ import logging
 from typing import get_args
 from app.models.user import User, UserUpdate, UserStatus
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
-from sqlmodel import Session
 from workos import exceptions as workos_exceptions
-from app.db.database import get_session
 from app.exceptions.user_exceptions import EmailInUseException, NoSuchRoleException
 from app.schemas.user import UserCreate
 from app.business import user_management, endpoint_permission_decorator
@@ -16,9 +14,9 @@ router = APIRouter()
 
 @router.get("/", response_model=list[User])
 @endpoint_permission_decorator.permission_required("users")
-def get_all_users(request: Request, session: Session = Depends(get_session)):
+def get_all_users(request: Request):
     """Retrieve all users."""
-    return user_management.get_all_users(session)
+    return user_management.get_all_users()
 
 @router.get("/{user_id}")
 @router.get("/{user_id}/")
@@ -35,9 +33,9 @@ def get_user(request: Request, user_id: int):
 
 @router.get("/email/{email}")
 @endpoint_permission_decorator.permission_required("users")
-def get_user_by_email_path(email: str, request: Request, session: Session = Depends(get_session)):
+def get_user_by_email_path(email: str, request: Request):
     """Retrieve a single user by email address using path parameter."""
-    user = user_management.get_user_by_email(email, session)
+    user = user_management.get_user_by_email(email)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,8 +45,7 @@ def get_user_by_email_path(email: str, request: Request, session: Session = Depe
 
 @router.post("/", response_model=User)
 @endpoint_permission_decorator.permission_required("users")
-def post_user(user_create: UserCreate, request: Request,
-              session: Session = Depends(get_session)):
+def post_user(user_create: UserCreate, request: Request):
     """Create a new user, return the new user."""
     # Create a new User instance from the UserCreate data.
     user = User(**user_create.model_dump(exclude='password'), created_by="system", modified_by="system")
@@ -96,9 +93,9 @@ def post_user(user_create: UserCreate, request: Request,
 @router.patch("/{user_id}")
 @router.patch("/{user_id}/")
 @endpoint_permission_decorator.permission_required("users")
-def update_user(user_id: int, user: UserUpdate, request: Request, session: Session = Depends(get_session)):
+def update_user(user_id: int, user: UserUpdate, request: Request):
     """Update an existing user, return the updated user."""
-    db_user = user_management.get_user_by_id(user_id, session)
+    db_user = user_management.get_user_by_id(user_id)
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,7 +113,7 @@ def update_user(user_id: int, user: UserUpdate, request: Request, session: Sessi
             )
 
     # Proceed with the update
-    updated_user = user_management.update_user(user=user, session=session)
+    updated_user = user_management.update_user(user=user)
 
     return Response(
         status_code=status.HTTP_200_OK,
@@ -126,13 +123,13 @@ def update_user(user_id: int, user: UserUpdate, request: Request, session: Sessi
 @router.delete("/{user_id}")
 @router.delete("/{user_id}/")
 @endpoint_permission_decorator.permission_required("users")
-def delete_user(user_id: int, request: Request, session: Session = Depends(get_session)):
+def delete_user(user_id: int, request: Request):
     """
     Delete a user (mark as deleted and remove from WorkOS).
 
     Return the soft-deleted user.
     """
-    user = user_management.get_user_by_id(user_id, session=session)
+    user = user_management.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -142,7 +139,7 @@ def delete_user(user_id: int, request: Request, session: Session = Depends(get_s
     print(f"Deleting user {user.email} with ID {user_id}")
 
     # Perform the mark as deleted operation and remove from WorkOS
-    deleted_user = user_management.delete_user(user_id=user_id, session=session)
+    deleted_user = user_management.delete_user(user_id=user_id)
 
     # Return the updated user with deleted status
     return Response(status_code=status.HTTP_200_OK, content=deleted_user.model_dump_json())

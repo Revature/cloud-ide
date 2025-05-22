@@ -2,7 +2,7 @@
 """Decorator to check if the user has the required permission for this endpoint."""
 from functools import wraps
 from fastapi import Request, HTTPException, Depends, status
-from app.db.database import get_session
+from app.db.database import engine
 from app.db import endpoint_permission_repository
 from sqlmodel import Session
 from app.business.pkce import user_has_permission
@@ -52,20 +52,20 @@ def permission_required(resource: Optional[str] = None):
                     return await func(*args, request=request, **kwargs)
 
                 # Check if endpoint requires specific permissions
-                session = next(get_session())
-                endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
-                    session, resource_name, func.__name__
-                )
+                with Session(engine) as session:
+                    endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
+                        session, resource_name, func.__name__
+                    )
 
-                # If permission is required, check if user has it
-                if endpoint_permission:
-                    required_permission = endpoint_permission.permission
-                    if not user_has_permission(access_token, required_permission):
-                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
-                        raise HTTPException(
-                            status_code=403,
-                            detail=f"You don't have the required permission: {required_permission}"
-                        )
+                    # If permission is required, check if user has it
+                    if endpoint_permission:
+                        required_permission = endpoint_permission.permission
+                        if not user_has_permission(access_token, required_permission):
+                            logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
+                            raise HTTPException(
+                                status_code=403,
+                                detail=f"You don't have the required permission: {required_permission}"
+                            )
 
             except HTTPException:
                 raise
@@ -111,20 +111,20 @@ def permission_required(resource: Optional[str] = None):
                     return func(*args, request=request, **kwargs)
 
                 # Check if endpoint requires specific permissions
-                session = next(get_session())
-                endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
-                    session, resource_name, func.__name__
-                )
+                with Session(engine) as session:
+                    endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
+                        session, resource_name, func.__name__
+                    )
 
-                # If permission is required, check if user has it
-                if endpoint_permission:
-                    required_permission = endpoint_permission.permission
-                    if not user_has_permission(access_token, required_permission):
-                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
-                        raise HTTPException(
-                            status_code=403,
-                            detail=f"You don't have the required permission: {required_permission}"
-                        )
+                    # If permission is required, check if user has it
+                    if endpoint_permission:
+                        required_permission = endpoint_permission.permission
+                        if not user_has_permission(access_token, required_permission):
+                            logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
+                            raise HTTPException(
+                                status_code=403,
+                                detail=f"You don't have the required permission: {required_permission}"
+                            )
 
             except HTTPException:
                 raise

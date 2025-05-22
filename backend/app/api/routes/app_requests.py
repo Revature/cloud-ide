@@ -4,17 +4,13 @@ import asyncio
 import functools
 from uuid import uuid4
 from app.api import http
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
+from fastapi import APIRouter, HTTPException, status, Header
 from fastapi import WebSocket, WebSocketDisconnect, Query, Request
-from sqlmodel import Session
 from pydantic import BaseModel
-from typing import Any, Optional, Callable
+from typing import Any, Optional
 from datetime import datetime, timezone
-from app.db import runner_repository
-from app.db.database import engine, reset_db_connection, safe_session
+from app.db.database import reset_db_connection
 from app.models.runner import Runner
-from app.models.user import User
-from app.models.image import Image
 from app.util import constants, websocket_management, runner_status_management
 from app.business import image_management, user_management, runner_management, script_management, endpoint_permission_decorator
 from app.exceptions.runner_exceptions import RunnerLaunchError, RunnerClaimError
