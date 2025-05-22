@@ -1,12 +1,9 @@
 """Endpoint permission management routes."""
 from fastapi import APIRouter, HTTPException, Request
-# from app.db.database import engine
-from sqlmodel import Session
 from app.models import EndpointPermission
 from app.business import endpoint_permission_management, endpoint_permission_decorator
 from app.util.transactions import with_database_resilience
 from pydantic import BaseModel
-from app.db.database import engine
 
 router = APIRouter()
 
