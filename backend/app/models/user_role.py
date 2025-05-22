@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship, Session
 from sqlalchemy.orm import Mapped
 from app.models.mixins import TimestampMixin
-from app.db.database import get_session
 from app.models import user, role
 
 # Relationships

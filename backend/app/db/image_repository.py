@@ -1,5 +1,5 @@
 """Repository layer for the Image entity."""
-from app.db.database import get_session
+from app.db.database import engine
 from app.models import Image
 from sqlmodel import Session, select, and_, or_
 from typing import Optional
@@ -113,7 +113,8 @@ def delete_image(session: Session, image_id: int) -> bool:
     session.commit()
     return True
 
-def find_images_with_pool(session: Session = next(get_session())):
+def find_images_with_pool():
     """Find images with a runner pool > 0."""
-    stmt = select(Image).where(Image.runner_pool_size > 0)
-    return session.exec(stmt).all()
+    with Session(engine) as session:
+        stmt = select(Image).where(Image.runner_pool_size > 0)
+        return session.exec(stmt).all()
