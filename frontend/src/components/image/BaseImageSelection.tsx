@@ -9,6 +9,7 @@ import Label from "../form/Label";
 import LatencyIndicator from "../ui/connection/LatencyIndicator";
 import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
 import Tag from "../ui/tag/Tag";
+import { useScriptsByImageId } from '@/hooks/type-query/useScripts';
 
 interface BaseImageSelectionProps {
   images: Image[];
@@ -21,6 +22,8 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
   const { resourcesById: connectorsById } = useCloudConnectorsForItems(images);
   const { data: latencyData } = useLatencyForRegions();
 
+  // Fetch scripts for the selected image
+  const { data: scriptsForSelectedImage } = useScriptsByImageId(selectedImageId ?? 0);
 
   const enrichedImages = useMemo(
     () =>
@@ -52,6 +55,9 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
     setSelectedImageId(image.id); // Update the selected image ID
     onSelect(image); // Trigger the onSelect callback
   };
+
+  // Check if the selected image requires script/env vars
+  const requiresVars = scriptsForSelectedImage && scriptsForSelectedImage.length > 0;
 
   return (
     <>
@@ -86,7 +92,14 @@ const BaseImageSelection: React.FC<BaseImageSelectionProps> = ({ images, onSelec
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </form>
-    </div>
+      </div>
+
+      {/* Show warning if image requires script/env vars */}
+      {requiresVars && (
+        <div className="mb-4 p-3 rounded bg-yellow-50 border border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-200 text-sm">
+          This image requires you to include <strong>Script Variables</strong> and <strong>Environment Variables</strong>.
+        </div>
+      )}
 
       {/* Carousel */}
         <WithControl slidesPerView={3} spaceBetween={15}>
