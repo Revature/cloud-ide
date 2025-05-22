@@ -45,7 +45,7 @@ def update_endpoint_permission(
 ) -> Optional[EndpointPermission]:
     """Update an existing endpoint permission."""
     with Session(engine) as session:
-        db_endpoint_permission = find_endpoint_permission_by_id(session, endpoint_permission_id)
+        db_endpoint_permission = find_endpoint_permission_by_id(endpoint_permission_id)
         if not db_endpoint_permission:
             return None
 

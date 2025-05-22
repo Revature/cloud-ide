@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 def get_all_users():
     """Read all users from the database."""
-    with Session(engine) as session:
-        return user_repository.get_all_users(session)
+    return user_repository.get_all_users()
 
 def get_user_by_email(email: str):
     """
@@ -22,13 +21,11 @@ def get_user_by_email(email: str):
 
     If a session object is passed, uses that session. Otherwise will get a new session.
     """
-    with Session(engine) as session:
-        return user_repository.get_user_by_email(email = email)
+    return user_repository.get_user_by_email(email = email)
 
 def get_user_by_id(user_id: int):
     """Retrieve the user by id."""
-    with Session(engine) as session:
-        return user_repository.get_user_by_id(user_id = user_id)
+    return user_repository.get_user_by_id(user_id = user_id)
 
 def create_user(*, password: str, user: User) -> User:
     """
@@ -38,37 +35,35 @@ def create_user(*, password: str, user: User) -> User:
 
     Can raise workos.BadRequestException, EmailInUseException, NoSuchRoleException.
     """
-    with Session(engine) as session:
-        # Make sure email is not already in use
-        if get_user_by_email(email=user.email):
-            error_msg = f'Unable to create new user, email: {user.email} is already in use.'
-            logger.exception(error_msg)
-            raise EmailInUseException(error_msg)
+    # Make sure email is not already in use
+    if get_user_by_email(email=user.email):
+        error_msg = f'Unable to create new user, email: {user.email} is already in use.'
+        logger.exception(error_msg)
+        raise EmailInUseException(error_msg)
 
-        # Create the user in workos - no need to create a dictionary here anymore
-        user.workos_id = create_workos_user(
-            password=password,
-            user=user  # Pass the user object directly
-        )
+    # Create the user in workos - no need to create a dictionary here anymore
+    user.workos_id = create_workos_user(
+        password=password,
+        user=user  # Pass the user object directly
+    )
 
-        organization_membership = create_organization_membership(
-            workos_user_id=user.workos_id,
-            organization_id=os.getenv('WORKOS_ORG_ID')
-        )
+    organization_membership = create_organization_membership(
+        workos_user_id=user.workos_id,
+        organization_id=os.getenv('WORKOS_ORG_ID')
+    )
 
-        # Persist and refresh user
-        user = user_repository.persist_user(user)
-        print(f"Persisted user: {user}")
+    # Persist and refresh user
+    user = user_repository.persist_user(user)
+    print(f"Persisted user: {user}")
 
-        # Set default role
-        default_role = user_repository.read_role(default_role_name)
-        user_repository.assign_role(user=user, role_id=default_role.id)
-        return user
+    # Set default role
+    default_role = user_repository.read_role(default_role_name)
+    user_repository.assign_role(user=user, role_id=default_role.id)
+    return user
 
 def update_user(user: UserUpdate):
     """Update a user with UserUpdate object."""
-    with Session(engine) as session:
-        return user_repository.update_user(user = user)
+    return user_repository.update_user(user = user)
 
 def delete_user(user_id: int):
     """
@@ -76,11 +71,10 @@ def delete_user(user_id: int):
 
     This is a soft delete operation that maintains the user record with 'deleted' status.
     """
-    with Session(engine) as session:
     # Get the user to be deleted
-        user = get_user_by_id(user_id)
-        if not user:
-            return None
+    user = get_user_by_id(user_id)
+    if not user:
+        return None
 
     # If the user has a WorkOS ID, delete them from WorkOS
     if user.workos_id:

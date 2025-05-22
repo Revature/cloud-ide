@@ -35,6 +35,7 @@ def create_machine(machine: Machine):
     """Create a machine record in the database."""
     with Session(engine) as session:
         session.add(machine)
+        session.commit()
         session.refresh()
     return machine
 

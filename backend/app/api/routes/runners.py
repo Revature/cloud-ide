@@ -32,53 +32,51 @@ def read_runners(
     alive_only: bool = Query(False, description="Return only alive runners")
 ):
     """Retrieve a list of Runners with optional status filtering."""
-    with Session(engine) as session:
-        if status and alive_only:
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
-            )
+    if status and alive_only:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot use both 'status' and 'alive_only' parameters simultaneously"
+        )
 
-        # Get runners with user emails
-        if status:
-            runner_results = runner_repository.find_runners_by_status_with_user_email(session, status)
-        elif alive_only:
-            runner_results = runner_repository.find_alive_runners_with_user_email(session)
-        else:
-            runner_results = runner_repository.find_all_runners_with_user_email(session)
+    # Get runners with user emails
+    if status:
+        runner_results = runner_repository.find_runners_by_status_with_user_email(status)
+    elif alive_only:
+        runner_results = runner_repository.find_alive_runners_with_user_email()
+    else:
+        runner_results = runner_repository.find_all_runners_with_user_email()
 
-        if not runner_results:
-            raise HTTPException(status_code=204, detail="No runners found")
+    if not runner_results:
+        raise HTTPException(status_code=204, detail="No runners found")
 
-        # Transform to response model
-        response_runners = []
-        for runner, email in runner_results:
-            runner_dict = runner.dict()
-            runner_dict["user_email"] = email
-            response_runners.append(RunnerResponse(**runner_dict))
+    # Transform to response model
+    response_runners = []
+    for runner, email in runner_results:
+        runner_dict = runner.dict()
+        runner_dict["user_email"] = email
+        response_runners.append(RunnerResponse(**runner_dict))
 
-        return response_runners
+    return response_runners
 
 @router.get("/{runner_id}", response_model=RunnerResponse)
 @endpoint_permission_decorator.permission_required("runners")
 def read_runner(runner_id: int, request: Request):
     """Retrieve a single Runner by ID."""
-    with Session(engine) as session:
-        runner_result = runner_repository.find_runner_by_id_with_user_email(session, runner_id)
-        if not runner_result:
-            raise HTTPException(status_code=400, detail="Runner not found")
+    runner_result = runner_repository.find_runner_by_id_with_user_email(runner_id)
+    if not runner_result:
+        raise HTTPException(status_code=400, detail="Runner not found")
 
-        runner, email = runner_result
-        runner_dict = runner.dict()
-        runner_dict["user_email"] = email
+    runner, email = runner_result
+    runner_dict = runner.dict()
+    runner_dict["user_email"] = email
 
-        return RunnerResponse(**runner_dict)
+    return RunnerResponse(**runner_dict)
 
 @router.put("/{runner_id}/extend_session", response_model=str)
 def extend_runner_session(extend_req: ExtendSessionRequest):
     """Update a runner's session_end by adding extra time."""
     with Session(engine) as session:
-        runner = runner_repository.find_runner_by_id(session, extend_req.runner_id)
+        runner = runner_repository.find_runner_by_id(extend_req.runner_id)
         if not runner:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -163,7 +161,7 @@ async def update_runner_state(
       - active        → on_connect script
     """
     with Session(engine) as session:
-        runner = runner_repository.find_runner_by_id(session, update.runner_id)
+        runner = runner_repository.find_runner_by_id(update.runner_id)
         if not runner:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
 
@@ -300,33 +298,32 @@ async def stop_runner_endpoint(
     request: Request,
 ):
     """Stop a runner in an alive state."""
-    with Session(engine) as session:
-        # Check if the runner exists
-        runner = runner_repository.find_runner_by_id(session, runner_id)
-        if not runner:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+    # Check if the runner exists
+    runner = runner_repository.find_runner_by_id(runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
 
-        # Only allow stopping runners in active states
-        valid_states = ["ready", "awaiting_client", "active"]
-        if runner.state not in valid_states:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot stop a runner in {runner.state} state. Runner must be in one of {valid_states}"
-            )
-
-        # Call the runner_management function to stop the runner
-        result = await runner_management.stop_runner(
-            runner_id=runner_id,
-            initiated_by=f"stop_runner_endpoint"
+    # Only allow stopping runners in active states
+    valid_states = ["ready", "awaiting_client", "active"]
+    if runner.state not in valid_states:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot stop a runner in {runner.state} state. Runner must be in one of {valid_states}"
         )
 
-        if result["status"] == "error":
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["message"]
-            )
+    # Call the runner_management function to stop the runner
+    result = await runner_management.stop_runner(
+        runner_id=runner_id,
+        initiated_by=f"stop_runner_endpoint"
+    )
 
-        return result
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+
+    return result
 
 @router.patch("/{runner_id}/start", response_model=dict)
 @endpoint_permission_decorator.permission_required("runners")
@@ -335,32 +332,31 @@ async def start_runner_endpoint(
     request: Request
 ):
     """Start a runner in closed state."""
-    with Session(engine) as session:
-        # Check if the runner exists
-        runner = runner_repository.find_runner_by_id(session, runner_id)
-        if not runner:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
+    # Check if the runner exists
+    runner = runner_repository.find_runner_by_id(runner_id)
+    if not runner:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Runner not found")
 
-        # Only allow starting runners in closed state
-        if runner.state != "closed":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot start a runner in {runner.state} state. Runner must be in 'closed' state"
-            )
-
-        # Call the runner_management function to start the runner
-        result = await runner_management.start_runner(
-            runner_id=runner_id,
-            initiated_by=f"start_runner_endpoint"
+    # Only allow starting runners in closed state
+    if runner.state != "closed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot start a runner in {runner.state} state. Runner must be in 'closed' state"
         )
 
-        if result["status"] == "error":
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result["message"]
-            )
+    # Call the runner_management function to start the runner
+    result = await runner_management.start_runner(
+        runner_id=runner_id,
+        initiated_by=f"start_runner_endpoint"
+    )
 
-        return result
+    if result["status"] == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+
+    return result
 
 @router.delete("/{runner_id}", response_model=dict[str, str])
 @endpoint_permission_decorator.permission_required("runners")
@@ -380,7 +376,7 @@ async def terminate_runner(
     """
     with Session(engine) as session:
         # Check if the runner exists
-        runner = runner_repository.find_runner_by_id(session, runner_id)
+        runner = runner_repository.find_runner_by_id(runner_id)
         # Delete is idempotent, if no runner exists, just return.
         if not runner:
             return
@@ -440,7 +436,6 @@ async def websocket_terminal(
     Args:
         websocket (WebSocket): WebSocket connection object.
         runner_id (int): ID of the runner to connect to.
-        session (Session, optional): Database session. Defaults to Depends(get_session).
     """
     with Session(engine) as session:
         await websocket.accept()
@@ -459,7 +454,7 @@ async def websocket_terminal(
             return
         try:
             # Get runner and validate it's available
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if not runner or runner.state not in ["ready_claimed", "ready", "active", "awaiting_client"]:
                 await websocket.close(code=1008, reason="Runner not available")
                 return
@@ -472,7 +467,7 @@ async def websocket_terminal(
 
             # Update runner state to active
             runner.state = "active"
-            runner_repository.update_runner(session, runner)
+            runner_repository.update_runner(runner)
 
             # If the runner was in ready state and belongs to an image with a pool,
             # launch a new runner to replace it

@@ -52,20 +52,19 @@ def permission_required(resource: Optional[str] = None):
                     return await func(*args, request=request, **kwargs)
 
                 # Check if endpoint requires specific permissions
-                with Session(engine) as session:
-                    endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
-                        session, resource_name, func.__name__
-                    )
+                endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
+                    resource_name, func.__name__
+                )
 
-                    # If permission is required, check if user has it
-                    if endpoint_permission:
-                        required_permission = endpoint_permission.permission
-                        if not user_has_permission(access_token, required_permission):
-                            logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
-                            raise HTTPException(
-                                status_code=403,
-                                detail=f"You don't have the required permission: {required_permission}"
-                            )
+                # If permission is required, check if user has it
+                if endpoint_permission:
+                    required_permission = endpoint_permission.permission
+                    if not user_has_permission(access_token, required_permission):
+                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
+                        raise HTTPException(
+                            status_code=403,
+                            detail=f"You don't have the required permission: {required_permission}"
+                        )
 
             except HTTPException:
                 raise
@@ -111,20 +110,19 @@ def permission_required(resource: Optional[str] = None):
                     return func(*args, request=request, **kwargs)
 
                 # Check if endpoint requires specific permissions
-                with Session(engine) as session:
-                    endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
-                        session, resource_name, func.__name__
-                    )
+                endpoint_permission = endpoint_permission_repository.find_endpoint_permission_by_resource_endpoint(
+                    resource_name, func.__name__
+                )
 
-                    # If permission is required, check if user has it
-                    if endpoint_permission:
-                        required_permission = endpoint_permission.permission
-                        if not user_has_permission(access_token, required_permission):
-                            logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
-                            raise HTTPException(
-                                status_code=403,
-                                detail=f"You don't have the required permission: {required_permission}"
-                            )
+                # If permission is required, check if user has it
+                if endpoint_permission:
+                    required_permission = endpoint_permission.permission
+                    if not user_has_permission(access_token, required_permission):
+                        logger.warning(f"Permission denied: {required_permission} for {resource_name}.{func.__name__}")
+                        raise HTTPException(
+                            status_code=403,
+                            detail=f"You don't have the required permission: {required_permission}"
+                        )
 
             except HTTPException:
                 raise

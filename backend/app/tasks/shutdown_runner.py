@@ -22,53 +22,52 @@ logger = logging.getLogger(__name__)
 def validate_and_prepare_runner(runner_id, instance_id, initiated_by, result):
     """Validate runner exists and prepare necessary data for shutdown."""
     try:
-        with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
-            if not runner:
-                message = f"Runner with ID {runner_id} not found."
+        runner = runner_repository.find_runner_by_id(runner_id)
+        if not runner:
+            message = f"Runner with ID {runner_id} not found."
+            logger.error(f"[{initiated_by}] {message}")
+            result["status"] = "error"
+            result["details"].append({"step": "find_runner", "status": "error", "message": message})
+            return False, None
+
+        # Set instance_id if not provided
+        if not instance_id:
+            instance_id = runner.identifier
+            if not instance_id:
+                message = f"Runner {runner_id} has no instance identifier."
                 logger.error(f"[{initiated_by}] {message}")
                 result["status"] = "error"
                 result["details"].append({"step": "find_runner", "status": "error", "message": message})
                 return False, None
 
-            # Set instance_id if not provided
-            if not instance_id:
-                instance_id = runner.identifier
-                if not instance_id:
-                    message = f"Runner {runner_id} has no instance identifier."
-                    logger.error(f"[{initiated_by}] {message}")
-                    result["status"] = "error"
-                    result["details"].append({"step": "find_runner", "status": "error", "message": message})
-                    return False, None
+        # Get required resources for termination
+        image = image_repository.find_image_by_id(runner.image_id)
+        if not image:
+            message = f"Image for runner {runner.id} not found."
+            logger.error(f"[{initiated_by}] {message}")
+            result["status"] = "error"
+            result["details"].append({"step": "find_image", "status": "error", "message": message})
+            return False, None
 
-            # Get required resources for termination
-            image = image_repository.find_image_by_id(session, runner.image_id)
-            if not image:
-                message = f"Image for runner {runner.id} not found."
-                logger.error(f"[{initiated_by}] {message}")
-                result["status"] = "error"
-                result["details"].append({"step": "find_image", "status": "error", "message": message})
-                return False, None
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(image.cloud_connector_id)
+        if not cloud_connector:
+            message = f"Cloud connector for image {image.id} not found."
+            logger.error(f"[{initiated_by}] {message}")
+            result["status"] = "error"
+            result["details"].append({"step": "find_cloud_connector", "status": "error", "message": message})
+            return False, None
 
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, image.cloud_connector_id)
-            if not cloud_connector:
-                message = f"Cloud connector for image {image.id} not found."
-                logger.error(f"[{initiated_by}] {message}")
-                result["status"] = "error"
-                result["details"].append({"step": "find_cloud_connector", "status": "error", "message": message})
-                return False, None
+        # Return all necessary resources
+        resources = {
+            "runner": runner,
+            "instance_id": instance_id,
+            "image_id": runner.image_id,
+            "cloud_connector_id": image.cloud_connector_id,
+            "cloud_connector": cloud_connector,
+            "cloud_service": cloud_service_factory.get_cloud_service(cloud_connector)
+        }
 
-            # Return all necessary resources
-            resources = {
-                "runner": runner,
-                "instance_id": instance_id,
-                "image_id": runner.image_id,
-                "cloud_connector_id": image.cloud_connector_id,
-                "cloud_connector": cloud_connector,
-                "cloud_service": cloud_service_factory.get_cloud_service(cloud_connector)
-            }
-
-            return True, resources
+        return True, resources
     except Exception as e:
         error_detail = str(e)
         tb_string = traceback.format_exc()
@@ -81,41 +80,39 @@ def validate_and_prepare_runner(runner_id, instance_id, initiated_by, result):
 def update_runner_state(runner, old_state, new_state, initiated_by, event_name, event_data=None):
     """Update runner state and create history record."""
     try:
-        with Session(engine) as session:
-            # Find the runner again in this session
-            runner_db = runner_repository.find_runner_by_id(session, runner.id)
-            if not runner_db:
-                logger.error(f"[{initiated_by}] Runner {runner.id} not found for state update")
-                return False
+        # Find the runner again in this session
+        runner_db = runner_repository.find_runner_by_id(runner.id)
+        if not runner_db:
+            logger.error(f"[{initiated_by}] Runner {runner.id} not found for state update")
+            return False
 
-            # Update state
-            runner_db.state = new_state
-            if new_state in ("closed", "terminated"):
-                runner_db.ended_on = datetime.utcnow()
+        # Update state
+        runner_db.state = new_state
+        if new_state in ("closed", "terminated"):
+            runner_db.ended_on = datetime.utcnow()
 
-            runner_repository.update_runner(session, runner_db)
+        runner_repository.update_runner(runner_db)
 
-            # Create event data if not provided
-            if event_data is None:
-                event_data = {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "old_state": old_state,
-                    "new_state": new_state,
-                    "initiated_by": initiated_by
-                }
+        # Create event data if not provided
+        if event_data is None:
+            event_data = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "old_state": old_state,
+                "new_state": new_state,
+                "initiated_by": initiated_by
+            }
 
-            runner_history_repository.add_runner_history(
-                session=session,
-                runner=runner,
-                event_name=event_name,
-                event_data=event_data,
-                created_by="system"
-            )
+        runner_history_repository.add_runner_history(
+            runner=runner,
+            event_name=event_name,
+            event_data=event_data,
+            created_by="system"
+        )
 
-            session.commit()
+        # session.commit()
 
-            logger.info(f"[{initiated_by}] Runner {runner.id} state updated from {old_state} to {new_state}")
-            return True
+        logger.info(f"[{initiated_by}] Runner {runner.id} state updated from {old_state} to {new_state}")
+        return True
     except Exception as e:
         logger.error(f"[{initiated_by}] Error updating runner state: {e}")
         return False
@@ -186,22 +183,19 @@ def run_termination_script(runner_id, initiated_by, result):
         logger.error(f"[{initiated_by}] Traceback: {tb_string}")
 
         # Record the error but continue with termination
-        with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
-            runner_history_repository.add_runner_history(
-                session=session,
-                runner=runner,
-                event_name="script_error_on_terminate",
-                event_data={
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "error": error_detail,
-                    "traceback": tb_string,
-                    "initiated_by": initiated_by
-                },
-                created_by="system"
-            )
 
-            session.commit()
+        runner = runner_repository.find_runner_by_id(runner_id)
+        runner_history_repository.add_runner_history(
+            runner=runner,
+            event_name="script_error_on_terminate",
+            event_data={
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": error_detail,
+                "traceback": tb_string,
+                "initiated_by": initiated_by
+            },
+            created_by="system"
+        )
 
         result["details"].append({
             "step": "script_execution",
@@ -216,51 +210,50 @@ def stop_instance(resources, initiated_by, result):
     """Stop the cloud instance and update runner state to 'closed'."""
     try:
         # Get a fresh cloud service
-        with Session(engine) as session:
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                session, resources["cloud_connector_id"]
-            )
-            if not cloud_connector:
-                message = f"Cloud connector {resources['cloud_connector_id']} not found for stopping instance."
-                logger.error(f"[{initiated_by}] {message}")
-                result["details"].append({"step": "stop_instance", "status": "error", "message": message})
-                return False
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+            resources["cloud_connector_id"]
+        )
+        if not cloud_connector:
+            message = f"Cloud connector {resources['cloud_connector_id']} not found for stopping instance."
+            logger.error(f"[{initiated_by}] {message}")
+            result["details"].append({"step": "stop_instance", "status": "error", "message": message})
+            return False
 
-            cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+        cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
-            # Stop the instance
-            logger.info(f"[{initiated_by}] Stopping instance {resources['instance_id']} for runner {resources['runner'].id}")
-            stop_state = asyncio.run(cloud_service.stop_instance(resources['instance_id']))
-            logger.info(f"[{initiated_by}] Stop result for instance {resources['instance_id']}: {stop_state}")
+        # Stop the instance
+        logger.info(f"[{initiated_by}] Stopping instance {resources['instance_id']} for runner {resources['runner'].id}")
+        stop_state = asyncio.run(cloud_service.stop_instance(resources['instance_id']))
+        logger.info(f"[{initiated_by}] Stop result for instance {resources['instance_id']}: {stop_state}")
 
-            # Update runner state to 'closed'
-            event_data = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "old_state": "terminating",
-                "new_state": "closed",
-                "stop_result": stop_state,
-                "initiated_by": initiated_by
-            }
+        # Update runner state to 'closed'
+        event_data = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "old_state": "terminating",
+            "new_state": "closed",
+            "stop_result": stop_state,
+            "initiated_by": initiated_by
+        }
 
-            if update_runner_state(
-                resources["runner"],
-                "terminating",
-                "closed",
-                initiated_by,
-                "runner_closed",
-                event_data
-            ):
-                result["details"].append({
-                    "step": "stop_instance",
-                    "status": "success",
-                    "message": "Instance stopped"
-                })
-                return True
-            else:
-                message = f"Failed to update runner {resources['runner'].id} state to 'closed'"
-                logger.error(f"[{initiated_by}] {message}")
-                result["details"].append({"step": "stop_instance", "status": "error", "message": message})
-                return False
+        if update_runner_state(
+            resources["runner"],
+            "terminating",
+            "closed",
+            initiated_by,
+            "runner_closed",
+            event_data
+        ):
+            result["details"].append({
+                "step": "stop_instance",
+                "status": "success",
+                "message": "Instance stopped"
+            })
+            return True
+        else:
+            message = f"Failed to update runner {resources['runner'].id} state to 'closed'"
+            logger.error(f"[{initiated_by}] {message}")
+            result["details"].append({"step": "stop_instance", "status": "error", "message": message})
+            return False
     except Exception as e:
         error_message = f"Error stopping instance {resources['instance_id']}: {e!s}"
         tb_string = traceback.format_exc()
@@ -274,94 +267,93 @@ def terminate_instance(resources, initiated_by, result, task=None):
     """Terminate the cloud instance and update runner state to 'terminated'."""
     try:
         # Get a fresh cloud service for termination
-        with Session(engine) as session:
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                session, resources["cloud_connector_id"]
-            )
-            if not cloud_connector:
-                message = f"Cloud connector {resources['cloud_connector_id']} not found for terminating instance."
-                logger.error(f"[{initiated_by}] {message}")
-                result["details"].append({"step": "terminate_instance", "status": "error", "message": message})
-                return False
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+            resources["cloud_connector_id"]
+        )
+        if not cloud_connector:
+            message = f"Cloud connector {resources['cloud_connector_id']} not found for terminating instance."
+            logger.error(f"[{initiated_by}] {message}")
+            result["details"].append({"step": "terminate_instance", "status": "error", "message": message})
+            return False
 
-            cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+        cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
-            # Terminate the instance
-            logger.info(f"[{initiated_by}] Terminating instance {resources['instance_id']} for runner {resources['runner'].id}")
-            terminate_state = asyncio.run(cloud_service.terminate_instance(resources['instance_id']))
-            logger.info(f"[{initiated_by}] Terminate result for instance {resources['instance_id']}: {terminate_state}")
+        # Terminate the instance
+        logger.info(f"[{initiated_by}] Terminating instance {resources['instance_id']} for runner {resources['runner'].id}")
+        terminate_state = asyncio.run(cloud_service.terminate_instance(resources['instance_id']))
+        logger.info(f"[{initiated_by}] Terminate result for instance {resources['instance_id']}: {terminate_state}")
 
-            # Wait for instance to be terminated
-            logger.info(f"[{initiated_by}] Waiting for instance {resources['instance_id']} to be terminated...")
-            try:
-                terminated = asyncio.run(cloud_service.wait_for_instance_terminated(resources['instance_id']))
+        # Wait for instance to be terminated
+        logger.info(f"[{initiated_by}] Waiting for instance {resources['instance_id']} to be terminated...")
+        try:
+            terminated = asyncio.run(cloud_service.wait_for_instance_terminated(resources['instance_id']))
 
-                if terminated:
-                    logger.info(f"[{initiated_by}] Instance {resources['instance_id']} is confirmed terminated")
-                    result["details"].append({
-                        "step": "wait_for_termination",
-                        "status": "success",
-                        "message": "Instance termination confirmed"
-                    })
-                else:
-                    # Instance is in 'stopping' state, we should retry
-                    message = f"Instance {resources['instance_id']} is in stopping state, will retry termination check"
-                    logger.warning(f"[{initiated_by}] {message}")
-                    result["details"].append({
-                        "step": "wait_for_termination",
-                        "status": "retry",
-                        "message": message
-                    })
-                    # Retry with a longer delay if task is provided
-                    if task:
-                        raise task.retry(countdown=120)  # 2 minute delay
-                    return False
-            except Exception as e:
-                if isinstance(e, task.retry) if task else False:
-                    # If this is a retry exception, propagate it
-                    raise
-
-                error_message = f"Error waiting for instance {resources['instance_id']} to terminate: {e!s}"
-                logger.error(f"[{initiated_by}] {error_message}")
+            if terminated:
+                logger.info(f"[{initiated_by}] Instance {resources['instance_id']} is confirmed terminated")
                 result["details"].append({
                     "step": "wait_for_termination",
-                    "status": "error",
-                    "message": error_message
-                })
-                return False
-
-            # Update runner state to 'terminated'
-            event_data = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "old_state": "closed",
-                "new_state": "terminated",
-                "terminate_result": terminate_state,
-                "initiated_by": initiated_by
-            }
-
-            if update_runner_state(
-                resources["runner"],
-                "closed",
-                "terminated",
-                initiated_by,
-                "runner_terminated",
-                event_data
-            ):
-                result["details"].append({
-                    "step": "terminate_instance",
                     "status": "success",
-                    "message": "Instance terminated and runner state updated"
+                    "message": "Instance termination confirmed"
                 })
-                return True
             else:
-                message = f"Failed to update runner {resources['runner'].id} state to 'terminated'"
-                logger.error(f"[{initiated_by}] {message}")
+                # Instance is in 'stopping' state, we should retry
+                message = f"Instance {resources['instance_id']} is in stopping state, will retry termination check"
+                logger.warning(f"[{initiated_by}] {message}")
                 result["details"].append({
-                    "step": "terminate_instance",
-                    "status": "error",
+                    "step": "wait_for_termination",
+                    "status": "retry",
                     "message": message
                 })
+                # Retry with a longer delay if task is provided
+                if task:
+                    raise task.retry(countdown=120)  # 2 minute delay
                 return False
+        except Exception as e:
+            if isinstance(e, task.retry) if task else False:
+                # If this is a retry exception, propagate it
+                raise
+
+            error_message = f"Error waiting for instance {resources['instance_id']} to terminate: {e!s}"
+            logger.error(f"[{initiated_by}] {error_message}")
+            result["details"].append({
+                "step": "wait_for_termination",
+                "status": "error",
+                "message": error_message
+            })
+            return False
+
+        # Update runner state to 'terminated'
+        event_data = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "old_state": "closed",
+            "new_state": "terminated",
+            "terminate_result": terminate_state,
+            "initiated_by": initiated_by
+        }
+
+        if update_runner_state(
+            resources["runner"],
+            "closed",
+            "terminated",
+            initiated_by,
+            "runner_terminated",
+            event_data
+        ):
+            result["details"].append({
+                "step": "terminate_instance",
+                "status": "success",
+                "message": "Instance terminated and runner state updated"
+            })
+            return True
+        else:
+            message = f"Failed to update runner {resources['runner'].id} state to 'terminated'"
+            logger.error(f"[{initiated_by}] {message}")
+            result["details"].append({
+                "step": "terminate_instance",
+                "status": "error",
+                "message": message
+            })
+            return False
     except Exception as e:
         error_message = f"Error in termination process for instance {resources['instance_id']}: {e!s}"
         tb_string = traceback.format_exc()
@@ -390,90 +382,107 @@ async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") ->
         logger.info(f"[{initiated_by}] Deleting Prometheus metrics for runner {runner_id}")
 
         # Get the runner to access its IP address
-        with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
-            if not runner or not runner.url:
-                message = f"Runner {runner_id} not found or has no URL."
+        runner = runner_repository.find_runner_by_id(runner_id)
+        if not runner or not runner.url:
+            message = f"Runner {runner_id} not found or has no URL."
+            logger.error(f"[{initiated_by}] {message}")
+            return {"status": "error", "message": message}
+
+        runner_ip = runner.url
+
+        # Use urllib instead of requests to send the DELETE request to Prometheus Pushgateway
+        import urllib.request
+        import urllib.error
+        import os
+
+        # Get the Prometheus Pushgateway URL from environment variable or use default
+        prometheus_host = os.environ.get("PROMETHEUS_PUSHGATEWAY_URL")
+        if not prometheus_host:
+            message = "PROMETHEUS_PUSHGATEWAY_URL environment variable not set"
+            logger.error(f"[{initiated_by}] {message}")
+            return {"status": "error", "message": message}
+
+        prometheus_url = f"{prometheus_host}/metrics/job/{runner_ip}"
+
+        # Create a DELETE request
+        req = urllib.request.Request(
+            url=prometheus_url,
+            method="DELETE"
+        )
+
+        try:
+            # Open the request with a timeout
+            response = urllib.request.urlopen(req, timeout=5)
+            status_code = response.status
+            response_text = response.read().decode('utf-8')
+            response.close()
+
+            success_status_codes = [200, 202]
+            if status_code in success_status_codes:
+                message = f"Successfully deleted metrics for runner {runner_id} ({runner_ip})"
+                logger.info(f"[{initiated_by}] {message}")
+
+                # Record the successful deletion in runner history
+                runner_history_repository.add_runner_history(
+                    runner=runner,
+                    event_name="prometheus_metrics_deleted",
+                    event_data={
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "initiated_by": initiated_by,
+                        "prometheus_url": prometheus_url,
+                        "status_code": status_code
+                    },
+                    created_by="system"
+                )
+
+                return {"status": "success", "message": message}
+            else:
+                message = f"Failed to delete metrics for runner {runner_id} ({runner_ip}). Status code: {status_code}"
                 logger.error(f"[{initiated_by}] {message}")
-                return {"status": "error", "message": message}
 
-            runner_ip = runner.url
+                # Record the failed deletion in runner history
+                runner_history_repository.add_runner_history(
+                    runner=runner,
+                    event_name="prometheus_metrics_deletion_failed",
+                    event_data={
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "initiated_by": initiated_by,
+                        "prometheus_url": prometheus_url,
+                        "status_code": status_code,
+                        "response_text": response_text[:500] if response_text else None
+                    },
+                    created_by="system"
+                )
 
-            # Use urllib instead of requests to send the DELETE request to Prometheus Pushgateway
-            import urllib.request
-            import urllib.error
-            import os
+                return {"status": "error", "message": message, "status_code": status_code}
 
-            # Get the Prometheus Pushgateway URL from environment variable or use default
-            prometheus_host = os.environ.get("PROMETHEUS_PUSHGATEWAY_URL")
-            if not prometheus_host:
-                message = "PROMETHEUS_PUSHGATEWAY_URL environment variable not set"
-                logger.error(f"[{initiated_by}] {message}")
-                return {"status": "error", "message": message}
+        except Exception as e:
+            message = f"Error deleting metrics for runner {runner_id} ({runner_ip}): {e!s}"
+            logger.error(f"[{initiated_by}] {message}")
 
-            prometheus_url = f"{prometheus_host}/metrics/job/{runner_ip}"
-
-            # Create a DELETE request
-            req = urllib.request.Request(
-                url=prometheus_url,
-                method="DELETE"
+            # Record the error in runner history
+            runner_history_repository.add_runner_history(
+                runner=runner,
+                event_name="prometheus_metrics_deletion_error",
+                event_data={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "initiated_by": initiated_by,
+                    "error": str(e)
+                },
+                created_by="system"
             )
 
-            try:
-                # Open the request with a timeout
-                response = urllib.request.urlopen(req, timeout=5)
-                status_code = response.status
-                response_text = response.read().decode('utf-8')
-                response.close()
+            return {"status": "error", "message": message}
 
-                success_status_codes = [200, 202]
-                if status_code in success_status_codes:
-                    message = f"Successfully deleted metrics for runner {runner_id} ({runner_ip})"
-                    logger.info(f"[{initiated_by}] {message}")
+    except Exception as e:
+        error_message = f"Error deleting Prometheus metrics for runner {runner_id}: {e!s}"
+        logger.error(f"[{initiated_by}] {error_message}")
 
-                    # Record the successful deletion in runner history
-                    runner_history_repository.add_runner_history(
-                        session=session,
-                        runner=runner,
-                        event_name="prometheus_metrics_deleted",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "initiated_by": initiated_by,
-                            "prometheus_url": prometheus_url,
-                            "status_code": status_code
-                        },
-                        created_by="system"
-                    )
-
-                    return {"status": "success", "message": message}
-                else:
-                    message = f"Failed to delete metrics for runner {runner_id} ({runner_ip}). Status code: {status_code}"
-                    logger.error(f"[{initiated_by}] {message}")
-
-                    # Record the failed deletion in runner history
-                    runner_history_repository.add_runner_history(
-                        session=session,
-                        runner=runner,
-                        event_name="prometheus_metrics_deletion_failed",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "initiated_by": initiated_by,
-                            "prometheus_url": prometheus_url,
-                            "status_code": status_code,
-                            "response_text": response_text[:500] if response_text else None
-                        },
-                        created_by="system"
-                    )
-
-                    return {"status": "error", "message": message, "status_code": status_code}
-
-            except Exception as e:
-                message = f"Error deleting metrics for runner {runner_id} ({runner_ip}): {e!s}"
-                logger.error(f"[{initiated_by}] {message}")
-
-                # Record the error in runner history
+        # Try to record the error in history if possible
+        try:
+            runner = runner_repository.find_runner_by_id(runner_id)
+            if runner:
                 runner_history_repository.add_runner_history(
-                    session=session,
                     runner=runner,
                     event_name="prometheus_metrics_deletion_error",
                     event_data={
@@ -483,29 +492,6 @@ async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") ->
                     },
                     created_by="system"
                 )
-
-                return {"status": "error", "message": message}
-
-    except Exception as e:
-        error_message = f"Error deleting Prometheus metrics for runner {runner_id}: {e!s}"
-        logger.error(f"[{initiated_by}] {error_message}")
-
-        # Try to record the error in history if possible
-        try:
-            with Session(engine) as session:
-                runner = runner_repository.find_runner_by_id(session, runner_id)
-                if runner:
-                    runner_history_repository.add_runner_history(
-                        session=session,
-                        runner=runner,
-                        event_name="prometheus_metrics_deletion_error",
-                        event_data={
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "initiated_by": initiated_by,
-                            "error": str(e)
-                        },
-                        created_by="system"
-                    )
         except Exception as history_error:
             logger.error(f"[{initiated_by}] Additional error recording history: {history_error!s}")
 
@@ -517,42 +503,41 @@ def cleanup_security_groups(resources, initiated_by, result):
         logger.info(f"[{initiated_by}] Cleaning up security groups for runner {resources['runner'].id}")
 
         # Get a fresh cloud service
-        with Session(engine) as session:
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                session, resources["cloud_connector_id"]
-            )
-            if not cloud_connector:
-                message = f"Cloud connector {resources['cloud_connector_id']} not found for security group cleanup."
-                logger.error(f"[{initiated_by}] {message}")
-                result["details"].append({
-                    "step": "security_group_cleanup",
-                    "status": "error",
-                    "message": message
-                })
-                return False
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+            resources["cloud_connector_id"]
+        )
+        if not cloud_connector:
+            message = f"Cloud connector {resources['cloud_connector_id']} not found for security group cleanup."
+            logger.error(f"[{initiated_by}] {message}")
+            result["details"].append({
+                "step": "security_group_cleanup",
+                "status": "error",
+                "message": message
+            })
+            return False
 
-            cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
+        cloud_service = cloud_service_factory.get_cloud_service(cloud_connector)
 
-            security_group_result = asyncio.run(
-                security_group_management.handle_runner_termination(resources['runner'].id, cloud_service)
-            )
+        security_group_result = asyncio.run(
+            security_group_management.handle_runner_termination(resources['runner'].id, cloud_service)
+        )
 
-            if security_group_result:
-                logger.info(f"[{initiated_by}] Successfully cleaned up security groups for runner {resources['runner'].id}")
-                result["details"].append({
-                    "step": "security_group_cleanup",
-                    "status": "success",
-                    "message": "Security groups cleaned up"
-                })
-                return True
-            else:
-                logger.warning(f"[{initiated_by}] Some security groups may not have been fully cleaned up for runner {resources['runner'].id}")
-                result["details"].append({
-                    "step": "security_group_cleanup",
-                    "status": "warning",
-                    "message": "Some security groups may require manual cleanup"
-                })
-                return False
+        if security_group_result:
+            logger.info(f"[{initiated_by}] Successfully cleaned up security groups for runner {resources['runner'].id}")
+            result["details"].append({
+                "step": "security_group_cleanup",
+                "status": "success",
+                "message": "Security groups cleaned up"
+            })
+            return True
+        else:
+            logger.warning(f"[{initiated_by}] Some security groups may not have been fully cleaned up for runner {resources['runner'].id}")
+            result["details"].append({
+                "step": "security_group_cleanup",
+                "status": "warning",
+                "message": "Some security groups may require manual cleanup"
+            })
+            return False
     except Exception as e:
         error_message = f"Error cleaning up security groups for runner {resources['runner'].id}: {e!s}"
         tb_string = traceback.format_exc()

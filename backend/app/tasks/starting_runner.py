@@ -23,17 +23,17 @@ def wait_for_instance_running(runner_id: int, instance_id: str):
     try:
         # Get necessary data from database
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if not runner:
                 logger.error(f"Runner {runner_id} not found in the database.")
                 return
 
-            image = image_repository.find_image_by_id(session, runner.image_id)
+            image = image_repository.find_image_by_id(runner.image_id)
             if not image:
                 logger.error(f"Image not found for runner {runner_id}.")
                 return
 
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, image.cloud_connector_id)
+            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(image.cloud_connector_id)
             if not cloud_connector:
                 logger.error(f"Cloud connector not found for image {image.id}.")
                 return
@@ -90,17 +90,17 @@ def get_instance_ip(runner_id: int, instance_id: str):
     try:
         # Get necessary data from database
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if not runner:
                 logger.error(f"Runner {runner_id} not found in the database.")
                 return
 
-            image = image_repository.find_image_by_id(session, runner.image_id)
+            image = image_repository.find_image_by_id(runner.image_id)
             if not image:
                 logger.error(f"Image not found for runner {runner_id}.")
                 return
 
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, image.cloud_connector_id)
+            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(image.cloud_connector_id)
             if not cloud_connector:
                 logger.error(f"Cloud connector not found for image {image.id}.")
                 return
@@ -130,7 +130,7 @@ def get_instance_ip(runner_id: int, instance_id: str):
 
         # Update runner in database
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if runner:
                 runner.url = public_ip
 
@@ -164,17 +164,17 @@ def wait_for_ssh(runner_id: int, instance_id: str, public_ip: str):
     try:
         # Get necessary data from database
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if not runner:
                 logger.error(f"Runner {runner_id} not found in the database.")
                 return
 
-            image = image_repository.find_image_by_id(session, runner.image_id)
+            image = image_repository.find_image_by_id(runner.image_id)
             if not image:
                 logger.error(f"Image not found for runner {runner_id}.")
                 return
 
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(session, image.cloud_connector_id)
+            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(image.cloud_connector_id)
             if not cloud_connector:
                 logger.error(f"Cloud connector not found for image {image.id}.")
                 return
@@ -210,7 +210,7 @@ def wait_for_ssh(runner_id: int, instance_id: str, public_ip: str):
 
         # Update runner state in database
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if runner:
 
                 # Create history record
@@ -244,7 +244,7 @@ def run_startup_script(runner_id: int):
         from app.business import script_management
 
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if not runner:
                 logger.error(f"Runner {runner_id} not found in the database.")
                 return
@@ -292,7 +292,7 @@ def run_startup_script(runner_id: int):
 
         # Update history in database
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if runner:
                 if runner.state == "runner_starting_claimed":
                     runner.state = "ready_claimed"
@@ -323,7 +323,7 @@ def run_startup_script(runner_id: int):
 
         instance_id = None
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if runner:
                 instance_id = runner.identifier  # Store this separately
 
