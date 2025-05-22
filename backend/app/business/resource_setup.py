@@ -6,7 +6,6 @@ from sqlmodel import Session, select
 from app.business.runner_management import launch_runners
 from app.business import endpoint_permission_management
 from app.db.database import engine
-from app.db.image_repository import find_images_with_pool
 from app.models import User, Machine, Image, Script
 from datetime import datetime
 from app.models import CloudConnector

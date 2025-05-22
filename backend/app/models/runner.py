@@ -123,6 +123,7 @@ def create_runner(runner: Runner):
     """Create a runner record in the database."""
     with Session(engine) as session:
         session.add(runner)
+        session.commit()
         session.refresh()
     return runner
 
@@ -147,4 +148,4 @@ def delete_runner(runner_id: int):
     """Delete a runner record from the database."""
     with Session(engine) as session:
         session.delete(runner_id)
-        #session.commit() #this is implicitly called when the session goes out?
+        session.commit()

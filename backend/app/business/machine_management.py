@@ -10,10 +10,8 @@ logger = get_task_logger(__name__)
 
 def get_all_machines() -> list[Machine]:
     """Get all machines."""
-    with Session(engine) as session:
-        return machine_repository.find_all_machines(session)
+    return machine_repository.find_all_machines()
 
 def get_machine_by_id(id:int) -> Machine:
     """Get an machine by its id (numeric)."""
-    with Session(engine) as session:
-        return machine_repository.find_machine_by_id(session, id)
+    return machine_repository.find_machine_by_id(id)

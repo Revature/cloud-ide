@@ -50,7 +50,7 @@ def delete_user(user_id: int):
     Previously this physically deleted the record.
     """
     with Session(engine) as session:
-        user = get_user_by_id(user_id, session=session)
+        user = get_user_by_id(user_id)
         if user:
             user.status = "deleted"
             session.add(user)
