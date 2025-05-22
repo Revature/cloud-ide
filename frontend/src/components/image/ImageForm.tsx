@@ -83,7 +83,9 @@ const ImageForm: React.FC<ImageFormProps> = ({
   };
 
   const handleJsonChange = (fieldName: "scriptVars" | "envVars", value: string) => {
-    const isValid = (() => {
+    // Allow empty string as valid (treat as empty object)
+    const isEmpty = value.trim() === "";
+    const isValid = isEmpty || (() => {
       try {
         JSON.parse(value);
         return true;
@@ -96,7 +98,7 @@ const ImageForm: React.FC<ImageFormProps> = ({
     if (fieldName === "envVars") setEnvVarsError(!isValid);
 
     if (isValid) {
-      handleChange(fieldName, JSON.parse(value));
+      handleChange(fieldName, isEmpty ? {} : JSON.parse(value));
     }
   };
 
