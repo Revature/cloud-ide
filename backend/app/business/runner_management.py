@@ -10,7 +10,7 @@ from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from sqlalchemy.exc import OperationalError, PendingRollbackError, InterfaceError
 from typing import Optional
-from app.db.database import engine, get_session, get_session_context, reset_db_connection
+from app.db.database import engine, get_session_context, reset_db_connection
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
 from app.util import constants, runner_status_management
 from app.business.cloud_services import cloud_service_factory

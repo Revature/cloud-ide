@@ -1,7 +1,6 @@
 """Model for workOS sessions, tracks access and refresh tokens."""
 from sqlmodel import Field, SQLModel, Session, Text, select, Column, String
 from app.business.encryption import decrypt_text, encrypt_text
-from app.db.database import get_session
 from app.models.mixins import TimestampMixin
 from app.db.database import engine
 from app.exceptions.authentication_exceptions import NoRefreshSessionFound
@@ -48,7 +47,7 @@ class WorkosSession(TimestampMixin, SQLModel, table=True):
 
 def create_workos_session(workos_session: WorkosSession):
     """Create a workos_session record in the database."""
-    with next(get_session()) as database_session:
+    with Session(engine) as database_session:
         database_session.add(workos_session)
         database_session.commit()
 
@@ -67,7 +66,7 @@ def get_refresh_token(access_token: str):
 
 def refresh_session(old_access_token: str, access_token: str, refresh_token: str):
     """Update a session with new access and refresh tokens."""
-    with next(get_session()) as database_session:
+    with Session(engine) as database_session:
         record: WorkosSession = database_session.exec(select(WorkosSession)
             .where(WorkosSession.encrypted_access_token == encrypt_text(old_access_token))).first()
         if not record:

@@ -1,9 +1,9 @@
 """Role model for the application."""
 
 from __future__ import annotations
-from sqlmodel import SQLModel, Field, select
+from sqlmodel import SQLModel, Field, Session, select
 from app.models.mixins import TimestampMixin
-from app.db.database import get_session
+from app.db.database import engine
 
 class Role(TimestampMixin, SQLModel, table=True):
     """Role model for the application."""
@@ -14,19 +14,19 @@ class Role(TimestampMixin, SQLModel, table=True):
 def populate_roles():
     """Populate the roles table with default roles."""
     # Use the get_session generator to obtain a session.
-    session = next(get_session())
-    try:
-        # Check if any roles already exist.
-        existing_roles = session.exec(select(Role)).all()
-        if existing_roles:
-            # Roles already exist; nothing to do.
-            return
+    with Session(engine) as session:
+        try:
+            # Check if any roles already exist.
+            existing_roles = session.exec(select(Role)).all()
+            if existing_roles:
+                # Roles already exist; nothing to do.
+                return
 
-        # Otherwise, create the default roles.
-        role_admin = Role(id=1, name="admin", created_by="system", modified_by="system")
-        role_user = Role(id=2, name="user", created_by="system", modified_by="system")
-        session.add(role_admin)
-        session.add(role_user)
-        session.commit()
-    finally:
-        session.close()
+            # Otherwise, create the default roles.
+            role_admin = Role(id=1, name="admin", created_by="system", modified_by="system")
+            role_user = Role(id=2, name="user", created_by="system", modified_by="system")
+            session.add(role_admin)
+            session.add(role_user)
+            session.commit()
+        finally:
+            session.close()

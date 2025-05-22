@@ -1,5 +1,5 @@
 // middleware.ts
-import { authkitMiddleware, withAuth } from '@workos-inc/authkit-nextjs';
+import { authkit, authkitMiddleware } from '@workos-inc/authkit-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest, NextFetchEvent } from 'next/server';
 
@@ -10,7 +10,7 @@ const roleProtectedRoutes: Record<string, string[]> = {
   '/cloud-connectors': ['admin'], 
   '/images': ['admin'], 
   '/runner-pools': ['admin'],
-  '/runners': ['admin', 'member'], 
+  '/ui/runners': ['admin', 'member'], 
 };
 
 const baseAuthMiddleware = authkitMiddleware({
@@ -36,6 +36,10 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     }
   }
 
+  // if (!AUTH_MODE) {
+  //   return authResponse || NextResponse.next();
+  // }
+
   const requiredRolesForRoute = Object.entries(roleProtectedRoutes).find(
     ([routePrefix]) => pathname.startsWith(routePrefix) 
   )?.[1];
@@ -46,7 +50,7 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     return authResponse || NextResponse.next();
   }
 
-  const { role, organizationId } = AUTH_MODE ? await withAuth() : { role: 'member', organizationId: ORG_ID }; 
+  const { role, organizationId } = AUTH_MODE ? (await authkit(request, {debug:true})).session : { role: 'member', organizationId: ORG_ID }; 
   console.log('User role:', role);
   console.log('User organization ID:', organizationId);
 

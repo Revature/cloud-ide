@@ -30,13 +30,13 @@ const navItems: NavItem[] = [
     icon: <ImageIcon />,
     name: "Images",
     path: "/images",
-    roleAccess: ["admin", "member"],
+    roleAccess: ["admin"],
   },
   {
     icon: <RunnerIcon />,
     name: "Runners",
     path: "/runners",
-    roleAccess: ["admin"],
+    roleAccess: ["admin", "member"],
   },
   {
     icon: <RunnerPoolIcon />,
