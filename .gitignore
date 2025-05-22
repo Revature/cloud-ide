@@ -10,6 +10,7 @@ secrets.json
 /test/karate-1.40.jar
 test/*.jar
 test/**/*.jar
+test/compiled.txt
 
 # Don't Ignore
 !local-compose.env

@@ -8,6 +8,7 @@ NC='\033[0m' # No Color
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+FEATURE_DIR="${SCRIPT_DIR}/feature"
 LOGS_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "$LOGS_DIR"
 
@@ -17,27 +18,41 @@ START_TIME=$(date +%s)
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_PREFIX="${LOGS_DIR}/${TIMESTAMP}"
 SINGLE_TEST=""
+TEST_DIR=""
 
 # Handle script termination
-trap 'echo -e "\n${YELLOW}Script interrupted. Cleaning up...${NC}"; 
-      [ -f "$MYSQL_TEMP_CNF" ] && rm -f "$MYSQL_TEMP_CNF"; 
-      docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down; 
-      exit 1' SIGINT SIGTERM
+trap 'exit 1' SIGINT SIGTERM
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
     -t|--test) SINGLE_TEST="$2"; shift 2 ;;
+    -d|--dir) TEST_DIR="$2"; shift 2 ;;
     -w|--wait) MAX_WAIT_TIME="$2"; shift 2 ;;
     -h|--help) 
-      echo "Usage: $0 [OPTIONS]"
+      echo "Usage: $0 [OPTIONS] [TEST_FILE|TEST_DIR]"
       echo "Options:"
       echo "  -t, --test FILENAME      Run a specific test feature file"
+      echo "  -d, --dir DIRECTORY      Run all tests in a specific directory"
       echo "  -w, --wait TIME          Maximum wait time in seconds (default: 120)"
       echo "  -h, --help               Display this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0                       Run all feature tests"
+      echo "  $0 testfile.feature      Run a specific feature file"
+      echo "  $0 testdir               Run all features in the testdir subdirectory"
       exit 1 ;;
-    *) SINGLE_TEST="$1"; shift ;;
+    *)
+      # Check if the argument is a directory or file
+      if [ -z "$SINGLE_TEST" ] && [ -z "$TEST_DIR" ]; then
+        if [[ "$1" == *.feature ]]; then
+          SINGLE_TEST="$1"
+        else
+          TEST_DIR="$1"
+        fi
+      fi
+      shift ;;
   esac
 done
 
@@ -52,86 +67,24 @@ if [ ! -f "$KARATE_JAR" ]; then
   fi
 fi
 
-# Stop and start containers
-echo "Stopping any existing containers..."
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-
-echo "Building containers in parallel..."
-# Use docker-compose build with --parallel flag
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" build --parallel
-
-echo "Starting containers..."
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" up -d
-
-# Wait for backend to be ready
-echo -e "${YELLOW}Waiting for backend service...${NC}"
-for ((i=1; i<=MAX_WAIT_TIME/2; i++)); do
-  if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/docs 2>/dev/null | grep -q '200\|301\|302'; then
-    echo -e "\n${GREEN}Backend service is ready!${NC}"
-    break
-  fi
-  echo -n "."
-  sleep 2
-  if [ $i -eq $((MAX_WAIT_TIME/2)) ]; then
-    echo -e "\n${RED}Backend service failed to start.${NC}"
-    docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-    exit 1
-  fi
-done
-
-# Load database connection info
-if [ ! -f "$SCRIPT_DIR/../.env" ]; then
-  echo -e "${RED}Error: .env file not found${NC}"
-  docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-  exit 1
+# Start containers using the compose.sh script
+echo "Starting Docker containers..."
+COMPOSE_SCRIPT="${SCRIPT_DIR}/compose.sh"
+if [ ! -x "$COMPOSE_SCRIPT" ]; then
+  chmod +x "$COMPOSE_SCRIPT"
 fi
 
-source "$SCRIPT_DIR/../.env"
-
-# Parse connection string and create temp MySQL config
-parse_db_url() {
-  if [[ "$DATABASE_URL" == *"://"* ]]; then
-    local rest="${DATABASE_URL#*://}"
-    local auth="${rest%%@*}"
-    local server="${rest#*@}"
-    
-    local username="${auth%%:*}"
-    local password="${auth#*:}"
-    local host="${server%%:*}"
-    local port_db="${server#*:}"
-    local port="${port_db%%/*}"
-    local database="${port_db#*/}"
-    database="${database%%\?*}"
-    
-    echo "HOST=$host PORT=$port USER=$username PASSWORD=$password DATABASE=$database"
-  else
-    return 1
-  fi
-}
-
-eval $(parse_db_url)
-
-# Create MySQL config
-MYSQL_TEMP_CNF=$(mktemp)
-chmod 600 "$MYSQL_TEMP_CNF"
-cat > "$MYSQL_TEMP_CNF" <<EOF
-[client]
-host=$HOST
-user=$USER
-password=$PASSWORD
-port=$PORT
-EOF
+"$COMPOSE_SCRIPT" --wait "$MAX_WAIT_TIME"
+if [ $? -ne 0 ]; then
+  echo -e "${RED}Failed to start Docker containers. Exiting.${NC}"
+  rm -f "$TEST_LIST_FILE" 2>/dev/null
+  exit 1
+fi
+echo -e "${GREEN}Docker containers started successfully!${NC}"
 
 # Create output directory for Karate
 KARATE_OUTPUT="${LOGS_DIR}/karate-${TIMESTAMP}"
 mkdir -p "$KARATE_OUTPUT"
-
-# Run setup SQL if exists
-SETUP_SQL="${SCRIPT_DIR}/setup.sql"
-if [ -f "$SETUP_SQL" ]; then
-  echo -e "${YELLOW}Running database setup...${NC}"
-  mysql --defaults-file="$MYSQL_TEMP_CNF" $DATABASE < "$SETUP_SQL"
-fi
 
 # Run the tests
 echo -e "${YELLOW}Running Karate tests...${NC}"
@@ -142,18 +95,30 @@ TEST_RESULT=0
 TOTAL_TESTS=0
 FAILED_TESTS=0
 
+# Create a temporary file to store test list
+TEST_LIST_FILE=$(mktemp)
+
 if [ -n "$SINGLE_TEST" ]; then
-  # Run single specified test
-  TEST_FILE="${SCRIPT_DIR}/${SINGLE_TEST}"
-  
-  # Check if the test file exists
-  if [ ! -f "$TEST_FILE" ]; then
-    echo -e "${RED}Error: Test file '$SINGLE_TEST' not found${NC}"
-    echo "Available test files:"
-    find "$SCRIPT_DIR" -name "*.feature" -type f -printf "%f\n" | sort
-    docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-    rm -f "$MYSQL_TEMP_CNF"
-    exit 1
+  # Determine the correct path for the test file
+  if [[ "$SINGLE_TEST" == *"/"* ]]; then
+    # If path contains slashes, use as is (relative to script dir)
+    TEST_FILE="${SCRIPT_DIR}/${SINGLE_TEST}"
+  elif [[ -f "${FEATURE_DIR}/${SINGLE_TEST}" ]]; then
+    # Check if file exists directly in feature directory
+    TEST_FILE="${FEATURE_DIR}/${SINGLE_TEST}"
+  else
+    # Search recursively for the test file within feature directory
+    FOUND_FILE=$(find "${FEATURE_DIR}" -name "${SINGLE_TEST}" -type f | head -n 1)
+    if [ -n "$FOUND_FILE" ]; then
+      TEST_FILE="$FOUND_FILE"
+    else
+      echo -e "${RED}Error: Test file '${SINGLE_TEST}' not found${NC}"
+      echo "Available test files:"
+      find "${FEATURE_DIR}" -name "*.feature" -type f | sed "s|${FEATURE_DIR}/||" | sort
+      "$COMPOSE_SCRIPT" # Run cleanup through compose.sh
+      rm -f "$TEST_LIST_FILE"
+      exit 1
+    fi
   fi
   
   TEST_NAME=$(basename "$TEST_FILE" .feature)
@@ -170,29 +135,58 @@ if [ -n "$SINGLE_TEST" ]; then
   else
     echo -e "${RED}Test failed with exit code $TEST_RESULT${NC}"
   fi
-else
-  # Create a temporary file to store test list with sanity test first
-  TEST_LIST_FILE=$(mktemp)
+elif [ -n "$TEST_DIR" ]; then
+  # Run all tests in a specific directory
+  TARGET_DIR="${FEATURE_DIR}/${TEST_DIR}"
   
-  # Check if sanity test exists and add it first
-  SANITY_TEST=$(find "$SCRIPT_DIR" -name "sanity.feature" -type f)
+  if [ ! -d "$TARGET_DIR" ]; then
+    echo -e "${RED}Error: Test directory '$TEST_DIR' not found${NC}"
+    echo "Available directories:"
+    find "${FEATURE_DIR}" -type d | grep -v "^${FEATURE_DIR}$" | sed "s|${FEATURE_DIR}/||" | sort
+    "$COMPOSE_SCRIPT" # Run cleanup through compose.sh
+    rm -f "$TEST_LIST_FILE"
+    exit 1
+  fi
+  
+  # Check if sanity test exists in the target directory and add it first
+  SANITY_TEST=$(find "$TARGET_DIR" -name "sanity.feature" -type f)
+  if [ -n "$SANITY_TEST" ]; then
+    echo -e "${YELLOW}Sanity test found. Running it first: $(basename "$SANITY_TEST")${NC}"
+    echo "$SANITY_TEST" > "$TEST_LIST_FILE"
+  fi
+  
+  # Add all other tests from the target directory
+  find "$TARGET_DIR" -name "*.feature" -type f | grep -v "sanity.feature" | sort >> "$TEST_LIST_FILE"
+  
+  # Check if any feature files exist
+  if [ ! -s "$TEST_LIST_FILE" ]; then
+    echo -e "${RED}Error: No feature files found in $TARGET_DIR${NC}"
+    "$COMPOSE_SCRIPT" # Run cleanup through compose.sh
+    rm -f "$TEST_LIST_FILE"
+    exit 1
+  fi
+else
+  # Run all tests, check if sanity test exists and add it first
+  SANITY_TEST=$(find "$FEATURE_DIR" -name "sanity.feature" -type f)
   if [ -n "$SANITY_TEST" ]; then
     echo -e "${YELLOW}Sanity test found. Running it first: $(basename "$SANITY_TEST")${NC}"
     echo "$SANITY_TEST" > "$TEST_LIST_FILE"
   fi
   
   # Add all other tests
-  find "$SCRIPT_DIR" -name "*.feature" -type f | grep -v "sanity.feature" | sort >> "$TEST_LIST_FILE"
+  find "$FEATURE_DIR" -name "*.feature" -type f | grep -v "sanity.feature" | sort >> "$TEST_LIST_FILE"
   
   # Check if any feature files exist
   if [ ! -s "$TEST_LIST_FILE" ]; then
-    echo -e "${RED}Error: No feature files found in $SCRIPT_DIR${NC}"
-    docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
-    rm -f "$MYSQL_TEMP_CNF" "$TEST_LIST_FILE"
+    echo -e "${RED}Error: No feature files found in $FEATURE_DIR${NC}"
+    "$COMPOSE_SCRIPT" # Run cleanup through compose.sh
+    rm -f "$TEST_LIST_FILE"
     exit 1
   fi
-  
-  # Run all tests, with fail-fast approach
+fi
+
+# Run tests from the list file if not already executed a single test
+if [ -z "$SINGLE_TEST" ]; then
   echo -e "${YELLOW}Running tests with fail-fast enabled${NC}"
   
   while IFS= read -r TEST_FILE; do
@@ -224,10 +218,10 @@ else
       echo -e "${GREEN}Test $TEST_NAME passed!${NC}"
     fi
   done < "$TEST_LIST_FILE"
-  
-  # Clean up the temporary file
-  rm -f "$TEST_LIST_FILE"
 fi
+
+# Clean up the temporary file
+rm -f "$TEST_LIST_FILE"
 
 TEST_END_TIME=$(date +%s)
 TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
@@ -250,29 +244,31 @@ echo "============ TEST END ============"
 echo "Test duration: $TEST_DURATION_FORMATTED (mm:ss)"
 echo "Karate test reports available at: $KARATE_OUTPUT"
 
-# Run teardown SQL if exists
-TEARDOWN_SQL="${SCRIPT_DIR}/teardown.sql"
-if [ -f "$TEARDOWN_SQL" ]; then
-  echo -e "${YELLOW}Running database teardown...${NC}"
-  mysql --defaults-file="$MYSQL_TEMP_CNF" $DATABASE < "$TEARDOWN_SQL"
-fi
-
 # Clean up
-rm -f "$MYSQL_TEMP_CNF"
 [ -f "$TEST_LIST_FILE" ] && rm -f "$TEST_LIST_FILE"
-docker-compose -f "$SCRIPT_DIR/../local-compose.yml" down
+
+# Stop containers using compose.sh
+"$COMPOSE_SCRIPT"
 
 # Write summary
-TEST_NAME_INFO=$([ -n "$SINGLE_TEST" ] && echo "$SINGLE_TEST" || echo "ALL TESTS")
+TEST_INFO=""
+if [ -n "$SINGLE_TEST" ]; then
+  TEST_INFO="SINGLE TEST: $SINGLE_TEST"
+elif [ -n "$TEST_DIR" ]; then
+  TEST_INFO="DIRECTORY: $TEST_DIR"
+else
+  TEST_INFO="ALL TESTS"
+fi
+
 cat > "${LOG_PREFIX}_summary.log" <<EOF
 ========================================
-TEST SUMMARY: ${TEST_NAME_INFO}
+TEST SUMMARY: ${TEST_INFO}
 Date: $(date)
 ========================================
 
 RESULT: $([ $TEST_RESULT -eq 0 ] && echo "PASS" || echo "FAIL ($FAILED_TESTS of $TOTAL_TESTS tests failed)")
 
-Test directory: $SCRIPT_DIR
+Test directory: $FEATURE_DIR
 Karate Reports: $KARATE_OUTPUT
 Test duration: $TEST_DURATION_FORMATTED (mm:ss)
 

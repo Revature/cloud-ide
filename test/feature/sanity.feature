@@ -2,7 +2,7 @@ Feature: API Documentation Sanity Test
 
 Background:
   * def ensureTrailingSlash = function(urlStr) { return urlStr.endsWith('/') ? urlStr : urlStr + '/'; }
-  * def envVars = karate.readAsString('../.env')
+  * def envVars = karate.readAsString('../../.env')
   * def extractDomain = function(text) { var match = text.match(/domain=([^\n]+)/); return match ? match[1].trim() : 'http://localhost:8020'; }
   * def domain = extractDomain(envVars)
   * def baseUrl = ensureTrailingSlash(domain)

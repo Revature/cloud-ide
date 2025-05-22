@@ -640,7 +640,8 @@ def process_runner_shutdown(self, runner_id: int, instance_id: str, initiated_by
         run_termination_script(runner_id, initiated_by, result)
 
     # Step 4: Stop the instance and update state to closed
-    stop_instance(resources, initiated_by, result)
+    # TODO: Rework this logic when we've introduced the temporary+permanent runner distinction.
+    # stop_instance(resources, initiated_by, result)
 
     # Step 5: Terminate the instance and update state to terminated
     termination_success = terminate_instance(resources, initiated_by, result, self)

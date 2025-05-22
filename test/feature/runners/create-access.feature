@@ -1,21 +1,11 @@
 Feature: Runner Lifecycle Tests
 
 Background:
-  * def ensureTrailingSlash = function(urlStr) { return urlStr.endsWith('/') ? urlStr : urlStr + '/'; }
-  * def envVars = karate.readAsString('../.env')
-  * def extractDomain = function(text) { var match = text.match(/domain=([^\n]+)/); return match ? match[1].trim() : 'http://localhost:8020'; }
-  * def domain = extractDomain(envVars)
-  * def baseUrl = ensureTrailingSlash(domain)
-  * def appRequestsPath = ensureTrailingSlash('/api/v1/app_requests')
-  * def runnersPath = ensureTrailingSlash('/api/v1/runners')
-  * header Content-Type = 'application/json'
-  * def appRequestsUrl = baseUrl + appRequestsPath.substring(1)
-  * def runnersUrl = baseUrl + runnersPath.substring(1)
-  * configure connectTimeout = 240000
-  * configure readTimeout = 240000
-  * configure retry = { count: 2, interval: 3000 }
-  * def basePayload = { "image_id": 4, "env_data": { "script_vars": {}, "env_vars": {} }, "user_email": "bdd@revature.com", "session_time": 60, "runner_type": "temporary" }
-  * def clone = function(obj) { return JSON.parse(JSON.stringify(obj)); }
+  * call read('../../util/setup.feature')
+  * configure connectTimeout = timeoutConfig.connectTimeout
+  * configure readTimeout = timeoutConfig.readTimeout
+  * configure retry = timeoutConfig.retry
+  * headers defaultHeaders
 
 Scenario: Complete Runner Lifecycle Test
   # 1. Start a runner with app_requests

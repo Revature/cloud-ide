@@ -710,7 +710,7 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
                 result["message"] = f"Runner with ID {runner_id} not found"
                 return result
 
-            if runner.state in ("closed", "terminated"):
+            if runner.state in ("closed", "terminated", "terminating"):
                 logger.info(f"[{initiated_by}] Runner with ID {runner_id} is already in {runner.state} state")
                 result["status"] = "warned"
                 result["message"] = f"Runner with ID {runner_id} is already in {runner.state} state"
