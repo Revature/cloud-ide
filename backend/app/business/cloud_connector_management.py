@@ -150,9 +150,9 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
             if not updated_connector:
                 return None
 
-            # Commit the transaction
-            session.commit()
-            session.refresh(updated_connector)
+            # Commit the transaction - this is all done within the function above now
+            # session.commit()
+            # session.refresh(updated_connector)
 
             return updated_connector
 

@@ -64,6 +64,8 @@ def update_connector_status(cloud_connector_id: int, is_active: bool) -> CloudCo
 
             # Save changes to the database
             session.add(cloud_connector)
+            session.commit()
+            session.refresh(cloud_connector)
 
         return cloud_connector
 
