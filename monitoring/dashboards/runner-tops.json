@@ -98,7 +98,7 @@
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "hideZeros": false,
@@ -346,5 +346,5 @@
   "timezone": "browser",
   "title": "Runner-Tops",
   "uid": "dekejcrtamu4gd",
-  "version": 2
+  "version": 3
 }
