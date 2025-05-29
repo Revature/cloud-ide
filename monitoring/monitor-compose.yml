@@ -62,7 +62,7 @@ services:
 
   grafana:
     container_name: grafana
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.6.1
     pull_policy: always
     ports:
       - "3000:3000"
@@ -78,12 +78,14 @@ services:
       - "./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
       - "./dashboards:/var/lib/grafana/dashboards"
       - "./default.yml:/etc/grafana/provisioning/dashboards/default.yml"
+      - "./grafana.ini:/etc/grafana/grafana.ini"
     networks:
       - monitor
     depends_on:
       - loki
       - pushgateway
     restart: always
+    command:
 
 volumes:
   grafana-data:
