@@ -146,6 +146,7 @@ def get_instance_ip(runner_id: int, instance_id: str):
                     created_by="system",
                     modified_by="system"
                 )
+                session.add(runner)
                 session.add(history)
                 session.commit()
 
@@ -310,6 +311,7 @@ def run_startup_script(runner_id: int):
                     created_by="system",
                     modified_by="system"
                 )
+                session.add(runner)
                 session.add(history)
                 session.commit()
 
