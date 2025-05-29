@@ -1,13 +1,13 @@
 """Runner model."""
 
 from __future__ import annotations
-from typing import Optional, Any
+from typing import Any
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Session
 from sqlalchemy import Column, JSON
-from sqlalchemy.orm import Mapped
 from app.models.mixins import TimestampMixin
-from app.db import database
+from pydantic import BaseModel
+from app.db.database import engine
 
 # states
 # runner_starting
@@ -72,6 +72,39 @@ class Runner(TimestampMixin, SQLModel, table=True):
         }
         return self.state not in do_not_run
 
+class RunnerResponse(BaseModel):
+    """Runner response model with user email."""
+
+    id: int
+    machine_id: int
+    image_id: int
+    user_id: int | None = None
+    key_id: int | None = None
+    state: str
+    url: str
+    lifecycle_token: str | None = None
+    terminal_token: str | None = None
+    user_ip: str | None = None
+    identifier: str
+    external_hash: str
+    env_data: dict[str, Any]
+    session_start: datetime | None = None
+    session_end: datetime | None = None
+    ended_on: datetime | None = None
+
+    # Add timestamp fields from TimestampMixin
+    created_on: datetime | None = None
+    updated_on: datetime | None = None
+    modified_by: str | None = None
+    created_by: str | None = None
+
+    # Add user email field
+    user_email: str | None = None
+
+    class Config:
+        """config for runner response model."""
+
+        orm_mode = True
 
 class RunnerUpdate(TimestampMixin, SQLModel):
     """Runner update model."""
@@ -88,14 +121,15 @@ class RunnerUpdate(TimestampMixin, SQLModel):
 
 def create_runner(runner: Runner):
     """Create a runner record in the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         session.add(runner)
+        session.commit()
         session.refresh()
     return runner
 
 def update_runner(runner: RunnerUpdate):
     """Update a runner record in the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         runner_from_db = session.get(Runner, runner.id)
         runner_data = runner.model_dump(exclude_unset=True)
         runner_from_db.sqlmodel_update(runner_data)
@@ -107,11 +141,11 @@ def update_runner(runner: RunnerUpdate):
 
 def get_runner(runner_id: int):
     """Get a runner record from the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         return session.get(Runner, runner_id)
 
 def delete_runner(runner_id: int):
     """Delete a runner record from the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         session.delete(runner_id)
-        #session.commit() #this is implicitly called when the session goes out?
+        session.commit()

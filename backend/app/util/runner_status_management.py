@@ -66,7 +66,7 @@ async def track_runner_state(runner_id: int, lifecycle_token: str):
 
     # Get initial state
     with Session(engine) as session:
-        runner = runner_repository.find_runner_by_id(session, runner_id)
+        runner = runner_repository.find_runner_by_id(runner_id)
         if not runner:
             return
 
@@ -88,7 +88,7 @@ async def track_runner_state(runner_id: int, lifecycle_token: str):
             new_events = session.exec(query).all()
 
             # Get current runner state
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
             if not runner:
                 await runner_status_emitter.emit_status(
                     lifecycle_token,

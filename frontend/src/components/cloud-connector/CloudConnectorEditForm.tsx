@@ -70,7 +70,7 @@ const ConnectorEditForm: React.FC = () => {
   const id = parseInt(params.id as string, 10);
 
    // Obtain connectors from CloudConnectorsTable ReactQuery
-   const { data:connector} = useCloudConnectorById(id);
+   const { data:connector, isLoading} = useCloudConnectorById(id);
   
   // State for form data
   const [providerName, setProviderName] = useState('');
@@ -102,9 +102,6 @@ const ConnectorEditForm: React.FC = () => {
           status: connector.status,
         });
       }
-    } else {
-      // Handle invalid index
-      router.push('/cloud-connectors');
     }
   }, [id, connector, router]);
 
@@ -119,6 +116,14 @@ const ConnectorEditForm: React.FC = () => {
   const goBack = () => {
     router.push('/cloud-connectors');
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <>

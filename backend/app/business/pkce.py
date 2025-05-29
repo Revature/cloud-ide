@@ -27,16 +27,36 @@ def auto_verify_token(access_token: str):
     return jwt.decode(access_token, key=key, algorithms=["RS256"])
 
 def verify_token_exp(access_token: str):
-    """Manually verify token."""
-    key_set = find_key_set(kid = jwt.get_unverified_header(access_token)["kid"])
-    key = jwt.algorithms.RSAAlgorithm.from_jwk(key_set)
-    decoded_token = jwt.decode(access_token, key=key, algorithms=["RS256"], options={"verify_signature": False})
+    """Verify token expiration and signature."""
+    try:
+        key_set = find_key_set(kid=jwt.get_unverified_header(access_token)["kid"])
+        key = jwt.algorithms.RSAAlgorithm.from_jwk(key_set)
 
-    if int(time.time()) >= decoded_token.get("exp"):
+        # Verify the token with full signature verification
+        jwt.decode(
+            access_token,
+            key=key,
+            algorithms=["RS256"],
+            options={
+                "verify_signature": True,  # Always verify signature
+                "verify_exp": True,        # Check expiration
+            },
+            issuer="https://api.workos.com"
+        )
+
+        # If we get here, verification succeeded
+        return True
+
+    except jwt.ExpiredSignatureError:
+        # Token is expired
         return False
-    # We will want to add other logic here verifying orginization, user, issuer, role, etc
-    return True
 
+    except (jwt.InvalidTokenError, Exception) as e:
+        # Any other validation errors
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Token verification failed: {e!s}")
+        return False
 
 def find_key_set(kid: str):
     """Find a key set in the cache or get from workos."""
@@ -46,8 +66,6 @@ def find_key_set(kid: str):
         update_keys()
 
     return get_key_set(kid = kid)
-
-
 
 def update_keys():
     """Update the cache with new keys."""
@@ -59,6 +77,53 @@ def update_keys():
         kid = jwk["kid"]
         keystring = json.dumps(jwk)
         store_key_set(kid, keystring)
+
+def get_user_permissions_from_token(access_token: str) -> list:
+    """
+    Extract user permissions from a WorkOS JWT token.
+
+    Returns:
+        List of permission strings
+    """
+    try:
+        # Use your existing function to decode the token
+        decoded = decode_token(access_token)
+        print(f"Decoded token: {decoded}")
+
+        # Extract permissions directly from the token
+        # Based on the actual token structure you shared
+        if "permissions" in decoded and isinstance(decoded["permissions"], list):
+            return decoded["permissions"]
+
+        return []
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error extracting permissions from token: {e!s}")
+        return []
+
+def user_has_permission(access_token: str, required_permission: str) -> bool:
+    """
+    Check if a user has a specific permission based on their JWT token.
+
+    Args:
+        access_token: The JWT token from WorkOS
+        required_permission: The permission string to check for
+
+    Returns:
+        True if the user has the permission, False otherwise
+    """
+    try:
+        # Get all user permissions
+        user_permissions = get_user_permissions_from_token(access_token)
+
+        # Check if the required permission is in the user's permissions
+        return required_permission in user_permissions
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error checking user permission: {e!s}")
+        return False
 
 # This function is deprecated in favor of the newer ones in this file
 def decode_signed_token(access_token: str):
@@ -81,3 +146,4 @@ def decode_signed_token(access_token: str):
     key = public_keys[kid]
 
     return jwt.decode(access_token, key=key, algorithms=["RS256"], options={"verify_exp": False})
+

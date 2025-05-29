@@ -6,9 +6,11 @@ import Link from "next/link";
 import { CloudConnector } from "@/types/cloudConnectors";
 import { useCloudConnectors } from "@/hooks/type-query/useCloudConnectors";
 import { BaseTable } from "../tables/BaseTable";
-
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
 export default function CloudConnectorsTable() {
   const { data: connectorsData = [], isLoading, isError } = useCloudConnectors();
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
   const router = useRouter();
 
   // Define columns for the table
@@ -44,6 +46,12 @@ export default function CloudConnectorsTable() {
       searchAccessor: (item: CloudConnector) => item.name || "",
     },
     {
+      header: "Latency",
+      accessor: (item: CloudConnector) => (
+        <LatencyIndicator latency={latencyData?.[item.region]} />
+      ),
+    },
+    {
       header: "Added",
       accessor: (item: CloudConnector) => item.createdOn,
       searchAccessor: (item: CloudConnector) => item.createdOn || "",
@@ -76,7 +84,7 @@ export default function CloudConnectorsTable() {
   //     }
   //   };
 
-  if (isLoading) {
+  if (isLoading || isLatencyLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-pulse">Loading cloud connectors...</div>

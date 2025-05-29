@@ -116,39 +116,38 @@ def get_script_for_runner(
     logger.info(f"[{initiated_by}] Starting script execution '{event}' for runner {runner_id}")
 
     # Create a new session for lookup.
-    with Session(engine) as session:
-        # TODO: Join instead of multiple queries
-        runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
-        if not runner:
-            logger.error(f"[{initiated_by}] Runner {runner_id} not found for script execution")
-            raise RunnerExecException(f"Runner {runner_id} not found")
+    # TODO: Join instead of multiple queries
+    runner : Runner = runner_repository.find_runner_by_id(runner_id)
+    if not runner:
+        logger.error(f"[{initiated_by}] Runner {runner_id} not found for script execution")
+        raise RunnerExecException(f"Runner {runner_id} not found")
 
-        # Query for the script corresponding to the event and runner's image.
-        script = script_repository.find_script_by_event_and_image_id(session, event, runner.image_id)
-        if not script:
-            logger.error(f"[{initiated_by}] No script found for event '{event}' and image {runner.image_id}")
-            return None
-        runner_history_repository.add_runner_history(session=session,
-                                                     runner=runner,
-                                                     event_name=f"script_execution_{event}",
-                                                     event_data={
-                                                    "script_id": script.id,
-                                                    "event": event,
-                                                    "initiated_by": initiated_by,
-                                                    "runner_state": runner.state,
-                                                    "has_env_vars": bool(env_vars)
-                                                    }, created_by=initiated_by)
+    # Query for the script corresponding to the event and runner's image.
+    script = script_repository.find_script_by_event_and_image_id(event, runner.image_id)
+    if not script:
+        logger.error(f"[{initiated_by}] No script found for event '{event}' and image {runner.image_id}")
+        return None
+    runner_history_repository.add_runner_history(
+                                                    runner=runner,
+                                                    event_name=f"script_execution_{event}",
+                                                    event_data={
+                                                "script_id": script.id,
+                                                "event": event,
+                                                "initiated_by": initiated_by,
+                                                "runner_state": runner.state,
+                                                "has_env_vars": bool(env_vars)
+                                                }, created_by=initiated_by)
 
-        # Create the base context using the runner's env_data
-        template_context = {}
-        # Add runner's stored env_data (script_vars) to the context
-        if runner.env_data:
-            template_context.update(runner.env_data)
-        template_context["env_vars"] = env_vars or {}
-        # Render the script template using the context
-        rendered_script = render_script(script.script, template_context)
-        logger.info(f"[{initiated_by}] Rendered script for '{event}' on runner {runner_id}")
-        return rendered_script
+    # Create the base context using the runner's env_data
+    template_context = {}
+    # Add runner's stored env_data (script_vars) to the context
+    if runner.env_data:
+        template_context.update(runner.env_data)
+    template_context["env_vars"] = env_vars or {}
+    # Render the script template using the context
+    rendered_script = render_script(script.script, template_context)
+    logger.info(f"[{initiated_by}] Rendered script for '{event}' on runner {runner_id}")
+    return rendered_script
 
 async def execute_script_for_runner(
     event: str,
@@ -265,16 +264,17 @@ sudo /tmp/runner_script.sh
         logger.error(f"[{initiated_by}] {error_message}")
 
         # Record the script execution error
-        with Session(engine) as session:
-            runner_history_repository.add_runner_history(session=session,
-                runner=runner,
-                event_name=f"script_error_{event}",
-                event_data={
-                    "event": event,
-                    "initiated_by": initiated_by,
-                    "error": str(e),
-                    "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
-                }, created_by=initiated_by)
+
+        runner_history_repository.add_runner_history(
+            runner=runner,
+            event_name=f"script_error_{event}",
+            event_data={
+                "event": event,
+                "initiated_by": initiated_by,
+                "error": str(e),
+                "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+            }, created_by=initiated_by)
+
         raise Exception(error_message) from e
 
 async def run_script_for_runner(
@@ -335,22 +335,20 @@ async def run_custom_script_for_runner(
         result["script_path"] = script_path
 
         # Record the custom script execution in runner history
-        with Session(engine) as session:
-            runner_obj = runner_repository.find_runner_by_id(session, runner_id)
-            if runner_obj:
-                runner_history_repository.add_runner_history(
-                    session=session,
-                    runner=runner_obj,
-                    event_name=f"{script_name}_executed",
-                    event_data={
-                        "script_path": script_path,
-                        "initiated_by": initiated_by,
-                        "success": result.get("success", False),
-                        "exit_code": result.get("exit_code", None),
-                        "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
-                    },
-                    created_by=initiated_by
-                )
+        runner_obj = runner_repository.find_runner_by_id(runner_id)
+        if runner_obj:
+            runner_history_repository.add_runner_history(
+                runner=runner_obj,
+                event_name=f"{script_name}_executed",
+                event_data={
+                    "script_path": script_path,
+                    "initiated_by": initiated_by,
+                    "success": result.get("success", False),
+                    "exit_code": result.get("exit_code", None),
+                    "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                },
+                created_by=initiated_by
+            )
 
         return result
 
@@ -359,38 +357,33 @@ async def run_custom_script_for_runner(
         logger.error(f"[{initiated_by}] {error_message}")
 
         # Record the script execution error
-        with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
-            if runner:
-                runner_history_repository.add_runner_history(
-                    session=session,
-                    runner=runner,
-                    event_name="custom_script_error",
-                    event_data={
-                        "script_path": script_path,
-                        "initiated_by": initiated_by,
-                        "error": str(e),
-                        "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
-                    },
-                    created_by=initiated_by
-                )
+        runner = runner_repository.find_runner_by_id(runner_id)
+        if runner:
+            runner_history_repository.add_runner_history(
+                runner=runner,
+                event_name="custom_script_error",
+                event_data={
+                    "script_path": script_path,
+                    "initiated_by": initiated_by,
+                    "error": str(e),
+                    "duration_seconds": (datetime.now(timezone.utc) - script_start_time).total_seconds()
+                },
+                created_by=initiated_by
+            )
 
         raise Exception(error_message) from e
 
 def get_all_scripts() -> list[Script]:
     """Get all scripts."""
-    with Session(engine) as session:
-        return script_repository.find_all_scripts(session)
+    return script_repository.find_all_scripts()
 
 def get_script_by_id(script_id: int) -> Optional[Script]:
     """Get a script by ID."""
-    with Session(engine) as session:
-        return script_repository.find_script_by_id(session, script_id)
+    return script_repository.find_script_by_id(script_id)
 
 def get_scripts_by_image_id(image_id: int) -> list[Script]:
     """Get all scripts associated with a specific image."""
-    with Session(engine) as session:
-        return script_repository.find_scripts_by_image_id(session, image_id)
+    return script_repository.find_scripts_by_image_id(image_id)
 
 def create_script(
     name: str,
@@ -408,46 +401,43 @@ def create_script(
         valid_events_str = ", ".join(VALID_EVENTS)
         raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
 
-    with Session(engine) as session:
-        image = image_repository.find_image_by_id(session, image_id)
-        if not image:
-            raise ValueError(f"Image with ID {image_id} not found")
+    image = image_repository.find_image_by_id(image_id)
+    if not image:
+        raise ValueError(f"Image with ID {image_id} not found")
 
-        # Check if a script with the same event already exists for this image
-        existing_script = script_repository.find_script_by_event_and_image_id(session, event, image_id)
-        if existing_script:
-            raise ValueError(f"A script for event '{event}' already exists for this image")
+    # Check if a script with the same event already exists for this image
+    existing_script = script_repository.find_script_by_event_and_image_id(event, image_id)
+    if existing_script:
+        raise ValueError(f"A script for event '{event}' already exists for this image")
 
-        # Create new script object
-        new_script = Script(
-            name=name,
-            description=description,
-            event=event,
-            image_id=image_id,
-            script=script
-        )
+    # Create new script object
+    new_script = Script(
+        name=name,
+        description=description,
+        event=event,
+        image_id=image_id,
+        script=script
+    )
 
-        # Save to database
-        return script_repository.create_script(session, new_script)
+    # Save to database
+    return script_repository.create_script(new_script)
 
 
 def update_script(script_id: int, update_data: dict[str, Any]) -> Script:
     """Update an existing script."""
-    with Session(engine) as session:
-        # Get existing script
-        script = script_repository.find_script_by_id(session, script_id)
-        if not script:
-            raise ValueError(f"Script with ID {script_id} not found")
+    # Get existing script
+    script = script_repository.find_script_by_id(script_id)
+    if not script:
+        raise ValueError(f"Script with ID {script_id} not found")
 
-        # Validate event if it's being updated
-        if 'event' in update_data and update_data['event'] not in VALID_EVENTS:
-            valid_events_str = ", ".join(VALID_EVENTS)
-            raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
+    # Validate event if it's being updated
+    if 'event' in update_data and update_data['event'] not in VALID_EVENTS:
+        valid_events_str = ", ".join(VALID_EVENTS)
+        raise ValueError(f"Invalid event type. Must be one of: {valid_events_str}")
 
-        # Update script
-        return script_repository.update_script(session, script_id, update_data)
+    # Update script
+    return script_repository.update_script(script_id, update_data)
 
 def delete_script(script_id: int) -> bool:
     """Delete a script."""
-    with Session(engine) as session:
-        return script_repository.delete_script(session, script_id)
+    return script_repository.delete_script(script_id)

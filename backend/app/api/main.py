@@ -3,7 +3,7 @@ import re
 import os
 from http import HTTPStatus
 from fastapi import APIRouter
-from app.api.routes import user_auth, machine_auth, registration, users
+from app.api.routes import user_auth, machine_auth, registration, users, endpoint_permissions
 from app.api.routes import runners, machines, cloud_connectors, images, scripts
 from app.api.routes import app_requests
 from fastapi import FastAPI, Request, Response
@@ -12,13 +12,14 @@ from contextlib import asynccontextmanager
 from app.business.workos import authenticate_sealed_session, get_workos_client, refresh_sealed_session
 from app.util import constants
 from app.db.database import create_db_and_tables
-from app.business.resource_setup import fill_runner_pools, setup_resources
+from app.business.resource_setup import fill_runner_pools, setup_resources, setup_endpoint_permissions
 # from app.business.runner_management import shutdown_all_runners
 from app.business.pkce import verify_token_exp
 from app.exceptions.authentication_exceptions import NoMatchingKeyException
 from app.models.workos_session import get_refresh_token, refresh_session
 from workos import exceptions as workos_exceptions
 from app.exceptions.authentication_exceptions import NoRefreshSessionFound
+from typing import Optional
 
 API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
 
     # Set up default resources
     setup_resources()
+    setup_endpoint_permissions()
 
     # Find all images with pool size > 0 and launch runners for each
     await fill_runner_pools()
@@ -71,7 +73,6 @@ async def lifespan(app: FastAPI):
 
     # On shutdown: terminate all runners
     await shutdown_api()
-
 
 def start_api():
     """Start the API."""
@@ -91,6 +92,7 @@ def start_api():
     api.include_router(cloud_connectors.router, prefix=f"{API_VERSION}/cloud_connectors", tags=["cloud_connectors"])
     api.include_router(app_requests.router, prefix=f"{API_VERSION}/app_requests", tags=["app_requests"])
     api.include_router(scripts.router, prefix=f"{API_VERSION}/scripts", tags=["scripts"])
+    api.include_router(endpoint_permissions.router, prefix=f"{API_VERSION}/endpoint_permissions", tags=["endpoint_permissions"])
 
     # Middleware to protect all routes, passes unsecure route requests through
     @api.middleware("http")
@@ -124,24 +126,12 @@ def start_api():
         final_response: Response = None
 
         access_token = request.headers.get("Access-Token")
-        # wos_cookie = request.cookies.get("wos-session")
+
         #print route
         print(f"\n\nRequest Path: {request.url.path}")
 
         if not access_token:
             print('not access-token')
-        # if not wos_cookie:
-        #     print('not workos cookie')
-
-        # What's with these cookies?
-        # print("\n\n================Cookies:================")
-        # print(request.cookies)
-        # print("\n\n================Headers:================")
-        # print(request.headers)
-
-        # if request.headers.get("upgrade", "").lower() == "websocket":
-        #     logger.info(f"WebSocket connection detected, bypassing auth middleware")
-        #     return await call_next(request)
 
         try:
             # Check exact matches for bypassing middleware
@@ -162,27 +152,6 @@ def start_api():
                     if runner_management.auth_runner(runner_id, runner_token):
                         final_response = await call_next(request)
 
-            # Check for wos_session cookie, if needed refresh it
-            # if (not final_response) and wos_cookie:
-            #     print('wos_cookie secured route entered.')
-            #     auth_result = authenticate_sealed_session(sealed_session = wos_cookie)
-            #     if auth_result.authenticated:
-            #         final_response = await call_next(request)
-            #     else:
-            #         print('Failed to auth with cookie, refreshing...')
-            #         refresh_result = refresh_sealed_session(sealed_session = wos_cookie)
-            #         final_response = await call_next(request)
-            #         final_response.set_cookie(
-            #             key = "wos-session",
-            #             value = refresh_result.sealed_session,
-            #             secure = True,
-            #             httponly = True,
-            #             samesite = "lax",
-            #             domain = os.getenv("DOMAIN"),
-            #             path = "/"
-            #         )
-
-
             # If none of the above, we must find an access token
             if not final_response and not access_token:
                 print('no auth methods present, error 400...')
@@ -192,6 +161,7 @@ def start_api():
             if (not final_response) and access_token:
                 print('access-token secured route entered.')
                 if verify_token_exp(access_token):
+                    # Continue with request
                     response: Response = await call_next(request)
                     response.headers['Access-Token'] = access_token
                     final_response = response
@@ -225,7 +195,7 @@ def start_api():
                 status_code = HTTPStatus.INTERNAL_SERVER_ERROR,
                 content = '{"response":"Internal Server Error: ' + str(e) + '"}'
             )
-        print('returning final respose.')
+        print('returning final response.')
         return final_response
 
     return api
