@@ -1,5 +1,6 @@
 """Authorization route for acquiring bearer tokens."""
 import logging
+import os
 from workos import exceptions as workos_exceptions
 from app.business.authentication import password_authentication
 from app.business.workos import get_workos_client
@@ -14,28 +15,42 @@ logger = logging.getLogger(__name__)
 def machine_auth(request: Request, passwordAuth: PasswordAuth):
     """Authenticate with username and password, receive access token in Access-Token header."""
     workos_auth_dto = WorkOSAuthDTO(
-        email = passwordAuth.email,
-        password = passwordAuth.password,
-        ip_address = request.client.host,
-        user_agent = request.headers.get("User-Agent")
-        )
+        email=passwordAuth.email,
+        password=passwordAuth.password,
+        ip_address=request.client.host,
+        user_agent=request.headers.get("User-Agent")
+    )
 
     try:
         access_token = password_authentication(workos_auth_dto)
         return Response(
-            status_code = status.HTTP_200_OK,
-            content = '{"response": "Access-Token granted"}',
-            headers = {'Access-Token': access_token}
-            )
+            status_code=status.HTTP_200_OK,
+            content='{"response": "Access-Token granted"}',
+            headers={'Access-Token': access_token}
+        )
     except workos_exceptions.BadRequestException as e:
         logger.exception(str(e))
         return Response(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            content = '{"response": "Bad username or password"}'
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content='{"response": "Bad username or password"}'
+        )
+    except ValueError as e:
+        # Handle missing organization ID
+        error_message = str(e)
+        if "WORKOS_ORG_ID" in error_message:
+            logger.error("Missing required WORKOS_ORG_ID environment variable")
+            return Response(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content='{"response": "Server configuration error - missing organization ID"}'
             )
+        logger.exception(str(e))
+        return Response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=f'{{"response": "Value error: {error_message}"}}'
+        )
     except Exception as e:
         logger.exception(str(e))
         return Response(
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content = '{"response": "Internal Server Error"}'
-            )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content='{"response": "Internal Server Error"}'
+        )

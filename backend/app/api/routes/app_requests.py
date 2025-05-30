@@ -4,19 +4,15 @@ import asyncio
 import functools
 from uuid import uuid4
 from app.api import http
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
-from fastapi import WebSocket, WebSocketDisconnect, Query
-from sqlmodel import Session
+from fastapi import APIRouter, HTTPException, status, Header
+from fastapi import WebSocket, WebSocketDisconnect, Query, Request
 from pydantic import BaseModel
-from typing import Any, Optional, Callable
+from typing import Any, Optional
 from datetime import datetime, timezone
-from app.db import runner_repository
-from app.db.database import engine, reset_db_connection, safe_session
+from app.db.database import reset_db_connection
 from app.models.runner import Runner
-from app.models.user import User
-from app.models.image import Image
 from app.util import constants, websocket_management, runner_status_management
-from app.business import image_management, user_management, runner_management, script_management
+from app.business import image_management, user_management, runner_management, script_management, endpoint_permission_decorator
 from app.exceptions.runner_exceptions import RunnerLaunchError, RunnerClaimError
 from app.util.transactions import with_database_resilience, with_background_resilience
 from fastapi import APIRouter, HTTPException
@@ -674,9 +670,11 @@ def app_requests_dto(url: str, runner: Runner) -> dict:
     return {"url": url, "runner_id": str(runner.id)}
 
 @router.post("/", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("app_requests")
 @with_database_resilience
 async def get_ready_runner(
-    request: RunnerRequest,
+    runner_request: RunnerRequest,  # Renamed from 'request' to 'runner_request'
+    request: Request,  # Added FastAPI Request object
     x_forwarded_for: Optional[str] = Header(None),
     client_ip: Optional[str] = Header(None)
 ):
@@ -690,18 +688,15 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-    # Emit an initial status update for the direct endpoint (no lifecycle_token)
-    # The direct endpoint has no lifecycle_token for WebSocket updates, but we can still log the request
-
-    print(f"Direct runner request for image {request.image_id} and user {request.user_email}")
-    logger.info(f"Processing direct runner request for image {request.image_id} and user {request.user_email}")
+    print(f"Direct runner request for image {runner_request.image_id} and user {runner_request.user_email}")
+    logger.info(f"Processing direct runner request for image {runner_request.image_id} and user {runner_request.user_email}")
 
     try:
         # Make sure we start with a clean database connection pool
         reset_db_connection()
 
         return await process_runner_request(
-            request=request,
+            request=runner_request,  # Pass runner_request as 'request' to process_runner_request
             client_ip=client_ip,
             x_forwarded_for=x_forwarded_for
         )
@@ -711,9 +706,11 @@ async def get_ready_runner(
         raise
 
 @router.post("/with_status/", response_model=dict)
+@endpoint_permission_decorator.permission_required("app_requests")
 @with_database_resilience
 async def get_ready_runner_with_status(
-    request: RunnerRequest
+    runner_request: RunnerRequest,
+    request: Request
 ):
     """
     Request a runner and return a lifecycle_token for tracking status via WebSocket.
@@ -723,7 +720,7 @@ async def get_ready_runner_with_status(
     """
     # Generate a unique lifecycle token
     lifecycle_token = str(uuid4())
-    logger.info(f"With status runner request for image {request.image_id} and user {request.user_email}")
+    logger.info(f"With status runner request for image {runner_request.image_id} and user {runner_request.user_email}")
 
     try:
         # Make sure we start with a clean database connection pool
@@ -735,8 +732,8 @@ async def get_ready_runner_with_status(
             "REQUEST_RECEIVED",
             "Runner request received and queued for processing",
             {
-                "image_id": request.image_id,
-                "user_email": request.user_email,
+                "image_id": runner_request.image_id,
+                "user_email": runner_request.user_email,
                 "status": "queued",
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
@@ -745,7 +742,7 @@ async def get_ready_runner_with_status(
         # Start processing in background task with error handling
         asyncio.create_task(
             process_runner_request_with_error_handling(
-                request=request,
+                request=runner_request,
                 lifecycle_token=lifecycle_token
             )
         )

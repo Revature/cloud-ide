@@ -10,11 +10,13 @@ import {
   ImageIcon,
 } from "../icons/index";
 import { RunnerPoolIcon } from "@/components/ui/icons/CustomIcons";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path: string;
+  roleAccess?: string[];  
 };
 
 const navItems: NavItem[] = [
@@ -22,27 +24,32 @@ const navItems: NavItem[] = [
     icon: <CloudIcon />,
     name: "Cloud Connectors",
     path: "/cloud-connectors",
+    roleAccess: ["admin"],
   },
   {
     icon: <ImageIcon />,
     name: "Images",
     path: "/images",
+    roleAccess: ["admin"],
   },
   {
     icon: <RunnerIcon />,
     name: "Runners",
     path: "/runners",
+    roleAccess: ["admin", "member"],
   },
   {
     icon: <RunnerPoolIcon />,
     name: "Runner Pools",
     path: "/runner-pools",
+    roleAccess: ["admin"],
   },
 ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const { role } = useAuth(); 
 
   const isActive = (path: string) => path === pathname;
 
@@ -106,29 +113,30 @@ const AppSidebar: React.FC = () => {
                 Menu
               </h2>
               <ul className="flex flex-col gap-4">
-                {navItems.map((nav) => (
-                  <li key={nav.name}>
-                    <Link
-                      href={nav.path}
-                      className={`menu-item group ${
-                        isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-                      }`}
-                    >
-                      <span
-                        className={`${
-                          isActive(nav.path)
-                            ? "menu-item-icon-active"
-                            : "menu-item-icon-inactive"
+                {navItems.filter((nav) => nav.roleAccess?.includes(role || "member"))
+                  .map((nav) => (
+                    <li key={nav.name}>
+                      <Link
+                        href={nav.path}
+                        className={`menu-item group ${
+                          isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                         }`}
                       >
-                        {nav.icon}
-                      </span>
-                      {(isExpanded || isHovered || isMobileOpen) && (
-                        <span className={`menu-item-text`}>{nav.name}</span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
+                        <span
+                          className={`${
+                            isActive(nav.path)
+                              ? "menu-item-icon-active"
+                              : "menu-item-icon-inactive"
+                          }`}
+                        >
+                          {nav.icon}
+                        </span>
+                        {(isExpanded || isHovered || isMobileOpen) && (
+                          <span className={`menu-item-text`}>{nav.name}</span>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
               </ul>
             </div>
           </div>

@@ -59,9 +59,7 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
       selectedImage &&
       durationMinutes &&
       !scriptVarsError &&
-      !envVarsError &&
-      Object.keys(envVars).length > 0 &&
-      Object.keys(scriptVars).length > 0;
+      !envVarsError;
 
     setAllFieldsEdited(Boolean(isEdited));
   }, [selectedImage, durationMinutes, scriptVars, envVars, scriptVarsError, envVarsError]);
@@ -93,7 +91,8 @@ const RunnerForm: React.FC<RunnerFormProps> = ({ onSubmit, onCancel }) => {
 
   // Custom function to handle JSON input changes
   const handleJsonChange = (fieldName: "scriptVars" | "envVars", value: string) => {
-    const isValid = (() => {
+    const isEmpty = value.trim() === "";
+    const isValid = isEmpty || (() => {
       try {
         JSON.parse(value);
         return true;

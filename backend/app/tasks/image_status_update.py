@@ -25,23 +25,22 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
 
     try:
         # Get the cloud connector
-        with Session(engine) as session:
-            cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                session, cloud_connector_id
-            )
-            if not cloud_connector:
-                logger.error(f"Cloud connector with id {cloud_connector_id} not found")
-                return
+        cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
+            cloud_connector_id
+        )
+        if not cloud_connector:
+            logger.error(f"Cloud connector with id {cloud_connector_id} not found")
+            return
 
-            # Check if the image exists and is still in "creating" status
-            db_image = image_repository.find_image_by_id(session, image_id)
-            if not db_image:
-                logger.error(f"Image with id {image_id} not found")
-                return
+        # Check if the image exists and is still in "creating" status
+        db_image = image_repository.find_image_by_id(image_id)
+        if not db_image:
+            logger.error(f"Image with id {image_id} not found")
+            return
 
-            if db_image.status != "creating":
-                logger.info(f"Image {image_id} is no longer in 'creating' status (current: {db_image.status})")
-                return
+        if db_image.status != "creating":
+            logger.info(f"Image {image_id} is no longer in 'creating' status (current: {db_image.status})")
+            return
 
         # Get the cloud service
         cloud_service = cloud_services.cloud_service_factory.get_cloud_service(cloud_connector)
@@ -60,7 +59,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
 
             # If we get here, the image is available, so update the status
             with Session(engine) as session:
-                db_image = image_repository.find_image_by_id(session, image_id)
+                db_image = image_repository.find_image_by_id(image_id)
                 if db_image and db_image.status == "creating":
                     db_image.status = "active"
                     session.add(db_image)
@@ -75,7 +74,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
             logger.error(f"Error waiting for image {image_identifier} to become available after retries: {e!s}")
 
             with Session(engine) as session:
-                db_image = image_repository.find_image_by_id(session, image_id)
+                db_image = image_repository.find_image_by_id(image_id)
                 if db_image and db_image.status == "creating":
                     db_image.status = "failed"
                     session.add(db_image)
@@ -88,7 +87,7 @@ def update_image_status_task(self, image_id: int, image_identifier: str, cloud_c
         # For unexpected errors, update the image status to failed
         try:
             with Session(engine) as session:
-                db_image = image_repository.find_image_by_id(session, image_id)
+                db_image = image_repository.find_image_by_id(image_id)
                 if db_image and db_image.status == "creating":
                     db_image.status = "failed"
                     session.add(db_image)

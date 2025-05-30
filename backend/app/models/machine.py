@@ -1,12 +1,9 @@
 """Machine model."""
 
 from __future__ import annotations
-from typing import Optional
-from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.orm import Mapped
+from sqlmodel import SQLModel, Field, Session
 from app.models.mixins import TimestampMixin
-from app.db import database
+from app.db.database import engine
 
 
 # Relationships
@@ -36,14 +33,15 @@ class MachineUpdate(TimestampMixin, SQLModel):
 
 def create_machine(machine: Machine):
     """Create a machine record in the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         session.add(machine)
+        session.commit()
         session.refresh()
     return machine
 
 def update_machine(machine: MachineUpdate):
     """Update a machine record in the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         machine_from_db = session.get(Machine, machine.id)
         machine_data = machine.model_dump(exclude_unset=True)
         machine_from_db.sqlmodel_update(machine_data)
@@ -55,12 +53,10 @@ def update_machine(machine: MachineUpdate):
 
 def get_machine(machine_id: int):
     """Get a machine record from the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         return session.get(Machine, machine_id)
 
 def delete_machine(machine_id: int):
     """Delete a machine record from the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         session.delete(machine_id)
-        #session.commit() #this is implicitly called when the session goes out?
-

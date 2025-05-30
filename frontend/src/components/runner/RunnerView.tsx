@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
 import StatusBadge from "../ui/badge/StatusBadge";
 import { useRunnerById, useTerminateRunner } from "@/hooks/type-query/useRunners";
+import MetricSpeedometer from "../metric-chart/metric-speedometer";
 
 // Import terminal component with ssr: false to prevent server-side rendering
 const TerminalComponent = dynamic<TerminalComponentProps>(
@@ -238,9 +239,9 @@ const RunnerView: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           {/* Basic Information */}
-          <div>
+          <div className="flex flex-col h-full">
             <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Basic Information</h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-4">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-1 flex flex-col justify-between">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-300">State</span>
                 <StatusBadge status={runner.state} />
@@ -263,33 +264,10 @@ const RunnerView: React.FC = () => {
           {/* Usage Statistics */}
           <div className="flex flex-col h-full">
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Statistics</h4>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-grow">
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    {/* <iframe src={`http://34.223.156.189:3000/d-solo/celzsxhpytdkwe/runner-metrics?orgId=1&from=1747389791744&to=1747411391744&timezone=browser&var-RunnerIP=18.236.84.58&refresh=5m&panelId=1&__feature.dashboardSceneSolo`} width="450" height="200">
-                    </iframe> */}
-                    <div className="text-center">
-                    <svg 
-                      className="w-12 h-12 mx-auto text-gray-400" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth="2" 
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" 
-                      />
-                    </svg>
-                    <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">
-                      Usage statistics coming soon
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                      Runner usage statistics will be available in a future update.
-                    </p>
-                  </div>
-                  </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 flex-1 flex items-center justify-center">
+                <div className="flex flex-row gap-4 items-end justify-center w-full">
+                  <MetricSpeedometer jobId={runner.url ? runner.url : ""} type="cpu" />
+                  <MetricSpeedometer jobId={runner.url ? runner.url : ""} type="memory" />
                 </div>
               </div>
             </div>

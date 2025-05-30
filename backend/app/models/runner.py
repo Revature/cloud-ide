@@ -1,14 +1,13 @@
 """Runner model."""
 
 from __future__ import annotations
-from typing import Optional, Any
+from typing import Any
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Session
 from sqlalchemy import Column, JSON
-from sqlalchemy.orm import Mapped
 from app.models.mixins import TimestampMixin
 from pydantic import BaseModel
-from app.db import database
+from app.db.database import engine
 
 # states
 # runner_starting
@@ -122,14 +121,15 @@ class RunnerUpdate(TimestampMixin, SQLModel):
 
 def create_runner(runner: Runner):
     """Create a runner record in the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         session.add(runner)
+        session.commit()
         session.refresh()
     return runner
 
 def update_runner(runner: RunnerUpdate):
     """Update a runner record in the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         runner_from_db = session.get(Runner, runner.id)
         runner_data = runner.model_dump(exclude_unset=True)
         runner_from_db.sqlmodel_update(runner_data)
@@ -141,11 +141,11 @@ def update_runner(runner: RunnerUpdate):
 
 def get_runner(runner_id: int):
     """Get a runner record from the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         return session.get(Runner, runner_id)
 
 def delete_runner(runner_id: int):
     """Delete a runner record from the database."""
-    with next(database.get_session()) as session:
+    with Session(engine) as session:
         session.delete(runner_id)
-        #session.commit() #this is implicitly called when the session goes out?
+        session.commit()

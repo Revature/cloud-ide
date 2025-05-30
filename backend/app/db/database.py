@@ -80,10 +80,15 @@ def create_db_and_tables():
     except Exception as e:
         logger.error(f"Failed to populate roles: {e!s}")
 
-def get_session():
-    """Get a database session as a FastAPI dependency."""
-    with get_session_context() as session:
-        yield session
+# def get_session():
+#     """
+#     Get a database session as a FastAPI dependency.
+#     This is deprecated, it may be keeping connecitons checked out.
+#     Instead import the engine from this file and create a session like so:
+#     with Session(engine) as session:
+#     """
+#     with get_session_context() as session:
+#         yield session
 
 @contextmanager
 def get_session_context():
