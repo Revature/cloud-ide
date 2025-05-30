@@ -461,11 +461,10 @@ async def claim_runner(
                                 )
 
                             security_group_result = await security_group_management.authorize_user_access(
-                                runner.id,
-                                runner_config["user_ip"],
-                                runner_config["user_ip"],
-                                user.email,
-                                cloud_service
+                                runner_id = runner.id,
+                                user_ip = runner_config["user_ip"],
+                                user_email = user.email,
+                                cloud_service = cloud_service
                             )
                             logger.info(f"Security group update result: {security_group_result}")
 
