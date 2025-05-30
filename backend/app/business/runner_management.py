@@ -948,6 +948,7 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             is_expired = session_end_time and session_end_time < datetime.utcnow()
 
             runner_history_repository.add_runner_history(
+                runner=runner,
                 event_name="termination_requested",
                 event_data={
                     "timestamp": datetime.utcnow().isoformat(),
@@ -961,7 +962,6 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
                 },
                 created_by=initiated_by
             )
-            session.commit()
 
             # Get instance ID for shutdown_runners
             instance_id = runner.identifier
