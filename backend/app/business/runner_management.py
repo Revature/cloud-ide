@@ -631,7 +631,7 @@ async def claim_runner(
                     }
                 )
             # Continue execution even if cloud operations fail
-
+        session.add(runner)
         session.commit()
 
         runner_url = get_runner_destination_url(runner)
