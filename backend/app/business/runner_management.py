@@ -631,7 +631,7 @@ async def claim_runner(
                     }
                 )
             # Continue execution even if cloud operations fail
-
+        session.add(runner)
         session.commit()
 
         runner_url = get_runner_destination_url(runner)
@@ -753,6 +753,7 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
                 },
                 created_by=initiated_by
             )
+            session.add(runner)
             session.commit()
 
         # Now that we're outside the session scope, use the cloud service to stop the instance
@@ -864,6 +865,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
                 },
                 created_by=initiated_by
             )
+            session.add(runner)
             session.commit()
 
         # Now that we're outside the session scope, use the cloud service to start the instance
@@ -1052,7 +1054,6 @@ def update_runner(runner_id: int, updated_runner: Runner):
         if not runner:
             raise RunnerRetrievalException
         runner_repository.update_whole_runner(runner_id, updated_runner)
-        session.commit()
         return updated_runner
 
 async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:
