@@ -343,8 +343,14 @@ def get_existing_runner(user_id: int, image_id: int) -> Runner:
     return runner_repository.find_runner_by_user_id_and_image_id_and_states(user_id, image_id, ["active", "awaiting_client"])
 
 def get_runner_from_pool(image_id) -> Runner:
-    """Retrieve a runner that is ready for use from the pool, else None."""
-    return runner_repository.find_runner_by_image_id_and_states(image_id, ["ready"])
+    """Retrieve a runner that is ready or closed for use from the pool, else None."""
+    with Session(engine) as session:
+        # Try to get a ready runner first
+        ready_runner = runner_repository.find_runner_by_image_id_and_states(image_id, ["ready"])
+        if ready_runner:
+            return ready_runner
+        # If no ready runner, try to return a closed runner
+        return runner_repository.find_runner_by_image_id_and_states(image_id, ["closed_pool"])
 
 async def claim_runner(
     runner: Runner,
@@ -363,9 +369,57 @@ async def claim_runner(
         logger.info(f"Found runner: id={runner.id}, state={runner.state}, image_id={runner.image_id}")
         # Update the runner state quickly to avoid race condition
         previous_state = runner.state
+        # Check if the claimed runner was closed. If so, we need to claim & start the runner prior
+        if previous_state == "closed_pool":
+            # We need to swap the state to runner_starting_claimed ASAP
+            runner.state = "runner_starting_claimed"
+            if lifecycle_token:
+                runner.lifecycle_token = lifecycle_token
+            logger.info(f"Claimed runner was in closed state, starting runner prior to session: {runner.id}")
+            session.commit()
+
+            # Post-commit check: ensure runner is discoverable by lifecycle_token (using same session)
+            if lifecycle_token:
+                check_runner = session.exec(
+                    select(Runner).where(Runner.lifecycle_token == lifecycle_token)
+                ).first()
+                if check_runner:
+                    logger.info(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} is discoverable (id={check_runner.id
+                                     }, state={check_runner.state})")
+                else:
+                    logger.warning(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} NOT found immediately after commit!")
+
+            if lifecycle_token:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    lifecycle_token,
+                    "INSTANCE_LIFECYCLE",
+                    "Claimed pool runner was in closed state, starting runner prior to session",
+                    {"runner_id": runner.id, "state": "closed_pool"}
+                )
+            # Start the runner and wait for it to be ready
+            start_result = await start_runner(runner.id, initiated_by=user.email)
+            if start_result.get("status") != "success":
+                runner.state = "closed"
+                session.commit()
+                if lifecycle_token:
+                    await runner_status_management.runner_status_emitter.emit_status(
+                        lifecycle_token,
+                        "ERROR",
+                        "Claimed runner failed to start",
+                        {"runner_id": runner.id, "error": start_result.get("message")},
+                    )
+                raise Exception(f"Failed to start closed runner: {start_result.get('message')}")
+            if lifecycle_token:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    lifecycle_token,
+                    "INSTANCE_LIFECYCLE",
+                    "Claimed pool runner has started",
+                    {"runner_id": runner.id, "state": "ready"}
+                )
+
         runner.state = "awaiting_client"
         logger.info(f"Updating runner state from {previous_state} to awaiting_client")
-        # session.commit()
+        session.commit()
         # Emit instance lifecycle event for state change
         if lifecycle_token:
             await runner_status_management.runner_status_emitter.emit_status(
@@ -631,7 +685,7 @@ async def claim_runner(
                     }
                 )
             # Continue execution even if cloud operations fail
-
+        session.add(runner)
         session.commit()
 
         runner_url = get_runner_destination_url(runner)
@@ -753,6 +807,7 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
                 },
                 created_by=initiated_by
             )
+            session.add(runner)
             session.commit()
 
         # Now that we're outside the session scope, use the cloud service to stop the instance
@@ -812,7 +867,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
                 result["message"] = f"Runner with ID {runner_id} not found"
                 return result
 
-            if runner.state != "closed":
+            if runner.state not in ("closed", "closed_pool"):
                 logger.info(f"[{initiated_by}] Cannot start runner with ID {runner_id} from {runner.state} state")
                 result["message"] = f"Runner must be in 'closed' state to start, current state: {runner.state}"
                 return result
@@ -850,7 +905,10 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             # Update runner state to ready
             old_state = runner.state
-            runner.state = "ready"
+            if old_state == "closed_pool":
+                runner.state = "ready_claimed"
+            else:
+                runner.state = "ready"
 
             # Add another history record for state change
             runner_history_repository.add_runner_history(
@@ -859,11 +917,12 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
                 event_data={
                     "timestamp": datetime.utcnow().isoformat(),
                     "old_state": old_state,
-                    "new_state": "ready",
+                    "new_state": runner.state,
                     "initiated_by": initiated_by
                 },
                 created_by=initiated_by
             )
+            session.add(runner)
             session.commit()
 
         # Now that we're outside the session scope, use the cloud service to start the instance
@@ -871,10 +930,21 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
             start_result = await cloud_service.start_instance(instance_id)
             logger.info(f"[{initiated_by}] Start instance result for runner {runner_id}: {start_result}")
 
+            # Wait for the instance to be running before fetching the IP
+            if hasattr(cloud_service, "wait_for_instance_running"):
+                await cloud_service.wait_for_instance_running(instance_id)
+
+            new_runner_url = await cloud_service.get_instance_ip(instance_id)
+            logger.info(f"[{initiated_by}] Updated runner url for runner {runner_id}: {new_runner_url}")
+
+            runner.url = new_runner_url
+            session.add(runner)
+            session.commit()
+
             result = {
                 "status": "success",
                 "message": f"Runner {runner_id} started successfully",
-                "state": "ready",
+                "state": runner.state,
                 "instance_state": start_result,
                 "initiated_by": initiated_by
             }
@@ -1052,7 +1122,6 @@ def update_runner(runner_id: int, updated_runner: Runner):
         if not runner:
             raise RunnerRetrievalException
         runner_repository.update_whole_runner(runner_id, updated_runner)
-        session.commit()
         return updated_runner
 
 async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:

@@ -370,12 +370,23 @@ class AWSCloudService(CloudService):
         Start the EC2 instance with the given InstanceId.
 
         Returns the state as a string.
+        Handles the case where the instance is in 'stopping' by waiting for it to be 'stopped' first.
         """
         try:
-            response = self.ec2_client.start_instances(
-                InstanceIds=[instance_id]
-            )
-            return response['StartingInstances'][0]['CurrentState']['Name']
+            # Check current state
+            response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
+            state = response['Reservations'][0]['Instances'][0]['State']['Name']
+            if state == "stopping":
+                waiter = self.ec2_client.get_waiter("instance_stopped")
+                waiter.wait(InstanceIds=[instance_id])
+            # Start the instance
+            response = self.ec2_client.start_instances(InstanceIds=[instance_id])
+            # Wait for the instance to be running
+            waiter = self.ec2_client.get_waiter("instance_running")
+            waiter.wait(InstanceIds=[instance_id])
+            # Optionally, re-fetch the state to confirm
+            response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
+            return response['Reservations'][0]['Instances'][0]['State']['Name']
         except Exception as e:
             return str(e)
 

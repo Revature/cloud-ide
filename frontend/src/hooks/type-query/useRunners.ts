@@ -20,12 +20,12 @@ export function useTerminateRunner() {
 
 export function useStartRunner() {
     // Start a runner
-    return useResourceAction("runners", (id) => runnersApi.changeState(Number(id), "start"));
+    return useResourceAction("runners", ({ id }: { id: number}) => runnersApi.changeState(Number(id), "start"));
   }
   
   export function useStopRunner() {
     // Stop a runner
-    return useResourceAction("runners", (id) => runnersApi.changeState(Number(id), "stop"));
+    return useResourceAction("runners", ({ id }: { id: number}) => runnersApi.changeState(Number(id), "stop"));
   }
 
 export function useRunnersForItems<TItem extends ItemWithResourceID<number> & { runnerId: number }>(
