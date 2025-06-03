@@ -23,6 +23,7 @@ try:
     from app.tasks import runner_pool_management
     from app.tasks import shutdown_runner
     from app.tasks import image_status_update
+    from app.tasks import close_idle_pool_runners
 except ImportError as e:
     print("Error importing tasks:", e)
 
@@ -32,6 +33,12 @@ celery_app.conf.beat_schedule = {
     "cleanup-active-runners": {
         "task": "app.tasks.cleanup_runners.cleanup_active_runners",
         "schedule": crontab(minute="*/10"),  # At minute 0, 10, 20, 30, 40, 50
+    },
+
+    # This job runs every 20 minutes starting at minute 12 (3 minute before manage_runner_pool_task)
+    "close_idle_pool_runners": {
+        "task": "app.tasks.close_idle_pool_runners.close_idle_pool_runners",
+        "schedule": crontab(minute="12,32,52"),  # At minute 12, 32, 52
     },
 
     # This job runs every 10 minutes starting at minute 5

@@ -12,15 +12,18 @@ import { lintKeymap } from "@codemirror/lint";
 import { githubLight, githubDark } from "@uiw/codemirror-theme-github";
 import { useTheme } from "@/context/ThemeContext"; // Import the ThemeContext hook
 import { json } from "@codemirror/lang-json"; // JSON language for syntax highlighting
+import { python } from "@codemirror/lang-python";
+import { javascript } from "@codemirror/lang-javascript";
 
 interface CodeEditorProps {
   value: string;
   language: string; // Optional language prop for future use
   onChange?: (value: string) => void; // Optional for read-only mode
   readOnly?: boolean; // New prop to control editability
+  allowFileUpload?: boolean; // Optional prop to toggle file upload
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = false, language }) => {
+const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = false, language, allowFileUpload = true }) => {
   const { theme } = useTheme(); // Get the current theme from ThemeContext
   const editorThemeRef = useRef(theme === "dark" ? githubDark : githubLight); // Default theme 
 
@@ -47,7 +50,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
         value={value}
         height="300px"
         extensions={[
-          language === 'shell' ? StreamLanguage.define(shell) : json(), // Shell syntax highlighting
+          language === 'shell'
+            ? StreamLanguage.define(shell)
+            : language === 'json'
+            ? json()
+            : language === 'python'
+            ? python()
+            : language === 'javascript'
+            ? javascript()
+            : json(),
           history(), // Undo/redo history
           highlightSelectionMatches(), // Highlight search matches
           autocompletion(), // Autocomplete support
@@ -65,7 +76,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, readOnly = fal
         }}
         className="border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900"
       />
-      {!readOnly && (
+      {!readOnly && allowFileUpload && (
         <div className="mt-2">
           <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Upload a File

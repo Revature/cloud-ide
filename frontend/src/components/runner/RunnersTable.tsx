@@ -50,6 +50,7 @@ const RunnersTable: React.FC = () => {
     runner_starting: "Runner Starting",
     ready_claimed: "Ready Claimed",
     closed: "Closed",
+    closed_pool: "Ready Stopped"
   };
   const runnerStates = (Object.keys(runnerStateLabels) as RunnerState[]).map((state) => ({
     label: runnerStateLabels[state],
@@ -113,8 +114,8 @@ const RunnersTable: React.FC = () => {
     },
     {
       header: "User",
-      accessor: (item: Runner) => item.userId || "In pool (no user assigned)",
-      searchAccessor: (item: Runner) => (item.userId ? item.userId.toString() : ""),
+      accessor: (item: Runner) => item.userEmail || "In pool (no user assigned)",
+      searchAccessor: (item: Runner) => (item.userEmail ? item.userEmail : ""),
     },
     {
       header: "State",

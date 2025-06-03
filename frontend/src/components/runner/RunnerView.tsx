@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 // Import the props interface from the terminal component
 import type { TerminalComponentProps } from '../terminal/TerminalComponent';
 import StatusBadge from "../ui/badge/StatusBadge";
-import { useRunnerById, useTerminateRunner } from "@/hooks/type-query/useRunners";
+import { useRunnerById, useStartRunner, useTerminateRunner } from "@/hooks/type-query/useRunners";
 import MetricSpeedometer from "../metric-chart/metric-speedometer";
 
 // Import terminal component with ssr: false to prevent server-side rendering
@@ -27,12 +27,14 @@ const RunnerView: React.FC = () => {
 
   const { data: runner, isLoading, error } = useRunnerById(Number(runnerId));
   const { mutateAsync: terminateRunner } = useTerminateRunner();
+  const { mutateAsync: startRunner } = useStartRunner();
 
   const [terminalVisible, setTerminalVisible] = useState(false);
   const [terminalConnected, setTerminalConnected] = useState(false);
   const [terminalError, setTerminalError] = useState<string | null>(null);
   const [confirmTerminate, setConfirmTerminate] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const autoConnectExecutedRef = useRef(false);
@@ -88,7 +90,23 @@ const RunnerView: React.FC = () => {
     }
   };
 
-  const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client' || runner?.state === 'ready' || runner?.state === 'ready_claimed' || runner?.state === 'starting' || runner?.state === 'runner_starting';
+  const handleStart = async () => {
+    if (!runner) return;
+    setIsStarting(true);
+    setUiMessage(null); // Clear any previous messages
+    try {
+      await startRunner({id: runner.id});
+      setUiMessage({ type: 'success', message: `Runner with ID ${runner.id} started successfully.` });
+      // Optionally, you may want to refetch runner state here
+    } catch (error) {
+      console.error('Error starting runner:', error);
+      setUiMessage({ type: 'error', message: `Failed to start runner with ID ${runner.id}.` });
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const canConnect = runner?.state === 'active' || runner?.state === 'awaiting_client' || runner?.state === 'ready' || runner?.state === 'ready_claimed' || runner?.state === 'starting' || runner?.state === 'runner_starting' 
   const canTerminate = runner?.state !== 'terminated';
 
   if (isLoading) {
@@ -140,7 +158,18 @@ const RunnerView: React.FC = () => {
             Open Cloud IDE
           </Button>
         )}
-        {canConnect && (
+        {/* Show Start button for closed_pool runners */}
+        {runner?.state.includes("closed") ? (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={handleStart}
+            disabled={isStarting}
+            className="text-green-600 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30"
+          >
+            {isStarting ? 'Starting...' : 'Start'}
+          </Button>
+        ) : canConnect && (
           <Button
             size="sm"
             variant="secondary"
