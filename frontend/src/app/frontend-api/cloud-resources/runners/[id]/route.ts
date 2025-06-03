@@ -37,10 +37,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string, action: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id, action } = await params;
+    const { id } = await params;
+    const action = request.nextUrl.searchParams.get('action');
     console.log(request);
 
     // Validate the action

@@ -253,33 +253,72 @@ const ConnectingStatusDisplay: React.FC<ConnectingStatusDisplayProps> = ({
     return <p className="text-gray-500 italic">Waiting for connection process to start...</p>;
   }
 
-  const isLoading = stages.length === 0 && !temporaryMessage;
+
+  // Group stages by type for tree structure
+  const groupedStages = stages.reduce<Record<string, DisplayStage[]>>((acc, stage) => {
+    if (!acc[stage.id]) acc[stage.id] = [];
+    acc[stage.id].push(stage);
+    return acc;
+  }, {});
+
+  // Separate completed and in-progress event types
+  const completedTypes: Array<[string, DisplayStage[]]> = [];
+  const inProgressTypes: Array<[string, DisplayStage[]]> = [];
+  Object.entries(groupedStages).forEach(([type, messages]) => {
+    const isInProgress = messages.some(m => m.status === 'in_progress');
+    if (isInProgress) {
+      inProgressTypes.push([type, messages]);
+    } else {
+      completedTypes.push([type, messages]);
+    }
+  });
 
   return (
     <div className="space-y-3">
-      {isLoading && (
-        <div className="flex items-center space-x-2 animate-pulse">
-          <SpinnerIcon />
-          <span className="text-gray-600 dark:text-gray-400">Initializing connection process...</span>
-        </div>
-      )}
+      {/* Completed event types (collapsed, show only final message and icon) */}
+      {completedTypes.map(([type, messages]) => {
+        const topStage = messages[0];
+        const lastStage = messages[messages.length - 1];
+        const isFailed = messages.some(m => m.status === 'failed');
+        return (
+          <div key={type} className="flex items-center gap-2 opacity-80">
+            {isFailed ? <ErrorIcon /> : <SuccessIcon />}
+            <span className={`font-semibold text-sm ${isFailed ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{topStage.label}</span>
+            <span className={`text-xs ${isFailed ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{lastStage.message}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              {lastStage.endTime ? formatElapsedTime(lastStage.startTime, lastStage.endTime) : ''}
+            </span>
+          </div>
+        );
+      })}
 
-      {stages.map((stage) => (
-        <div key={stage.id} className="flex items-center space-x-2">
-          {stage.status === 'in_progress' && <SpinnerIcon />}
-          {stage.status === 'succeeded' && <SuccessIcon />}
-          {stage.status === 'failed' && <ErrorIcon />}
-          <span className={`text-sm ${stage.status === 'failed' ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
-            {stage.message}
-          </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-            {stage.status !== 'in_progress' && stage.endTime
-              ? formatElapsedTime(stage.startTime, stage.endTime)
-              : (elapsedTimes[stage.id] || formatElapsedTime(stage.startTime, null))}
-          </span>
-        </div>
-      ))}
+      {/* In-progress event types (expanded tree) */}
+      {inProgressTypes.map(([type, messages]) => {
+        const topStage = messages[0];
+        return (
+          <div key={type} className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <SpinnerIcon />
+              <span className="font-semibold text-sm text-gray-700 dark:text-gray-300">{topStage.label}</span>
+            </div>
+            <div className="ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4 flex flex-col gap-1">
+              {messages.map((stage, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-600 flex-shrink-0"></span>
+                  <span className={`text-xs ${stage.status === 'failed' ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{stage.message}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                    {stage.status !== 'in_progress' && stage.endTime
+                      ? formatElapsedTime(stage.startTime, stage.endTime)
+                      : (elapsedTimes[stage.id] || formatElapsedTime(stage.startTime, null))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
+      {/* Temporary completion message */}
       {temporaryMessage && (
         <div className={`flex items-center space-x-2 p-3 mt-4 border rounded-md bg-opacity-80 dark:bg-opacity-80 ${temporaryMessage.status === 'succeeded' ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900' : 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900'}`}>
           {temporaryMessage.status === 'succeeded' ? <SuccessIcon className="w-5 h-5 text-green-600 dark:text-green-400" /> : <ErrorIcon className="w-5 h-5 text-red-600 dark:text-red-400" />}
