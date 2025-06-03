@@ -363,7 +363,6 @@ async def claim_runner(
                 f"requested_session_time={runner_config["requested_session_time"]}")
     logger.info(f"Starting claim_runner for runner_id={runner.id}, user_id={user.id}, "+
                 f"requested_session_time={runner_config["requested_session_time"]}")
-    print(f"TEST: Claiming runner with {runner_config["script_vars"]} script variables and user IP {runner_config["user_ip"]}")
 
     with Session(engine) as session:
         runner = runner_repository.find_runner_by_id(runner.id)
