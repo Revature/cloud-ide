@@ -115,7 +115,7 @@ def manage_runner_pool():
 
                 # Get excess ready runners
                 stmt_excess_runners = select(Runner).where(
-                    Runner.state == "ready",
+                    Runner.state.in_(["ready", "closed_pool"]),
                     Runner.image_id == image.id
                 ).order_by(Runner.created_on).limit(runners_to_terminate)
 
