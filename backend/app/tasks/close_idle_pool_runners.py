@@ -15,16 +15,14 @@ logger = get_task_logger(__name__)
 
 @celery_app.task
 def close_idle_pool_runners():
-    """
-    Task to transition idle 'ready' pool runners to 'closed_pool' if they've been idle for longer than the configured timeout.
-    """
+    """Task to transition idle 'ready' pool runners to 'closed_pool' if they've been idle for longer than the configured timeout."""
     now = datetime.utcnow()
     idle_cutoff = now - timedelta(minutes=IDLE_POOL_RUNNER_MINUTES)
     closed_count = 0
     with Session(engine) as session:
         stmt = select(Runner).where(
             Runner.state == "ready",
-            Runner.updated_on != None,
+            Runner.updated_on is not None,
             Runner.updated_on < idle_cutoff
         )
         idle_runners = session.exec(stmt).all()

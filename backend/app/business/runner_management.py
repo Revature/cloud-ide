@@ -374,7 +374,7 @@ async def claim_runner(
             # We need to swap the state to runner_starting_claimed ASAP
             runner.state = "runner_starting_claimed"
             if lifecycle_token:
-                runner.lifecycle_token = lifecycle_token 
+                runner.lifecycle_token = lifecycle_token
             logger.info(f"Claimed runner was in closed state, starting runner prior to session: {runner.id}")
             session.commit()
 
@@ -384,7 +384,8 @@ async def claim_runner(
                     select(Runner).where(Runner.lifecycle_token == lifecycle_token)
                 ).first()
                 if check_runner:
-                    logger.info(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} is discoverable (id={check_runner.id}, state={check_runner.state})")
+                    logger.info(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} is discoverable (id={check_runner.id
+                                     }, state={check_runner.state})")
                 else:
                     logger.warning(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} NOT found immediately after commit!")
 
