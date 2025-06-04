@@ -1100,11 +1100,13 @@ async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") ->
         runner = runner_repository.find_runner_by_id(runner_id)
         if not runner:
             logger.error(f"[{initiated_by}] Runner with ID {runner_id} not found for log cleanup")
+            print(f"[{initiated_by}] Runner with ID {runner_id} not found for log cleanup")
             return {"status": "error", "message": f"Runner {runner_id} not found", "initiated_by": initiated_by}
         # Use runner.url or another field for the IP/hostname
         runner_ip = runner.url or None
         if not runner_ip:
             logger.error(f"[{initiated_by}] Runner {runner_id} has no URL/IP for log cleanup")
+            print(f"[{initiated_by}] Runner {runner_id} has no URL/IP for log cleanup")
             return {"status": "error", "message": f"Runner {runner_id} has no URL/IP", "initiated_by": initiated_by}
     # Compose the Pushgateway/metrics endpoint URL
     metrics_url = f"http://34.223.156.189:9091/metrics/job/{runner_ip}"
@@ -1113,9 +1115,11 @@ async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") ->
             response = await client.delete(metrics_url, timeout=5)
         if response.status_code in (200, 202):
             logger.info(f"[{initiated_by}] Successfully deleted logs for runner {runner_id} at {metrics_url}")
+            print(f"[{initiated_by}] Successfully deleted logs for runner {runner_id} at {metrics_url}")
             return {"status": "success", "message": f"Logs deleted for runner {runner_id}", "initiated_by": initiated_by}
         else:
             logger.error(f"[{initiated_by}] Failed to delete logs for runner {runner_id}: {response.status_code} {response.text}")
+            print(f"[{initiated_by}] Failed to delete logs for runner {runner_id}: {response.status_code} {response.text}")
             return {"status": "error", "message": f"Failed to delete logs: {response.status_code}", "initiated_by": initiated_by}
     except Exception as e:
         logger.error(f"[{initiated_by}] Exception during log cleanup for runner {runner_id}: {e!s}")
