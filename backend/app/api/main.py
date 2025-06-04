@@ -1,25 +1,20 @@
 """Main application file for the API."""
 import re
-import os
 from http import HTTPStatus
-from fastapi import APIRouter
-from app.api.routes import user_auth, machine_auth, registration, users, endpoint_permissions
-from app.api.routes import runners, machines, cloud_connectors, images, scripts
-from app.api.routes import app_requests
 from fastapi import FastAPI, Request, Response
+from app.api.routes import code_challenge
 from app.business import runner_management
 from contextlib import asynccontextmanager
-from app.business.workos import authenticate_sealed_session, get_workos_client, refresh_sealed_session
+from app.business.workos import get_workos_client
 from app.util import constants
 from app.db.database import create_db_and_tables
 from app.business.resource_setup import fill_runner_pools, setup_resources, setup_endpoint_permissions
-# from app.business.runner_management import shutdown_all_runners
 from app.business.pkce import verify_token_exp
 from app.exceptions.authentication_exceptions import NoMatchingKeyException
 from app.models.workos_session import get_refresh_token, refresh_session
 from workos import exceptions as workos_exceptions
 from app.exceptions.authentication_exceptions import NoRefreshSessionFound
-from typing import Optional
+
 
 API_ROOT_PATH: str = '/api' #stripped out of request.url.path by the proxy
 API_VERSION: str = '/v1' #still present in the path, not for docs
@@ -82,6 +77,9 @@ def start_api():
         redirect_slashes=False
         )
 
+    from app.api.routes import (user_auth, machine_auth, registration, users, endpoint_permissions,
+    runners, machines, cloud_connectors, images, scripts, app_requests)
+
     api.include_router(users.router, prefix=f"{API_VERSION}/users", tags=["users"])
     api.include_router(runners.router, prefix=f"{API_VERSION}/runners", tags=["runners"])
     api.include_router(machine_auth.router, prefix=f"{API_VERSION}/machine_auth", tags=["machine_auth"])
@@ -93,6 +91,7 @@ def start_api():
     api.include_router(app_requests.router, prefix=f"{API_VERSION}/app_requests", tags=["app_requests"])
     api.include_router(scripts.router, prefix=f"{API_VERSION}/scripts", tags=["scripts"])
     api.include_router(endpoint_permissions.router, prefix=f"{API_VERSION}/endpoint_permissions", tags=["endpoint_permissions"])
+    api.include_router(code_challenge.router, prefix=f"{API_VERSION}/challenge", tags=["challenge"])
 
     # Middleware to protect all routes, passes unsecure route requests through
     @api.middleware("http")
