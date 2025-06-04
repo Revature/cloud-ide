@@ -1091,7 +1091,7 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
 async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") -> dict:
     """
     Delete runner logs from Prometheus Pushgateway or similar metrics endpoint.
-    
+
     This function makes an HTTP DELETE request to the metrics endpoint for the runner.
     """
     logger.info(f"[{initiated_by}] Attempting to delete logs for runner {runner_id}")
