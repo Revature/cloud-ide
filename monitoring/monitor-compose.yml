@@ -58,7 +58,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=10d'
-      - '--storage.tsdb.retention.size=200MB'
+      - '--storage.tsdb.retention.size=500MB'
 
   grafana:
     container_name: grafana
