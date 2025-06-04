@@ -376,6 +376,7 @@ async def claim_runner(
             if lifecycle_token:
                 runner.lifecycle_token = lifecycle_token
             logger.info(f"Claimed runner was in closed state, starting runner prior to session: {runner.id}")
+            session.add(runner)
             session.commit()
 
             # Post-commit check: ensure runner is discoverable by lifecycle_token (using same session)
@@ -400,6 +401,7 @@ async def claim_runner(
             start_result = await start_runner(runner.id, initiated_by=user.email)
             if start_result.get("status") != "success":
                 runner.state = "closed"
+                session.add(runner)
                 session.commit()
                 if lifecycle_token:
                     await runner_status_management.runner_status_emitter.emit_status(
@@ -419,6 +421,7 @@ async def claim_runner(
 
         runner.state = "awaiting_client"
         logger.info(f"Updating runner state from {previous_state} to awaiting_client")
+        session.add(runner)
         session.commit()
         # Emit instance lifecycle event for state change
         if lifecycle_token:
