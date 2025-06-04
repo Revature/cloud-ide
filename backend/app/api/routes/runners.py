@@ -171,6 +171,7 @@ async def update_runner_state(
                         "ready",
                         "runner_starting_claimed",
                         "ready_claimed",
+                        "closed_pool_claimed",
                         "awaiting_client",
                         "active",
                         "disconnecting"]
@@ -204,6 +205,10 @@ async def update_runner_state(
         elif update.state == "runner_starting_claimed":
             runner.state = "runner_starting_claimed"
             event_name = "runner_starting_claimed"
+            event_name = "runner_ready"
+        elif update.state == "closed_pool_claimed":
+            runner.state = "closed_pool_claimed"
+            event_name = "closed_pool_claimed"
         elif update.state == "ready_claimed":
             runner.state = "ready_claimed"
             event_name = "runner_ready_claimed"
