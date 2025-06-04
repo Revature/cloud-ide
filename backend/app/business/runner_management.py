@@ -872,7 +872,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             if runner.state not in ("closed", "closed_pool", "closed_pool_claimed"):
                 logger.info(f"[{initiated_by}] Cannot start runner with ID {runner_id} from {runner.state} state")
-                result["message"] = f"Runner must be in 'closed', 'closed_pool' or 'closed_pool_claimed' state to start, current state: {runner.state}"
+                result["message"] = f"Runner must be in 'closed', 'closed_pool' or 'closed_pool_claimed' to start, current state: {runner.state}"
                 return result
 
             # Get image and cloud connector
@@ -908,7 +908,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             # Update runner state to ready
             old_state = runner.state
-            if old_state == "closed_pool" or old_state == "closed_pool_claimed":
+            if old_state in ("closed_pool", "closed_pool_claimed"):
                 runner.state = "ready_claimed"
             else:
                 runner.state = "ready"
