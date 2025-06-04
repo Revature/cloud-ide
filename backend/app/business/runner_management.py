@@ -372,7 +372,7 @@ async def claim_runner(
         # Check if the claimed runner was closed. If so, we need to claim & start the runner prior
         if previous_state == "closed_pool":
             # We need to swap the state to runner_starting_claimed ASAP
-            runner.state = "runner_starting_claimed"
+            runner.state = "closed_pool_claimed"
             if lifecycle_token:
                 runner.lifecycle_token = lifecycle_token
             logger.info(f"Claimed runner was in closed state, starting runner prior to session: {runner.id}")
@@ -870,9 +870,9 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
                 result["message"] = f"Runner with ID {runner_id} not found"
                 return result
 
-            if runner.state not in ("closed", "closed_pool"):
+            if runner.state not in ("closed", "closed_pool", "closed_pool_claimed"):
                 logger.info(f"[{initiated_by}] Cannot start runner with ID {runner_id} from {runner.state} state")
-                result["message"] = f"Runner must be in 'closed' state to start, current state: {runner.state}"
+                result["message"] = f"Runner must be in 'closed', 'closed_pool' or 'closed_pool_claimed' state to start, current state: {runner.state}"
                 return result
 
             # Get image and cloud connector
@@ -908,7 +908,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             # Update runner state to ready
             old_state = runner.state
-            if old_state == "closed_pool":
+            if old_state == "closed_pool" or old_state == "closed_pool_claimed":
                 runner.state = "ready_claimed"
             else:
                 runner.state = "ready"
