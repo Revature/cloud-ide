@@ -1,7 +1,6 @@
 name: Frontend Linting
 
 on:
-  workflow_dispatch:
   push:
     paths:
       - frontend/**
