@@ -16,14 +16,13 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Navigate to frontend directory
+      run: cd frontend
     - name: Set up Node.js ${{ env.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.node-version }}
         cache: 'npm'
-
-    - name: Navigate to frontend directory
-      run: cd frontend
 
     - name: Clean Install
       run: npm ci
