@@ -59,7 +59,7 @@ def read_runners(
     return response_runners
 
 @router.get("/{runner_id}", response_model=RunnerResponse)
-@endpoint_permission_decorator.permission_required("runners")
+# @endpoint_permission_decorator.permission_required("runners") # Disable for prod for now?
 def read_runner(runner_id: int, request: Request):
     """Retrieve a single Runner by ID."""
     runner_result = runner_repository.find_runner_by_id_with_user_email(runner_id)
