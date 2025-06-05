@@ -325,16 +325,29 @@ class AWSCloudService(CloudService):
     async def get_instance_ip(self, instance_id: str) -> str:
         """
         Describe the EC2 instance with the given InstanceId.
-
-        Returns the public IP address as a string.
+        Wait for the instance to be running, then fetch the public IP address as a string.
         """
+        import re, asyncio
+        # Wait for the instance to be running
         try:
-            response = self.ec2_client.describe_instances(
-                InstanceIds=[instance_id]
-            )
-            return response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
+            await self.wait_for_instance_running(instance_id)
         except Exception as e:
-            return str(e)
+            return f"Waiter error: {e}"
+        # Now try a few times to get the public IP
+        max_attempts = 5
+        ip_regex = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+        for attempt in range(max_attempts):
+            try:
+                response = self.ec2_client.describe_instances(
+                    InstanceIds=[instance_id]
+                )
+                ip = response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
+                if ip and ip != 'Association' and ip_regex.match(str(ip)):
+                    return ip
+                await asyncio.sleep(2)
+            except Exception as e:
+                return str(e)
+        return 'AWS Failed to fetch public IP'
 
     async def get_instance_state(self, instance_id: str) -> str:
         """
@@ -382,8 +395,7 @@ class AWSCloudService(CloudService):
             # Start the instance
             response = self.ec2_client.start_instances(InstanceIds=[instance_id])
             # Wait for the instance to be running
-            waiter = self.ec2_client.get_waiter("instance_running")
-            waiter.wait(InstanceIds=[instance_id])
+            await self.wait_for_instance_running(instance_id)
             # Optionally, re-fetch the state to confirm
             response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
             return response['Reservations'][0]['Instances'][0]['State']['Name']
