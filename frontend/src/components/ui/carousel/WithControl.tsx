@@ -1,56 +1,46 @@
 "use client";
-import ProxyImage from "@/components/ui/images/ProxyImage";
+
 import React from "react";
 import { Navigation, Autoplay } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/navigation";
 
-const carouselData = [
-  {
-    thumbnail: "images/carousel/carousel-01.png",
-  },
-  {
-    thumbnail: "images/carousel/carousel-02.png",
-  },
-  {
-    thumbnail: "images/carousel/carousel-03.png",
-  },
-  {
-    thumbnail: "images/carousel/carousel-04.png",
-  },
-];
+interface WithControlProps {
+  children?: React.ReactNode;
+  slidesPerView?: number; // Number of slides visible at a time
+  spaceBetween?: number; // Space between slides
+}
 
-export default function WithControl() {
-  const swiperOptions = {
-    modules: [Navigation, Autoplay],
-    autoplay: {
-      delay: 5000,
-      disableOnInteraction: false,
-    },
-    navigation: {
-      nextEl: ".next-style-one.swiper-button-next",
-      prevEl: ".prev-style-one.swiper-button-prev",
-    },
-  };
+export default function WithControl({
+  children,
+  slidesPerView = 3,
+  spaceBetween = 20,
+}: WithControlProps) {
   return (
     <div className="relative border border-gray-200 rounded-lg carouselTwo dark:border-gray-800">
-      <Swiper {...swiperOptions}>
-        {/* <!-- slider item --> */}
-        {carouselData.map((item, i) => (
-          <SwiperSlide key={i + 1}>
-            <div className="overflow-hidden rounded-lg">
-              <ProxyImage
-                width={487}
-                height={297}
-                src={item.thumbnail}
-                className="w-full rounded-lg"
-                alt="carousel"
-              />
-            </div>
+      <Swiper
+        modules={[Navigation, Autoplay]}
+        autoplay={{
+          delay: 20000, // Automatically cycle every 20 seconds
+          disableOnInteraction: false, // Keep autoplay active even after user interaction
+        }}
+        navigation={{
+          nextEl: ".next-style-one.swiper-button-next",
+          prevEl: ".prev-style-one.swiper-button-prev",
+        }}
+        slidesPerView={slidesPerView}
+        spaceBetween={spaceBetween}
+      >
+        {/* Render children as slides */}
+        {React.Children.map(children, (child, index) => (
+          <SwiperSlide key={index} className="p-2">
+            {child}
           </SwiperSlide>
         ))}
       </Swiper>
 
-      {/* <!-- If we need navigation buttons --> */}
+      {/* Navigation buttons */}
       <div className="swiper-button-prev prev-style-one">
         <svg
           className="w-auto h-auto stroke-current"
@@ -62,7 +52,7 @@ export default function WithControl() {
         >
           <path
             d="M15.25 6L9 12.25L15.25 18.5"
-            stroke=""
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -80,7 +70,7 @@ export default function WithControl() {
         >
           <path
             d="M8.75 19L15 12.75L8.75 6.5"
-            stroke=""
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"

@@ -14,13 +14,11 @@ logger = get_task_logger(__name__)
 
 def get_all_cloud_connectors() -> list[CloudConnector]:
     """Get all cloud connectors."""
-    with Session(engine) as session:
-        return cloud_connector_repository.find_all_cloud_connectors(session)
+    return cloud_connector_repository.find_all_cloud_connectors()
 
 def get_cloud_connector_by_id(id:int) -> CloudConnector:
     """Get an cloud_connector by its id (numeric)."""
-    with Session(engine) as session:
-        return cloud_connector_repository.find_cloud_connector_by_id(session, id)
+    return cloud_connector_repository.find_cloud_connector_by_id(id)
 
 def create_cloud_connector(provider: str, region: str, access_key: str, secret_key: str) -> CloudConnector:
     """
@@ -39,9 +37,8 @@ def create_cloud_connector(provider: str, region: str, access_key: str, secret_k
     cloud_connector.set_decrypted_secret_key(secret_key)
 
     # Create the connector in the database
-    with Session(engine) as session:
-        created_connector = cloud_connector_repository.create_cloud_connector(session, cloud_connector)
-        return created_connector
+    created_connector = cloud_connector_repository.create_cloud_connector(cloud_connector)
+    return created_connector
 
 async def validate_cloud_connector(cloud_connector: CloudConnector):
     """
@@ -115,7 +112,7 @@ async def create_and_validate_cloud_connector(region: str, provider: str, access
         # If validation failed, delete the connector
         with Session(engine) as session:
             db_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                session, created_connector.id)
+                created_connector.id)
             if db_connector:
                 session.delete(db_connector)
                 session.commit()
@@ -125,10 +122,9 @@ async def create_and_validate_cloud_connector(region: str, provider: str, access
 
 def update_cloud_connector(cloud_connector_id: int, updated_cloud_connector: CloudConnector) -> bool:
     """Update an existing cloud connector."""
-    with Session(engine) as session:
-        # Get the updated cloud connector from repository
-        db_cloud_connector = cloud_connector_repository.update_cloud_connector(session, cloud_connector_id, updated_cloud_connector)
-        session.commit()
+    # Get the updated cloud connector from repository
+    db_cloud_connector = cloud_connector_repository.update_cloud_connector(cloud_connector_id, updated_cloud_connector)
+
 
     return True
 
@@ -147,7 +143,6 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
         try:
             # Get the cloud connector from repository
             updated_connector = cloud_connector_repository.update_connector_status(
-                session,
                 cloud_connector_id,
                 is_active
             )
@@ -155,9 +150,9 @@ def update_cloud_connector_status(cloud_connector_id: int, is_active: bool) -> C
             if not updated_connector:
                 return None
 
-            # Commit the transaction
-            session.commit()
-            session.refresh(updated_connector)
+            # Commit the transaction - this is all done within the function above now
+            # session.commit()
+            # session.refresh(updated_connector)
 
             return updated_connector
 
@@ -190,21 +185,20 @@ async def delete_cloud_connector(cloud_connector_id: int) -> bool:
 
     # Get the cloud connector and associated images
     try:
-        with Session(engine) as session:
-            # Verify the cloud connector exists
-            db_connector = cloud_connector_repository.find_cloud_connector_by_id(session, cloud_connector_id)
-            if not db_connector:
-                logger.error(f"Cloud connector with ID {cloud_connector_id} not found")
-                return False
+        # Verify the cloud connector exists
+        db_connector = cloud_connector_repository.find_cloud_connector_by_id(cloud_connector_id)
+        if not db_connector:
+            logger.error(f"Cloud connector with ID {cloud_connector_id} not found")
+            return False
 
-            # Get all images associated with this cloud connector
-            images = image_management.get_images_by_cloud_connector_id(cloud_connector_id)
-            logger.info(f"Found {len(images)} images associated with cloud connector {cloud_connector_id}")
+        # Get all images associated with this cloud connector
+        images = image_management.get_images_by_cloud_connector_id(cloud_connector_id)
+        logger.info(f"Found {len(images)} images associated with cloud connector {cloud_connector_id}")
 
-            # Track the images for deletion
-            image_ids = [image.id for image in images]
+        # Track the images for deletion
+        image_ids = [image.id for image in images]
 
-        # Process image deletion first - outside the main session to allow for new transactions
+        # Process image deletion first
         deletion_results = []
         for image_id in image_ids:
             try:
@@ -222,14 +216,13 @@ async def delete_cloud_connector(cloud_connector_id: int) -> bool:
         logger.info(f"Image deletion results: {deletion_results}")
 
         # Finally delete the cloud connector
-        with Session(engine) as session:
-            success = cloud_connector_repository.delete_cloud_connector(session, cloud_connector_id)
-            if not success:
-                logger.error(f"Failed to delete cloud connector {cloud_connector_id} from database")
-                return False
+        success = cloud_connector_repository.delete_cloud_connector(cloud_connector_id)
+        if not success:
+            logger.error(f"Failed to delete cloud connector {cloud_connector_id} from database")
+            return False
 
-            session.commit()
-            logger.info(f"Cloud connector {cloud_connector_id} successfully deleted")
+        # session.commit()
+        logger.info(f"Cloud connector {cloud_connector_id} successfully deleted")
 
         return True
 

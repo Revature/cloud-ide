@@ -4,10 +4,13 @@ import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { BaseTable } from "../tables/BaseTable";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
-import { Runner } from "@/types/runner";
+import { Runner, RunnerState } from "@/types/runner";
 import { useImagesForItems } from "@/hooks/type-query/useImages";
 import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useRunners, useStartRunner, useStopRunner, useTerminateRunner } from "@/hooks/type-query/useRunners";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
+import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 
 const RunnersTable: React.FC = () => {
   const router = useRouter();
@@ -16,8 +19,11 @@ const RunnersTable: React.FC = () => {
   const { data: runners = [], isLoading, error } = useRunners();
 
   // Fetch related images and machines using `useResourceForItems`
-  const { resourcesById: imagesById } = useImagesForItems(runners);
-  const { resourcesById: machinesById } = useMachinesForItems(runners);
+  const { resourcesById: imagesById, isLoading: imagesLoading} = useImagesForItems(runners);
+  const { resourcesById: machinesById, isLoading: machinesLoading } = useMachinesForItems(runners);
+  const { resourcesById: connectorsById, isLoading: connectorsLoading } = useCloudConnectorsForItems(Object.values(imagesById));
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
+
 
   // Delete runner mutation
   const { mutate: deleteRunner } = useTerminateRunner(); 
@@ -33,6 +39,29 @@ const RunnersTable: React.FC = () => {
       machine: runner.machineId ? machinesById[runner.machineId] : undefined,
     })).reverse();
   }, [runners, imagesById, machinesById]);
+
+  // Use all RunnerState values for filter options
+  const runnerStateLabels: Record<RunnerState, string> = {
+    starting: "Starting",
+    ready: "Ready",
+    awaiting_client: "Awaiting Client",
+    active: "Active",
+    terminated: "Terminated",
+    runner_starting: "Runner Starting",
+    ready_claimed: "Ready Claimed",
+    closed: "Closed",
+    closed_pool: "Ready Stopped"
+  };
+  const runnerStates = (Object.keys(runnerStateLabels) as RunnerState[]).map((state) => ({
+    label: runnerStateLabels[state],
+    value: state,
+  }));
+
+  const latencyOptions = [
+    { label: "Fast (0-125ms)", value: "Fast" },
+    { label: "Acceptable (125-300ms)", value: "Acceptable" },
+    { label: "Slow (300ms+)", value: "Slow" },
+  ];
 
   // Define columns for the table
   const columns = [
@@ -63,14 +92,38 @@ const RunnersTable: React.FC = () => {
       searchAccessor: (item: Runner) => item.image?.name || "",
     },
     {
+      header: "Latency",
+      accessor: (item: Runner) => {
+        const connectorId = item.image?.cloudConnectorId;
+        const region = connectorId ? connectorsById[connectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        return <LatencyIndicator latency={latency} />;
+      },
+      searchAccessor: (item: Runner) => {
+        const connectorId = item.image?.cloudConnectorId;
+        const region = connectorId ? connectorsById[connectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        if (latency === undefined) return "";
+        if (latency <= 125) return "Fast";
+        if (latency <= 300) return "Acceptable";
+        return "Slow";
+      },
+      filterable: true,
+      filterOptions: latencyOptions,
+      defaultFilterValues: ["Fast", "Acceptable"], // Exclude Slow by default
+    },
+    {
       header: "User",
-      accessor: (item: Runner) => item.userId || "In pool (no user assigned)",
-      searchAccessor: (item: Runner) => (item.userId ? item.userId.toString() : ""),
+      accessor: (item: Runner) => item.userEmail || "In pool (no user assigned)",
+      searchAccessor: (item: Runner) => (item.userEmail ? item.userEmail : ""),
     },
     {
       header: "State",
       accessor: (item: Runner) => <StatusBadge status={item.state} />,
       searchAccessor: (item: Runner) => item.state || "",
+      filterable: true,
+      filterOptions: runnerStates,
+      defaultFilterValues: runnerStates.filter(opt => opt.value !== "terminated").map(opt => opt.value),
     },
   ];
 
@@ -94,7 +147,7 @@ const RunnersTable: React.FC = () => {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || isLatencyLoading || connectorsLoading || imagesLoading || machinesLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>

@@ -9,6 +9,9 @@ import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { useMachinesForItems } from "@/hooks/type-query/useMachines";
 import { useCloudConnectorsForItems } from "@/hooks/type-query/useCloudConnectors";
 import { useDeleteImage, useImages } from "@/hooks/type-query/useImages";
+import LatencyIndicator from "../ui/connection/LatencyIndicator";
+import { useLatencyForRegions } from "@/hooks/useLatencyForRegions";
+import Tag from "../ui/tag/Tag";
 
 export default function ImagesTable() {
   const router = useRouter();
@@ -17,6 +20,8 @@ export default function ImagesTable() {
   const { data: images = [], isLoading: imagesLoading, error: imagesError } = useImages();
   const { resourcesById: machinesById, isLoading: machineLoading, isError: machineError } = useMachinesForItems(images);
   const { resourcesById: connectorsById, isLoading: connectorLoading, isError: connectorError } = useCloudConnectorsForItems(images);
+  const { data: latencyData, isLoading: isLatencyLoading } = useLatencyForRegions();
+
 
   const { mutate: deleteImage } = useDeleteImage();
   // Join the data
@@ -45,6 +50,29 @@ export default function ImagesTable() {
   const navigateToEditImage = (id: number) => {
     router.push(`/images/edit/${id}`);
   };
+
+  // Cloud Provider filter options
+  const cloudProviderOptions = useMemo(() => {
+    const uniqueProviders = Array.from(
+      new Set(enrichedImages.map(img => img.cloudConnector?.name).filter((name): name is string => Boolean(name)))
+    );
+    return uniqueProviders.map(name => ({ label: name, value: name }));
+  }, [enrichedImages]);
+
+  // Latency filter options
+  const latencyOptions = [
+    { label: "Fast (0-125ms)", value: "Fast" },
+    { label: "Acceptable (125-300ms)", value: "Acceptable" },
+    { label: "Slow (300ms+)", value: "Slow" },
+  ];
+
+  // Status filter options
+  const statusOptions = [
+    { label: "Active", value: "active" },
+    { label: "Inactive", value: "inactive" },
+    { label: "Creating", value: "creating" },
+    { label: "Deleted", value: "deleted" },
+  ];
 
   // Define columns for the table
   const columns = [
@@ -87,12 +115,29 @@ export default function ImagesTable() {
         ) : (
           <span className="text-gray-500 text-theme-sm dark:text-gray-500">Not specified</span>
         ),
-        searchAccessor: (item: Image) => item.cloudConnector?.name || "",
+      searchAccessor: (item: Image) => item.cloudConnector?.name || "",
+      filterable: true,
+      filterOptions: cloudProviderOptions,
+      defaultFilterValues: cloudProviderOptions.map(opt => opt.value), // All selected by default
     },
     {
-      header: "Machine",
-      accessor: (item:Image) => item.machine?.name || "N/A",
-      searchAccessor: (item: Image) => item.machine?.name || "",
+      header: "Latency",
+      accessor: (item: Image) => {
+        const region = item.cloudConnectorId ? connectorsById[item.cloudConnectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        return <LatencyIndicator latency={latency} />;
+      },
+      searchAccessor: (item: Image) => {
+        const region = item.cloudConnectorId ? connectorsById[item.cloudConnectorId]?.region : undefined;
+        const latency = region ? latencyData?.[region] : undefined;
+        if (latency === undefined) return "";
+        if (latency <= 125) return "Fast";
+        if (latency <= 300) return "Acceptable";
+        return "Slow";
+      },
+      filterable: true,
+      filterOptions: latencyOptions,
+      defaultFilterValues: ["Fast", "Acceptable"],
     },
     {
       header: "Resources",
@@ -117,9 +162,40 @@ export default function ImagesTable() {
       searchAccessor: (item: Image) => item.identifier || "",
     },
     {
+      header: "Tags",
+      accessor: (item: Image) => {
+        const maxVisibleTags = 2;
+        const visibleTags = item.tags?.slice(0, maxVisibleTags) || [];
+        const remainingTags = item.tags?.slice(maxVisibleTags) || [];
+    
+        return (
+          <div className="flex flex-wrap gap-2">
+            {/* Render visible tags */}
+            {visibleTags.map((tag) => (
+              <Tag key={tag} name={tag} />
+            ))}
+    
+            {/* Render '...' if there are more tags */}
+            {remainingTags.length > 0 && (
+              <div
+                className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded dark:bg-gray-700 dark:text-gray-300 cursor-pointer"
+                title={remainingTags.join(", ")} // Tooltip with remaining tags
+              >
+                ...
+              </div>
+            )}
+          </div>
+        );
+      },
+      searchAccessor: (item: Image) => item.tags?.join(", ") || "",
+    },
+    {
       header: "Status",
       accessor: (item: Image) => <StatusBadge status={item.status} />,
       searchAccessor: (item: Image) => item.status || "",
+      filterable: true,
+      filterOptions: statusOptions,
+      defaultFilterValues: statusOptions.filter(opt => opt.value !== "deleted").map(opt => opt.value),
     },
   ];
 
@@ -129,7 +205,7 @@ export default function ImagesTable() {
     "View Details": () => router.push(`/images/view/${item.id}`),
   });
 
-  if (isLoading) {
+  if (isLoading || isLatencyLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mx-auto"></div>

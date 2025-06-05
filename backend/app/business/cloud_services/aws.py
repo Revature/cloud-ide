@@ -5,6 +5,7 @@ import os
 import boto3
 import paramiko
 import re
+import asyncio
 import logging
 from io import StringIO
 from app.business.cloud_services.base import CloudService
@@ -297,7 +298,7 @@ class AWSCloudService(CloudService):
                         'ResourceType': 'instance',
                         'Tags': [
                             {'Key': 'Name', 'Value': os.getenv('RUNNER_TAG', 'Ashoka-Testing')},
-                            {'Key': 'CDE-Billing', 'Value': ''},
+                            {'Key': 'CDE-Billing', 'Value': 'True'},
                         ]
                     }
                 ]
@@ -326,15 +327,30 @@ class AWSCloudService(CloudService):
         """
         Describe the EC2 instance with the given InstanceId.
 
-        Returns the public IP address as a string.
+        Wait for the instance to be running, then fetch the public IP address as a string.
         """
+        # Wait for the instance to be running
         try:
-            response = self.ec2_client.describe_instances(
-                InstanceIds=[instance_id]
-            )
-            return response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
+            await self.wait_for_instance_running(instance_id)
         except Exception as e:
-            return str(e)
+            return f"Waiter error: {e}"
+        # Now try a few times to get the public IP
+        max_attempts = 5
+        ip_regex = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+        for attempt in range(max_attempts):
+            try:
+                response = self.ec2_client.describe_instances(
+                    InstanceIds=[instance_id]
+                )
+                ip = response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]['Association']['PublicIp']
+                if ip and ip != 'Association' and ip_regex.match(str(ip)):
+                    return ip
+                await asyncio.sleep(2)
+                logger.warning(f"Attempt {attempt + 1}/{max_attempts}: Public IP not found yet, retrying...")
+                print(f"Attempt {attempt + 1}/{max_attempts}: Public IP not found yet, retrying...")
+            except Exception as e:
+                return str(e)
+        return 'AWS Failed to fetch public IP'
 
     async def get_instance_state(self, instance_id: str) -> str:
         """
@@ -370,12 +386,22 @@ class AWSCloudService(CloudService):
         Start the EC2 instance with the given InstanceId.
 
         Returns the state as a string.
+        Handles the case where the instance is in 'stopping' by waiting for it to be 'stopped' first.
         """
         try:
-            response = self.ec2_client.start_instances(
-                InstanceIds=[instance_id]
-            )
-            return response['StartingInstances'][0]['CurrentState']['Name']
+            # Check current state
+            response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
+            state = response['Reservations'][0]['Instances'][0]['State']['Name']
+            if state == "stopping":
+                waiter = self.ec2_client.get_waiter("instance_stopped")
+                waiter.wait(InstanceIds=[instance_id])
+            # Start the instance
+            response = self.ec2_client.start_instances(InstanceIds=[instance_id])
+            # Wait for the instance to be running
+            await self.wait_for_instance_running(instance_id)
+            # Optionally, re-fetch the state to confirm
+            response = self.ec2_client.describe_instances(InstanceIds=[instance_id])
+            return response['Reservations'][0]['Instances'][0]['State']['Name']
         except Exception as e:
             return str(e)
 

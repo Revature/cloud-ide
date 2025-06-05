@@ -3,7 +3,7 @@ import { Image } from "./images";
 import { Machine } from "./machines";
 
 // Define runner states
-export type RunnerState = "starting" | "ready" | "awaiting_client" | "active" | "terminated" | "runner_starting" | "ready_claimed" | "closed"
+export type RunnerState = "starting" | "ready" | "awaiting_client" | "active" | "terminated" | "runner_starting" | "ready_claimed" | "closed" | "closed_pool";
 
 // Define the frontend runner interface (camelCase for frontend use)
 export interface Runner extends ItemWithResourceID<number> {
@@ -27,6 +27,7 @@ export interface Runner extends ItemWithResourceID<number> {
   updatedOn?: string;
   modifiedBy?: string;
   terminalToken?: string; // Token for the terminal session
+  userEmail?: string; // Optional, can be used for user identification
 }
 
 export interface RunnerResponse{
@@ -50,6 +51,7 @@ export interface RunnerResponse{
   created_by: string,
   terminal_token: string,
   lifecycle_token: string,
+  user_email?: string,
 }
 
 
@@ -77,5 +79,6 @@ export const convertRunnerResponse = (runnerResponse: RunnerResponse): Runner =>
         updatedOn: new Date(runnerResponse.updated_on).toLocaleDateString('en-US'),
         modifiedBy: runnerResponse.modified_by,
         terminalToken: runnerResponse.terminal_token,
+        userEmail: runnerResponse.user_email,
       };
 }

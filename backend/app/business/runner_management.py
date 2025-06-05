@@ -5,12 +5,13 @@ import uuid
 import asyncio
 import json
 import traceback
+import httpx
 from datetime import datetime, timedelta, timezone
 from celery.utils.log import get_task_logger
 from sqlmodel import Session, select
 from sqlalchemy.exc import OperationalError, PendingRollbackError, InterfaceError
 from typing import Optional
-from app.db.database import engine, get_session, get_session_context, reset_db_connection
+from app.db.database import engine, get_session_context, reset_db_connection
 from app.models import Machine, Image, Runner, CloudConnector, Script, RunnerHistory, Key, User
 from app.util import constants, runner_status_management
 from app.business.cloud_services import cloud_service_factory
@@ -88,10 +89,9 @@ async def launch_runner(
     """Launch a single runner and produce a record for it."""
     try:
         # Get the machine from the image
-        with Session(engine) as session:
-            machine = machine_repository.find_machine_by_id(session, image.machine_id)
-            if not machine:
-                raise RunnerDefinitionException(f"Machine not found for image {image.id}")
+        machine = machine_repository.find_machine_by_id(image.machine_id)
+        if not machine:
+            raise RunnerDefinitionException(f"Machine not found for image {image.id}")
 
         # Create a dedicated security group for this runner
         if lifecycle_token:
@@ -168,113 +168,109 @@ async def launch_runner(
             )
 
         # Create the runner record
-        with Session(engine) as session:
-            if claimed:
-                state = "runner_starting_claimed"
-            else:
-                state = "runner_starting"
+        if claimed:
+            state = "runner_starting_claimed"
+        else:
+            state = "runner_starting"
 
-            # Create runner record
-            if lifecycle_token:
-                await runner_status_management.runner_status_emitter.emit_status(
-                    lifecycle_token,
-                    "RUNNER_REGISTRATION",
-                    "Creating runner record in database",
-                    {
-                        "instance_id": instance_id,
-                        "status": "in_progress"
-                    }
-                )
-
-            new_runner = Runner(
-                machine_id=machine.id,
-                image_id=image.id,
-                user_id=None,
-                key_id=key.id,
-                state=state,
-                url="",
-                token="",
-                identifier=instance_id,
-                external_hash=uuid.uuid4().hex,
-                terminal_token=uuid.uuid4().hex,
-                lifecycle_token=lifecycle_token,
-                session_start=datetime.utcnow(),
-                session_end=datetime.utcnow() + timedelta(minutes=10)
-            )
-
-            new_runner = runner_repository.add_runner(session, new_runner)
-
-            # Create runner history record
-            runner_history_repository.add_runner_history(
-                session=session,
-                runner=new_runner,
-                event_name="runner_created",
-                event_data={
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "image_id": image.id,
-                    "machine_id": machine.id,
+        # Create runner record
+        if lifecycle_token:
+            await runner_status_management.runner_status_emitter.emit_status(
+                lifecycle_token,
+                "RUNNER_REGISTRATION",
+                "Creating runner record in database",
+                {
                     "instance_id": instance_id,
-                    "security_group_id": security_group_id,
-                    "state": state,
-                    "initiated_by": initiated_by,
-                    "lifecycle_token": lifecycle_token
-                },
-                created_by=initiated_by
+                    "status": "in_progress"
+                }
             )
 
-            session.commit()
+        new_runner = Runner(
+            machine_id=machine.id,
+            image_id=image.id,
+            user_id=None,
+            key_id=key.id,
+            state=state,
+            url="",
+            token="",
+            identifier=instance_id,
+            external_hash=uuid.uuid4().hex,
+            terminal_token=uuid.uuid4().hex,
+            lifecycle_token=lifecycle_token,
+            session_start=datetime.utcnow(),
+            session_end=datetime.utcnow() + timedelta(minutes=10)
+        )
 
-            # Associate the security group with the runner in the database
-            await security_group_management.associate_security_group_with_runner(
-                new_runner.id,
-                security_group_id
+        new_runner = runner_repository.add_runner(new_runner)
+
+        # Create runner history record
+        runner_history_repository.add_runner_history(
+            runner=new_runner,
+            event_name="runner_created",
+            event_data={
+                "timestamp": datetime.utcnow().isoformat(),
+                "image_id": image.id,
+                "machine_id": machine.id,
+                "instance_id": instance_id,
+                "security_group_id": security_group_id,
+                "state": state,
+                "initiated_by": initiated_by,
+                "lifecycle_token": lifecycle_token
+            },
+            created_by=initiated_by
+        )
+
+        # Associate the security group with the runner in the database
+        await security_group_management.associate_security_group_with_runner(
+            new_runner.id,
+            security_group_id
+        )
+
+        if lifecycle_token:
+            await runner_status_management.runner_status_emitter.emit_status(
+                lifecycle_token,
+                "RUNNER_REGISTRATION",
+                "Runner record created successfully",
+                {
+                    "runner_id": new_runner.id,
+                    "instance_id": instance_id,
+                    "status": "succeeded",
+                    "details": {
+                        "state": state
+                    }
+                }
             )
 
-            if lifecycle_token:
-                await runner_status_management.runner_status_emitter.emit_status(
-                    lifecycle_token,
-                    "RUNNER_REGISTRATION",
-                    "Runner record created successfully",
-                    {
-                        "runner_id": new_runner.id,
-                        "instance_id": instance_id,
-                        "status": "succeeded",
-                        "details": {
-                            "state": state
-                        }
-                    }
-                )
+            # Start tracking runner state changes in background
+            asyncio.create_task(
+                runner_status_management.track_runner_state(new_runner.id, lifecycle_token)
+            )
 
-                # Start tracking runner state changes in background
-                asyncio.create_task(
-                    runner_status_management.track_runner_state(new_runner.id, lifecycle_token)
-                )
+        # Begin tagging process
+        if lifecycle_token:
+            await runner_status_management.runner_status_emitter.emit_status(
+                lifecycle_token,
+                "RESOURCE_TAGGING",
+                "Adding tags to instance",
+                {
+                    "runner_id": new_runner.id,
+                    "instance_id": instance_id,
+                    "status": "in_progress",
+                    "tags": [
+                        {"key": "Name", "value": f"runner-{new_runner.id}"},
+                        {"key": "ImageId", "value": str(image.id)},
+                        {"key": "ManagedBy", "value": "cloud-ide"}
+                    ]
+                }
+            )
 
-            # Begin tagging process
-            if lifecycle_token:
-                await runner_status_management.runner_status_emitter.emit_status(
-                    lifecycle_token,
-                    "RESOURCE_TAGGING",
-                    "Adding tags to instance",
-                    {
-                        "runner_id": new_runner.id,
-                        "instance_id": instance_id,
-                        "status": "in_progress",
-                        "tags": [
-                            {"key": "Name", "value": f"runner-{new_runner.id}"},
-                            {"key": "ImageId", "value": str(image.id)},
-                            {"key": "ManagedBy", "value": "cloud-ide"}
-                        ]
-                    }
-                )
+            # Tag added event would be emitted by the tagging function
 
-                # Tag added event would be emitted by the tagging function
+        # Queue the task chain - just the first task
+        from app.tasks.starting_runner import wait_for_instance_running
+        wait_for_instance_running.delay(new_runner.id, instance_id)
 
-            # Queue the task chain - just the first task
-            from app.tasks.starting_runner import wait_for_instance_running
-            wait_for_instance_running.delay(new_runner.id, instance_id)
-
-            return new_runner
+        return new_runner
 
     except Exception as e:
         logger.error(f"Error launching runner: {e}")
@@ -333,27 +329,29 @@ async def launch_runner(
 async def wait_for_runner_state(runner:Runner, state: str, seconds:int) -> Runner:
     """Poll the runner DB for when the runner has been set to a certain state."""
     for _ in range(seconds):
-        with Session(engine) as session:
-            runner: Runner = runner_repository.find_runner_by_id(session, runner.id)
-            if runner and runner.state == state:
-                return runner
-            await asyncio.sleep(1)
+        runner: Runner = runner_repository.find_runner_by_id(runner.id)
+        if runner and runner.state == state:
+            return runner
+        await asyncio.sleep(1)
     return None
 
 def get_runner_by_id(id:int) -> Runner:
     """Retrieve a runner by its ID, else None."""
-    with Session(engine) as session:
-        return runner_repository.find_runner_by_id(session, id)
+    return runner_repository.find_runner_by_id(id)
 
 def get_existing_runner(user_id: int, image_id: int) -> Runner:
     """Retrieve a runner that is ready for use, else None."""
-    with Session(engine) as session:
-        return runner_repository.find_runner_by_user_id_and_image_id_and_states(session, user_id, image_id, ["active", "awaiting_client"])
+    return runner_repository.find_runner_by_user_id_and_image_id_and_states(user_id, image_id, ["active", "awaiting_client"])
 
 def get_runner_from_pool(image_id) -> Runner:
-    """Retrieve a runner that is ready for use from the pool, else None."""
+    """Retrieve a runner that is ready or closed for use from the pool, else None."""
     with Session(engine) as session:
-        return runner_repository.find_runner_by_image_id_and_states(session, image_id, ["ready"])
+        # Try to get a ready runner first
+        ready_runner = runner_repository.find_runner_by_image_id_and_states(image_id, ["ready"])
+        if ready_runner:
+            return ready_runner
+        # If no ready runner, try to return a closed runner
+        return runner_repository.find_runner_by_image_id_and_states(image_id, ["closed_pool"])
 
 async def claim_runner(
     runner: Runner,
@@ -368,12 +366,63 @@ async def claim_runner(
                 f"requested_session_time={runner_config["requested_session_time"]}")
 
     with Session(engine) as session:
-        runner = runner_repository.find_runner_by_id(session, runner.id)
+        runner = runner_repository.find_runner_by_id(runner.id)
         logger.info(f"Found runner: id={runner.id}, state={runner.state}, image_id={runner.image_id}")
         # Update the runner state quickly to avoid race condition
         previous_state = runner.state
+        # Check if the claimed runner was closed. If so, we need to claim & start the runner prior
+        if previous_state == "closed_pool":
+            # We need to swap the state to runner_starting_claimed ASAP
+            runner.state = "closed_pool_claimed"
+            if lifecycle_token:
+                runner.lifecycle_token = lifecycle_token
+            logger.info(f"Claimed runner was in closed state, starting runner prior to session: {runner.id}")
+            session.add(runner)
+            session.commit()
+
+            # Post-commit check: ensure runner is discoverable by lifecycle_token (using same session)
+            if lifecycle_token:
+                check_runner = session.exec(
+                    select(Runner).where(Runner.lifecycle_token == lifecycle_token)
+                ).first()
+                if check_runner:
+                    logger.info(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} is discoverable (id={check_runner.id
+                                     }, state={check_runner.state})")
+                else:
+                    logger.warning(f"[Post-commit check] Runner with lifecycle_token {lifecycle_token} NOT found immediately after commit!")
+
+            if lifecycle_token:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    lifecycle_token,
+                    "INSTANCE_LIFECYCLE",
+                    "Claimed pool runner was in closed state, starting runner prior to session",
+                    {"runner_id": runner.id, "state": "closed_pool"}
+                )
+            # Start the runner and wait for it to be ready
+            start_result = await start_runner(runner.id, initiated_by=user.email)
+            if start_result.get("status") != "success":
+                runner.state = "closed"
+                session.add(runner)
+                session.commit()
+                if lifecycle_token:
+                    await runner_status_management.runner_status_emitter.emit_status(
+                        lifecycle_token,
+                        "ERROR",
+                        "Claimed runner failed to start",
+                        {"runner_id": runner.id, "error": start_result.get("message")},
+                    )
+                raise Exception(f"Failed to start closed runner: {start_result.get('message')}")
+            if lifecycle_token:
+                await runner_status_management.runner_status_emitter.emit_status(
+                    lifecycle_token,
+                    "INSTANCE_LIFECYCLE",
+                    "Claimed pool runner has started",
+                    {"runner_id": runner.id, "state": "ready"}
+                )
+
         runner.state = "awaiting_client"
         logger.info(f"Updating runner state from {previous_state} to awaiting_client")
+        session.add(runner)
         session.commit()
         # Emit instance lifecycle event for state change
         if lifecycle_token:
@@ -433,12 +482,12 @@ async def claim_runner(
 
         # Get cloud service for security group and tagging operations
         try:
-            image = image_repository.find_image_by_id(session, runner.image_id)
+            image = image_repository.find_image_by_id(runner.image_id)
             logger.info(f"Found image: id={image.id}, cloud_connector_id={getattr(image, 'cloud_connector_id', None)}")
 
             if image and image.cloud_connector_id:
                 cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                    session, image.cloud_connector_id
+                    image.cloud_connector_id
                 )
                 logger.info(f"Found cloud connector: id={cloud_connector.id}, provider={getattr(cloud_connector, 'provider', 'unknown')}")
 
@@ -470,11 +519,10 @@ async def claim_runner(
                                 )
 
                             security_group_result = await security_group_management.authorize_user_access(
-                                runner.id,
-                                runner_config["user_ip"],
-                                runner_config["user_ip"],
-                                user.email,
-                                cloud_service
+                                runner_id = runner.id,
+                                user_ip = runner_config["user_ip"],
+                                user_email = user.email,
+                                cloud_service = cloud_service
                             )
                             logger.info(f"Security group update result: {security_group_result}")
 
@@ -641,7 +689,7 @@ async def claim_runner(
                     }
                 )
             # Continue execution even if cloud operations fail
-
+        session.add(runner)
         session.commit()
 
         runner_url = get_runner_destination_url(runner)
@@ -702,7 +750,7 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
 
         # Find runner and validate state
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
 
             # Handle validation cases
             if not runner:
@@ -717,12 +765,12 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
                 return result
 
             # Get image and cloud connector
-            image = image_repository.find_image_by_id(session, runner.image_id)
+            image = image_repository.find_image_by_id(runner.image_id)
             cloud_connector = None
 
             if image and image.cloud_connector_id:
                 cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                    session, image.cloud_connector_id
+                    image.cloud_connector_id
                 )
 
             if not image or not image.cloud_connector_id or not cloud_connector:
@@ -737,7 +785,6 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
 
             # Create history record for stop request
             runner_history_repository.add_runner_history(
-                session=session,
                 runner=runner,
                 event_name="stop_requested",
                 event_data={
@@ -754,7 +801,6 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
 
             # Add another history record for state change
             runner_history_repository.add_runner_history(
-                session=session,
                 runner=runner,
                 event_name="state_changed",
                 event_data={
@@ -765,6 +811,7 @@ async def stop_runner(runner_id: int, initiated_by: str = "system") -> dict:
                 },
                 created_by=initiated_by
             )
+            session.add(runner)
             session.commit()
 
         # Now that we're outside the session scope, use the cloud service to stop the instance
@@ -816,7 +863,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
         # Find runner and validate state
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
 
             # Handle validation cases
             if not runner:
@@ -824,18 +871,18 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
                 result["message"] = f"Runner with ID {runner_id} not found"
                 return result
 
-            if runner.state != "closed":
+            if runner.state not in ("closed", "closed_pool", "closed_pool_claimed"):
                 logger.info(f"[{initiated_by}] Cannot start runner with ID {runner_id} from {runner.state} state")
-                result["message"] = f"Runner must be in 'closed' state to start, current state: {runner.state}"
+                result["message"] = f"Runner must be in 'closed', 'closed_pool' or 'closed_pool_claimed' to start, current state: {runner.state}"
                 return result
 
             # Get image and cloud connector
-            image = image_repository.find_image_by_id(session, runner.image_id)
+            image = image_repository.find_image_by_id(runner.image_id)
             cloud_connector = None
 
             if image and image.cloud_connector_id:
                 cloud_connector = cloud_connector_repository.find_cloud_connector_by_id(
-                    session, image.cloud_connector_id
+                    image.cloud_connector_id
                 )
 
             if not image or not image.cloud_connector_id or not cloud_connector:
@@ -850,7 +897,6 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             # Create history record for start request
             runner_history_repository.add_runner_history(
-                session=session,
                 runner=runner,
                 event_name="start_requested",
                 event_data={
@@ -863,21 +909,24 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             # Update runner state to ready
             old_state = runner.state
-            runner.state = "ready"
+            if old_state in ("closed_pool", "closed_pool_claimed"):
+                runner.state = "ready_claimed"
+            else:
+                runner.state = "ready"
 
             # Add another history record for state change
             runner_history_repository.add_runner_history(
-                session=session,
                 runner=runner,
                 event_name="state_changed",
                 event_data={
                     "timestamp": datetime.utcnow().isoformat(),
                     "old_state": old_state,
-                    "new_state": "ready",
+                    "new_state": runner.state,
                     "initiated_by": initiated_by
                 },
                 created_by=initiated_by
             )
+            session.add(runner)
             session.commit()
 
         # Now that we're outside the session scope, use the cloud service to start the instance
@@ -885,10 +934,21 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
             start_result = await cloud_service.start_instance(instance_id)
             logger.info(f"[{initiated_by}] Start instance result for runner {runner_id}: {start_result}")
 
+            # Wait for the instance to be running before fetching the IP
+            if hasattr(cloud_service, "wait_for_instance_running"):
+                await cloud_service.wait_for_instance_running(instance_id)
+
+            new_runner_url = await cloud_service.get_instance_ip(instance_id)
+            logger.info(f"[{initiated_by}] Updated runner url for runner {runner_id}: {new_runner_url}")
+
+            runner.url = new_runner_url
+            session.add(runner)
+            session.commit()
+
             result = {
                 "status": "success",
                 "message": f"Runner {runner_id} started successfully",
-                "state": "ready",
+                "state": runner.state,
                 "instance_state": start_result,
                 "initiated_by": initiated_by
             }
@@ -904,13 +964,13 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 def auth_runner(runner_id: int, runner_token: str):
     """Check the runner's hash against a provided auth token."""
     with Session(engine) as session:
-        runner : Runner = runner_repository.find_runner_by_id(session, runner_id)
+        runner : Runner = runner_repository.find_runner_by_id(runner_id)
         return runner.external_hash == runner_token
 
 def get_devserver(runner_id: int, port: int):
     """Form a devserver URL."""
     with Session(engine) as session:
-        runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
+        runner: Runner = runner_repository.find_runner_by_id(runner_id)
         jwt = jwt_creation.create_jwt_token(runner.url, runner_id, runner.user_ip)
         destination_url = f"{constants.domain}/devserver/{port}/{jwt}/"
         return destination_url
@@ -936,7 +996,7 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
     try:
         # Find runner and validate state
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_id(session, runner_id)
+            runner = runner_repository.find_runner_by_id(runner_id)
 
             # Handle not found case
             if not runner:
@@ -961,7 +1021,6 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             is_expired = session_end_time and session_end_time < datetime.utcnow()
 
             runner_history_repository.add_runner_history(
-                session=session,
                 runner=runner,
                 event_name="termination_requested",
                 event_data={
@@ -976,7 +1035,6 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
                 },
                 created_by=initiated_by
             )
-            session.commit()
 
             # Get instance ID for shutdown_runners
             instance_id = runner.identifier
@@ -996,6 +1054,14 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             }
 
         result = results[0]  # Get first (and only) result
+
+        # Call terminate_runner_logs after instance is terminated
+        try:
+            from app.business.runner_management import terminate_runner_logs
+            await terminate_runner_logs(runner_id, initiated_by)
+            logger.info(f"[{initiated_by}] Called terminate_runner_logs for runner {runner_id}")
+        except Exception as log_cleanup_exc:
+            logger.error(f"[{initiated_by}] Error calling terminate_runner_logs for runner {runner_id}: {log_cleanup_exc}")
 
         if result["status"] == "queued":
             logger.info(f"[{initiated_by}] Successfully queued terminated runner {runner_id}")
@@ -1022,9 +1088,42 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             "initiated_by": initiated_by
         }
 
-# async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") -> dict:
-#     # curl -X DELETE http://34.223.156.189:9091/metrics/job/{runner_ip}
-#     print("reached terminate_runner_logs")
+async def terminate_runner_logs(runner_id: int, initiated_by: str = "system") -> dict:
+    """
+    Delete runner logs from Prometheus Pushgateway or similar metrics endpoint.
+
+    This function makes an HTTP DELETE request to the metrics endpoint for the runner.
+    """
+    logger.info(f"[{initiated_by}] Attempting to delete logs for runner {runner_id}")
+    # Retrieve runner to get its IP or URL
+    with Session(engine) as session:
+        runner = runner_repository.find_runner_by_id(runner_id)
+        if not runner:
+            logger.error(f"[{initiated_by}] Runner with ID {runner_id} not found for log cleanup")
+            print(f"[{initiated_by}] Runner with ID {runner_id} not found for log cleanup")
+            return {"status": "error", "message": f"Runner {runner_id} not found", "initiated_by": initiated_by}
+        # Use runner.url or another field for the IP/hostname
+        runner_ip = runner.url or None
+        if not runner_ip:
+            logger.error(f"[{initiated_by}] Runner {runner_id} has no URL/IP for log cleanup")
+            print(f"[{initiated_by}] Runner {runner_id} has no URL/IP for log cleanup")
+            return {"status": "error", "message": f"Runner {runner_id} has no URL/IP", "initiated_by": initiated_by}
+    # Compose the Pushgateway/metrics endpoint URL
+    metrics_url = f"http://34.223.156.189:9091/metrics/job/{runner_ip}"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(metrics_url, timeout=5)
+        if response.status_code in (200, 202):
+            logger.info(f"[{initiated_by}] Successfully deleted logs for runner {runner_id} at {metrics_url}")
+            print(f"[{initiated_by}] Successfully deleted logs for runner {runner_id} at {metrics_url}")
+            return {"status": "success", "message": f"Logs deleted for runner {runner_id}", "initiated_by": initiated_by}
+        else:
+            logger.error(f"[{initiated_by}] Failed to delete logs for runner {runner_id}: {response.status_code} {response.text}")
+            print(f"[{initiated_by}] Failed to delete logs for runner {runner_id}: {response.status_code} {response.text}")
+            return {"status": "error", "message": f"Failed to delete logs: {response.status_code}", "initiated_by": initiated_by}
+    except Exception as e:
+        logger.error(f"[{initiated_by}] Exception during log cleanup for runner {runner_id}: {e!s}")
+        return {"status": "error", "message": f"Exception during log cleanup: {e!s}", "initiated_by": initiated_by}
 
 async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> list:
     """
@@ -1036,7 +1135,7 @@ async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> 
     results = []
     for instance_id in instance_ids:
         with Session(engine) as session:
-            runner = runner_repository.find_runner_by_instance_id(session, instance_id)
+            runner = runner_repository.find_runner_by_instance_id(instance_id)
             if not runner:
                 results.append({
                     "runner_instance_id": instance_id,
@@ -1064,11 +1163,10 @@ async def shutdown_runners(instance_ids: list, initiated_by: str = "system") -> 
 def update_runner(runner_id: int, updated_runner: Runner):
     """Update an existing runner."""
     with Session(engine) as session:
-        runner: Runner = runner_repository.find_runner_by_id(session, runner_id)
+        runner: Runner = runner_repository.find_runner_by_id(runner_id)
         if not runner:
             raise RunnerRetrievalException
-        runner_repository.update_whole_runner(session, runner_id, updated_runner)
-        session.commit()
+        runner_repository.update_whole_runner(runner_id, updated_runner)
         return updated_runner
 
 async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:
@@ -1100,7 +1198,7 @@ async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:
             # Use a fresh session for each attempt
             with get_session_context() as session:
                 # Look for a runner with this token
-                runner = runner_repository.find_runner_with_lifecycle_token(session, lifecycle_token)
+                runner = runner_repository.find_runner_with_lifecycle_token(lifecycle_token)
 
                 if runner:
                     logger.info(f"Found runner with lifecycle token: {lifecycle_token}")
@@ -1141,9 +1239,9 @@ async def wait_for_lifecycle_token(lifecycle_token: str) -> Runner:
 def validate_terminal_token(runner_id, terminal_token : str) -> Runner:
     """Check runner with a matching terminal token and replace."""
     with Session(engine) as session:
-        runner: Runner = runner_repository.find_runner_with_id_and_terminal_token(session, runner_id, terminal_token)
+        runner: Runner = runner_repository.find_runner_with_id_and_terminal_token(runner_id, terminal_token)
         if runner:
             runner.terminal_token = uuid.uuid4().hex
-            runner_repository.update_runner(session, runner)
+            runner_repository.update_runner(runner)
             return runner
         raise RunnerRetrievalException

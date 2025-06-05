@@ -5,7 +5,7 @@ import { Runner } from "@/types/runner";
 
 export function useRunners() {
   // Fetch all runners
-  return useResourceQuery<Runner[]>("runners", runnersApi.getAll);
+  return useResourceQuery<Runner[]>("runners", runnersApi.getAll, {refetchInterval: 20000});
 }
 
 export function useRunnerById(id: number | undefined) {
@@ -20,12 +20,12 @@ export function useTerminateRunner() {
 
 export function useStartRunner() {
     // Start a runner
-    return useResourceAction("runners", (id) => runnersApi.changeState(Number(id), "start"));
+    return useResourceAction("runners", ({ id }: { id: number}) => runnersApi.changeState(Number(id), "start"));
   }
   
   export function useStopRunner() {
     // Stop a runner
-    return useResourceAction("runners", (id) => runnersApi.changeState(Number(id), "stop"));
+    return useResourceAction("runners", ({ id }: { id: number}) => runnersApi.changeState(Number(id), "stop"));
   }
 
 export function useRunnersForItems<TItem extends ItemWithResourceID<number> & { runnerId: number }>(

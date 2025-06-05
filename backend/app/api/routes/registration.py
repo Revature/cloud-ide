@@ -10,17 +10,21 @@ router = APIRouter()
 @router.post("/email_invite", status_code=HTTPStatus.OK)
 def email_invite(email_invite_request: EmailInviteRequest):
     """Generate a workos email invite for new users."""
-    try:
-        invitation = request_email_invite(email_invite_request.email)
-        return Response(
-            status_code = HTTPStatus.OK,
-            content = '{"response": "An invite has been sent."}'
-            )
-    except workos_exceptions.BadRequestException as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.exception(f'Request for email invite failed: {e.message}, {email_invite_request.email}')
-        return Response(
-            status_code = HTTPStatus.BAD_REQUEST,
-            content = '{"response":"Invite failed: ' + e.message + '"}'
-        )
+    # try:
+    #     invitation = request_email_invite(email_invite_request.email)
+    #     return Response(
+    #         status_code = HTTPStatus.OK,
+    #         content = '{"response": "An invite has been sent."}'
+    #         )
+    # except workos_exceptions.BadRequestException as e:
+    #     import logging
+    #     logger = logging.getLogger(__name__)
+    #     logger.exception(f'Request for email invite failed: {e.message}, {email_invite_request.email}')
+    #     return Response(
+    #         status_code = HTTPStatus.BAD_REQUEST,
+    #         content = '{"response":"Invite failed: ' + e.message + '"}'
+    #     )
+    return Response(
+        status_code = HTTPStatus.FORBIDDEN,
+        content = '{"response":"This endpoint is disabled."}'
+    )

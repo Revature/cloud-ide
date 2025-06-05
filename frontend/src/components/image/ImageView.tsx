@@ -12,6 +12,7 @@ import { useImageById, useToggleImageStatus } from "@/hooks/type-query/useImages
 import { useMachineById } from "@/hooks/type-query/useMachines";
 import { useCloudConnectorById } from "@/hooks/type-query/useCloudConnectors";
 import { useScriptsByImageId } from "@/hooks/type-query/useScripts";
+import Tag from "../ui/tag/Tag";
 
 const ViewImage: React.FC = () => {
   const router = useRouter();
@@ -112,7 +113,17 @@ const ViewImage: React.FC = () => {
             <div className="flex justify-between items-start mb-6">
               <div className="flex items-center gap-4">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90">{image.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90 flex items-center gap-2">
+                    <span>{image.name}</span>
+                    {/* Render Tags to the Right of the Name */}
+                    {image.tags && image.tags.length > 0 && (
+                      <span className="flex flex-wrap gap-2">
+                        {image.tags.map((tag) => (
+                          <Tag key={tag} name={tag} />
+                        ))}
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-gray-600 dark:text-gray-300">{image.description}</p>
                 </div>
               </div>
@@ -402,17 +413,13 @@ const ViewImage: React.FC = () => {
       {activeTab === "scripts" && (
         <div> 
           {isAddingScript ? (
-            <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
             <ScriptForm
               imageId={imageId}
               existingEvents={existingEvents}
               onCancel={() => setIsAddingScript(false)} // Pass the callback to close the form
             />
-          </div>
           ) : (
-              <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.05] p-6">
-                <ScriptDetails imageId={imageId} setPhase={setIsAddingScript}/>
-              </div>
+            <ScriptDetails imageId={imageId} setPhase={setIsAddingScript}/>
           )}
         </div>
       )}

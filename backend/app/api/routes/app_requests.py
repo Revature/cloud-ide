@@ -5,7 +5,7 @@ import functools
 from uuid import uuid4
 from app.api import http
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
-from fastapi import WebSocket, WebSocketDisconnect, Query
+from fastapi import WebSocket, WebSocketDisconnect, Query, Request
 from sqlmodel import Session
 from pydantic import BaseModel
 from typing import Any, Optional, Callable
@@ -16,7 +16,7 @@ from app.models.runner import Runner
 from app.models.user import User
 from app.models.image import Image
 from app.util import constants, websocket_management, runner_status_management
-from app.business import image_management, user_management, runner_management, script_management
+from app.business import image_management, user_management, runner_management, script_management, endpoint_permission_decorator
 from app.exceptions.runner_exceptions import RunnerLaunchError, RunnerClaimError
 from app.util.transactions import with_database_resilience, with_background_resilience
 from fastapi import APIRouter, HTTPException
@@ -332,7 +332,7 @@ async def process_runner_request(
 
             return app_requests_dto(url, existing_runner)
 
-        # STEP 2: No existing runner, check for a ready runner in the pool
+        # STEP 2: No existing runner, check for a ready or closed runner in the pool
         await emit_status(
             lifecycle_token,
             "RESOURCE_DISCOVERY",
@@ -346,7 +346,7 @@ async def process_runner_request(
         ready_runner = runner_management.get_runner_from_pool(db_image.id)
 
         if ready_runner:
-            logger.info(f"User {db_user.id} requested runner, got ready runner: {ready_runner}")
+            logger.info(f"User {db_user.id} requested runner, got a runner from the pool: {ready_runner}")
 
             # Replenish the pool if configured
             if db_image.runner_pool_size != 0:
@@ -674,9 +674,11 @@ def app_requests_dto(url: str, runner: Runner) -> dict:
     return {"url": url, "runner_id": str(runner.id)}
 
 @router.post("/", response_model=dict[str, str])
+@endpoint_permission_decorator.permission_required("app_requests")
 @with_database_resilience
 async def get_ready_runner(
-    request: RunnerRequest,
+    runner_request: RunnerRequest,  # Renamed from 'request' to 'runner_request'
+    request: Request,  # Added FastAPI Request object
     x_forwarded_for: Optional[str] = Header(None),
     client_ip: Optional[str] = Header(None)
 ):
@@ -690,18 +692,15 @@ async def get_ready_runner(
     and the URL is returned. Also, the appropriate script is executed for the
     "on_awaiting_client" event.
     """
-    # Emit an initial status update for the direct endpoint (no lifecycle_token)
-    # The direct endpoint has no lifecycle_token for WebSocket updates, but we can still log the request
-
-    print(f"Direct runner request for image {request.image_id} and user {request.user_email}")
-    logger.info(f"Processing direct runner request for image {request.image_id} and user {request.user_email}")
+    print(f"Direct runner request for image {runner_request.image_id} and user {runner_request.user_email}")
+    logger.info(f"Processing direct runner request for image {runner_request.image_id} and user {runner_request.user_email}")
 
     try:
         # Make sure we start with a clean database connection pool
         reset_db_connection()
 
         return await process_runner_request(
-            request=request,
+            request=runner_request,  # Pass runner_request as 'request' to process_runner_request
             client_ip=client_ip,
             x_forwarded_for=x_forwarded_for
         )
@@ -711,9 +710,11 @@ async def get_ready_runner(
         raise
 
 @router.post("/with_status/", response_model=dict)
+@endpoint_permission_decorator.permission_required("app_requests")
 @with_database_resilience
 async def get_ready_runner_with_status(
-    request: RunnerRequest
+    runner_request: RunnerRequest,
+    request: Request
 ):
     """
     Request a runner and return a lifecycle_token for tracking status via WebSocket.
@@ -723,7 +724,7 @@ async def get_ready_runner_with_status(
     """
     # Generate a unique lifecycle token
     lifecycle_token = str(uuid4())
-    logger.info(f"With status runner request for image {request.image_id} and user {request.user_email}")
+    logger.info(f"With status runner request for image {runner_request.image_id} and user {runner_request.user_email}")
 
     try:
         # Make sure we start with a clean database connection pool
@@ -735,8 +736,8 @@ async def get_ready_runner_with_status(
             "REQUEST_RECEIVED",
             "Runner request received and queued for processing",
             {
-                "image_id": request.image_id,
-                "user_email": request.user_email,
+                "image_id": runner_request.image_id,
+                "user_email": runner_request.user_email,
                 "status": "queued",
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
@@ -745,7 +746,7 @@ async def get_ready_runner_with_status(
         # Start processing in background task with error handling
         asyncio.create_task(
             process_runner_request_with_error_handling(
-                request=request,
+                request=runner_request,
                 lifecycle_token=lifecycle_token
             )
         )
@@ -805,7 +806,7 @@ async def runner_status_websocket(
                 "message": "Lifecycle token invalid or expired"
             })
             await websocket.close(code=1008)  # Policy violation
-            return
+            return  # Ensure we return after closing the websocket
 
         # Let the connection manager accept the connection and deliver buffered messages
         await websocket_management.connection_manager.connect(websocket, "runner_status", lifecycle_token)
@@ -819,27 +820,27 @@ async def runner_status_websocket(
 
         # Keep the connection alive and handle client messages
         while True:
-            # Wait for client messages (can be used for heartbeats or cancellation)
-            data = await websocket.receive_json()
+            try:
+                data = await websocket.receive_json()
 
-            # Process client messages if needed
-            if "action" in data:
-                if data["action"] == "heartbeat":
-                    await websocket.send_json({
-                        "type": "HEARTBEAT_ACK",
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    })
-                elif data["action"] == "cancel":
-                    # Handle cancellation request
-                    await websocket.send_json({
-                        "type": "CANCELLATION_RECEIVED",
-                        "message": "Cancellation request received",
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    })
-
-    except WebSocketDisconnect:
-        logger.info(f"Client disconnected from runner status updates for token {lifecycle_token}")
-        websocket_management.connection_manager.disconnect("runner_status", lifecycle_token)
+                # Process client messages if needed
+                if "action" in data:
+                    if data["action"] == "heartbeat":
+                        await websocket.send_json({
+                            "type": "HEARTBEAT_ACK",
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        })
+                    elif data["action"] == "cancel":
+                        # Handle cancellation request
+                        await websocket.send_json({
+                            "type": "CANCELLATION_RECEIVED",
+                            "message": "Cancellation request received",
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        })
+            except WebSocketDisconnect:
+                logger.info(f"Client disconnected from runner status updates for token {lifecycle_token}")
+                websocket_management.connection_manager.disconnect("runner_status", lifecycle_token)
+                break  # Break out of the loop on disconnect
     except Exception as e:
         logger.error(f"Error in runner status WebSocket for token {lifecycle_token}: {e}")
         try:
