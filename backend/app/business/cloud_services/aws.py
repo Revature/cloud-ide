@@ -5,6 +5,7 @@ import os
 import boto3
 import paramiko
 import re
+import asyncio
 import logging
 from io import StringIO
 from app.business.cloud_services.base import CloudService
@@ -325,9 +326,9 @@ class AWSCloudService(CloudService):
     async def get_instance_ip(self, instance_id: str) -> str:
         """
         Describe the EC2 instance with the given InstanceId.
+
         Wait for the instance to be running, then fetch the public IP address as a string.
         """
-        import re, asyncio
         # Wait for the instance to be running
         try:
             await self.wait_for_instance_running(instance_id)
@@ -345,6 +346,8 @@ class AWSCloudService(CloudService):
                 if ip and ip != 'Association' and ip_regex.match(str(ip)):
                     return ip
                 await asyncio.sleep(2)
+                logger.warning(f"Attempt {attempt + 1}/{max_attempts}: Public IP not found yet, retrying...")
+                print(f"Attempt {attempt + 1}/{max_attempts}: Public IP not found yet, retrying...")
             except Exception as e:
                 return str(e)
         return 'AWS Failed to fetch public IP'
