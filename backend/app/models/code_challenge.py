@@ -34,5 +34,7 @@ class CodeChallengeTest(TimestampMixin, SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     challenge_id: int = Field(default=None, foreign_key="code_challenge.id")
+    test_order: int
     pass_value: str
     test_case: str
+    description: str

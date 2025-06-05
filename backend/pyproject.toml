@@ -713,7 +713,11 @@ lint.ignore = [
   "B008",
   "PLR0912",
   "PLR0915",
-  "RUF006"
+  "RUF006",
+  "W293",       # Blank line contains whitespace
+  "W291",       # Trailing whitespace
+  "D202",       # No blank lines allowed after function docstring
+  "D204",       # 1 blank line required after class docstring
 ]
 
 lint.pydocstyle.convention = "pep257"
