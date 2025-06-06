@@ -248,8 +248,8 @@ def stop_instance(resources, initiated_by, result):
                 "status": "success",
                 "message": "Instance stopped"
             })
-            
-            # Call terminate_runner_logs after instance is terminated
+
+        # Call terminate_runner_logs after instance is terminated
         try:
             from app.business.runner_management import terminate_runner_logs
             asyncio.run(terminate_runner_logs(resources['id'], initiated_by))

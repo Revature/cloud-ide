@@ -940,7 +940,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
 
             new_runner_url = await cloud_service.get_instance_ip(instance_id)
             logger.info(f"[{initiated_by}] Updated runner url for runner {runner_id}: {new_runner_url}")
-                        
+
             runner.url = new_runner_url
             session.add(runner)
             session.commit()
