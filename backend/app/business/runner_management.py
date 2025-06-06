@@ -944,7 +944,7 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
             runner.url = new_runner_url
             session.add(runner)
             session.commit()
-            
+
             # Run node_exporter.sh script
             node_exporter_result = await script_management.run_custom_script_for_runner(
                 runner_id=runner_id,
