@@ -248,6 +248,15 @@ def stop_instance(resources, initiated_by, result):
                 "status": "success",
                 "message": "Instance stopped"
             })
+
+        # Call terminate_runner_logs after instance is terminated
+        try:
+            from app.business.runner_management import terminate_runner_logs
+            asyncio.run(terminate_runner_logs(resources['id'], initiated_by))
+            logger.info(f"[{initiated_by}] Called terminate_runner_logs for runner {runner_id}")
+        except Exception as log_cleanup_exc:
+            logger.error(f"[{initiated_by}] Error calling terminate_runner_logs for runner {runner_id}: {log_cleanup_exc}")
+
             return True
         else:
             message = f"Failed to update runner {resources['runner'].id} state to 'closed'"

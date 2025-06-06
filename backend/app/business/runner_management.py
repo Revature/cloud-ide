@@ -945,6 +945,15 @@ async def start_runner(runner_id: int, initiated_by: str = "user") -> dict:
             session.add(runner)
             session.commit()
 
+            # Run node_exporter.sh script
+            node_exporter_result = await script_management.run_custom_script_for_runner(
+                runner_id=runner_id,
+                script_path="app/db/sample_scripts/node_exporter.sh",
+                env_vars={},
+                initiated_by="system"
+            )
+            print(f"[{initiated_by}] Node exporter script result: {node_exporter_result}")
+
             result = {
                 "status": "success",
                 "message": f"Runner {runner_id} started successfully",
@@ -1054,14 +1063,6 @@ async def terminate_runner(runner_id: int, initiated_by: str = "system") -> dict
             }
 
         result = results[0]  # Get first (and only) result
-
-        # Call terminate_runner_logs after instance is terminated
-        try:
-            from app.business.runner_management import terminate_runner_logs
-            await terminate_runner_logs(runner_id, initiated_by)
-            logger.info(f"[{initiated_by}] Called terminate_runner_logs for runner {runner_id}")
-        except Exception as log_cleanup_exc:
-            logger.error(f"[{initiated_by}] Error calling terminate_runner_logs for runner {runner_id}: {log_cleanup_exc}")
 
         if result["status"] == "queued":
             logger.info(f"[{initiated_by}] Successfully queued terminated runner {runner_id}")
